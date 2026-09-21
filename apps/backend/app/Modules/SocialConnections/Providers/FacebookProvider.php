@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\SocialConnections\Providers;
 
 use App\Modules\SocialConnections\Contracts\OAuthTokens;
+use App\Modules\SocialConnections\Contracts\PublishPayload;
+use App\Modules\SocialConnections\Contracts\PublishResult;
 use App\Modules\SocialConnections\Contracts\RemoteDestination;
 use App\Modules\SocialConnections\Contracts\SocialProviderInterface;
 use App\Modules\SocialConnections\Enums\Capability;
@@ -165,6 +167,19 @@ class FacebookProvider implements SocialProviderInterface
                 metadata: ['category' => $page['category'] ?? null],
             ))
             ->all();
+    }
+
+    public function publish(
+        OAuthTokens $tokens,
+        string $destinationExternalId,
+        PublishPayload $payload,
+        array $credentials,
+    ): PublishResult {
+        // La publicación en Páginas requiere el page access token del destino y
+        // que la app haya superado la revisión de Meta. Queda como TODO del MVP.
+        throw new ProviderNotConfiguredException(
+            'La publicación en Meta requiere revisión de app y token de página; pendiente de configuración.',
+        );
     }
 
     /**

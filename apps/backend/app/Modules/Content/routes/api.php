@@ -30,4 +30,5 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function (): void {
     Route::post('/content/{content}/request-changes', [ContentWorkflowController::class, 'requestChanges']);
     Route::post('/content/{content}/comments', [ContentWorkflowController::class, 'comment']);
     Route::post('/content/{content}/schedule', [ContentWorkflowController::class, 'schedule']);
+    Route::post('/content/{content}/publish-now', [ContentWorkflowController::class, 'publishNow']);
 });

@@ -20,6 +20,18 @@ php artisan serve --host=127.0.0.1 --port=8000
 ```
 La API queda en `http://127.0.0.1:8000/api/v1`. Health check: `GET /api/v1/health`.
 
+### Colas y scheduler (publicación)
+El motor de publicación (Fase 6) usa jobs y un scheduler. En desarrollo, con el
+driver `database`, ejecuta en terminales aparte:
+```bash
+php artisan queue:work --queue=default    # procesa PublishSocialPost y demás jobs
+php artisan schedule:work                  # despacha targets programados vencidos (content:publish-due)
+```
+En producción/Linux se usa Redis + Horizon (`php artisan horizon`) y `schedule:run`
+por cron. Horizon no corre en Windows (requiere `ext-pcntl`); los trabajos fallidos
+se operan desde el panel SUPERADMIN en `/platform/jobs`. Ver
+[12_PUBLICACION_COLAS.md](12_PUBLICACION_COLAS.md).
+
 Usuarios sembrados (solo desarrollo):
 - SUPERADMIN: `superadmin@loop7.test` / `Superadmin123`
 - OWNER demo: `owner@loop7.test` / `Owner12345`

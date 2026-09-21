@@ -12,6 +12,7 @@ const links = [
   { to: '/platform/users', label: 'Usuarios', icon: 'team', exact: false },
   { to: '/platform/gateways', label: 'Pasarelas', icon: 'billing', exact: false },
   { to: '/platform/social', label: 'Integraciones', icon: 'social', exact: false },
+  { to: '/platform/jobs', label: 'Colas', icon: 'queue', exact: false },
 ]
 
 async function logout(): Promise<void> {

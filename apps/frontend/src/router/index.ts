@@ -55,6 +55,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'users', name: 'platform-users', component: () => import('@/views/platform/PlatformUsersView.vue'), meta: { title: 'Usuarios' } },
       { path: 'gateways', name: 'platform-gateways', component: () => import('@/views/platform/PlatformGatewaysView.vue'), meta: { title: 'Pasarelas' } },
       { path: 'social', name: 'platform-social', component: () => import('@/views/platform/PlatformSocialProvidersView.vue'), meta: { title: 'Integraciones' } },
+      { path: 'jobs', name: 'platform-jobs', component: () => import('@/views/platform/PlatformJobsView.vue'), meta: { title: 'Colas' } },
     ],
   },
 

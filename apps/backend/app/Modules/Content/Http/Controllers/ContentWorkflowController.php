@@ -5,17 +5,22 @@ declare(strict_types=1);
 namespace App\Modules\Content\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Content\Enums\ContentStatus;
 use App\Modules\Content\Models\ContentItem;
+use App\Modules\Content\Services\PublishingService;
 use App\Modules\Content\Services\WorkflowService;
 use App\Support\Http\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Validation\ValidationException;
 
 class ContentWorkflowController extends Controller
 {
-    public function __construct(private readonly WorkflowService $workflow)
-    {
+    public function __construct(
+        private readonly WorkflowService $workflow,
+        private readonly PublishingService $publishing,
+    ) {
     }
 
     public function submit(Request $request, string $content): JsonResponse
@@ -77,6 +82,22 @@ class ContentWorkflowController extends Controller
         $this->workflow->schedule($model, Carbon::parse($data['scheduled_at']), $request->user());
 
         return ApiResponse::message('Contenido programado.');
+    }
+
+    public function publishNow(Request $request, string $content): JsonResponse
+    {
+        $model = $this->resolve($content);
+        abort_unless($request->user()->can('content.publish_now'), 403);
+
+        if (! in_array($model->status, [ContentStatus::APPROVED, ContentStatus::SCHEDULED], true)) {
+            throw ValidationException::withMessages([
+                'status' => 'El contenido debe estar aprobado o programado para publicarse ahora.',
+            ]);
+        }
+
+        $this->publishing->publishNow($model);
+
+        return ApiResponse::message('Publicación en marcha.');
     }
 
     private function resolve(string $publicId): ContentItem

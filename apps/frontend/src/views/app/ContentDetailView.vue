@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import http from '@/services/http'
 import { useAuthStore } from '@/stores/auth'
@@ -9,7 +9,15 @@ import PageHeader from '@/components/ui/PageHeader.vue'
 import ErrorState from '@/components/ui/ErrorState.vue'
 import AppIcon from '@/components/AppIcon.vue'
 
-interface Variant { id: string; provider: string; body: string | null; format: string }
+interface Target {
+  id: string
+  status: string
+  status_label: string
+  destination: string | null
+  remote_url: string | null
+  error: string | null
+}
+interface Variant { id: string; provider: string; body: string | null; format: string; targets: Target[] }
 interface Comment { id: string; body: string; author: string | null; created_at: string | null }
 interface Content {
   id: string
@@ -38,14 +46,52 @@ const newVariant = reactive({ provider: 'facebook', body: '', format: 'text' })
 const newComment = ref('')
 const scheduleAt = ref('')
 
-async function load(): Promise<void> {
-  loading.value = true
-  failed.value = false
+// Clases del badge según el estado del destino de publicación.
+const targetBadgeClass: Record<string, string> = {
+  pending: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
+  scheduled: 'bg-sky-100 text-sky-700 dark:bg-sky-950/60 dark:text-sky-300',
+  publishing: 'bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300',
+  published: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300',
+  failed: 'bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300',
+  cancelled: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400',
+}
+const badgeClass = (status: string): string => targetBadgeClass[status] ?? targetBadgeClass.pending
+
+// ¿Hay algún destino aún en curso? Si es así, refrescamos en segundo plano.
+const isPublishing = computed(() =>
+  content.value?.variants.some((v) =>
+    v.targets.some((t) => ['scheduled', 'publishing', 'pending'].includes(t.status)),
+  ) ?? false,
+)
+
+let poll: ReturnType<typeof setInterval> | null = null
+
+function stopPolling(): void {
+  if (poll) {
+    clearInterval(poll)
+    poll = null
+  }
+}
+
+function ensurePolling(): void {
+  if (isPublishing.value && !poll) {
+    poll = setInterval(() => void load(true), 4000)
+  } else if (!isPublishing.value) {
+    stopPolling()
+  }
+}
+
+async function load(silent = false): Promise<void> {
+  if (!silent) {
+    loading.value = true
+    failed.value = false
+  }
   try {
     const { data } = await http.get(`/content/${id}`)
     content.value = data.data
+    ensurePolling()
   } catch {
-    failed.value = true
+    if (!silent) failed.value = true
   } finally {
     loading.value = false
   }
@@ -66,6 +112,11 @@ async function act(fn: () => Promise<unknown>, successMsg?: string): Promise<voi
 
 const submit = () => act(() => http.post(`/content/${id}/submit`), 'Enviado a revisión.')
 const approve = () => act(() => http.post(`/content/${id}/approve`), 'Aprobado.')
+
+async function publishNow(): Promise<void> {
+  if (!confirm('¿Publicar ahora en todas las redes conectadas? Esta acción no se puede deshacer.')) return
+  await act(() => http.post(`/content/${id}/publish-now`), 'Publicación en marcha.')
+}
 
 async function requestChanges(): Promise<void> {
   const note = prompt('¿Qué cambios solicitas?')
@@ -107,7 +158,8 @@ async function saveBase(): Promise<void> {
   )
 }
 
-onMounted(load)
+onMounted(() => load())
+onUnmounted(stopPolling)
 </script>
 
 <template>
@@ -126,9 +178,14 @@ onMounted(load)
 
       <!-- Estado + acciones de flujo -->
       <div class="card mb-6 flex flex-wrap items-center justify-between gap-3 p-4">
-        <span class="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-          {{ content.status_label }}
-        </span>
+        <div class="flex items-center gap-3">
+          <span class="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+            {{ content.status_label }}
+          </span>
+          <span v-if="isPublishing" class="flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+            <AppIcon name="refresh" :size="14" class="animate-spin" /> Publicando…
+          </span>
+        </div>
         <div class="flex flex-wrap items-center gap-2">
           <button v-if="content.editable && auth.can('content.submit_for_review')" class="btn-secondary text-sm" :disabled="busy" @click="submit">
             Enviar a revisión
@@ -141,6 +198,14 @@ onMounted(load)
             <input v-model="scheduleAt" type="datetime-local" class="input w-auto py-1.5 text-sm" />
             <button class="btn-primary text-sm" :disabled="busy" @click="schedule">Programar</button>
           </template>
+          <button
+            v-if="['approved', 'scheduled'].includes(content.status) && auth.can('content.publish_now')"
+            class="btn-primary text-sm"
+            :disabled="busy"
+            @click="publishNow"
+          >
+            <AppIcon name="social" :size="16" /> Publicar ahora
+          </button>
         </div>
       </div>
 
@@ -169,6 +234,24 @@ onMounted(load)
                 </button>
               </div>
               <p class="text-sm text-slate-600 dark:text-slate-300">{{ v.body || '(sin texto)' }}</p>
+
+              <!-- Estado de publicación por destino -->
+              <div v-if="v.targets.length" class="mt-3 space-y-1.5 border-t border-slate-100 pt-3 dark:border-slate-800">
+                <div v-for="t in v.targets" :key="t.id" class="flex flex-wrap items-center gap-2 text-xs">
+                  <span class="rounded-full px-2 py-0.5 font-semibold" :class="badgeClass(t.status)">{{ t.status_label }}</span>
+                  <span class="text-slate-500 dark:text-slate-400">{{ t.destination || 'Destino' }}</span>
+                  <a
+                    v-if="t.remote_url"
+                    :href="t.remote_url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="inline-flex items-center gap-1 text-brand-600 hover:underline dark:text-brand-300"
+                  >
+                    Ver publicación <AppIcon name="chevron-right" :size="12" />
+                  </a>
+                  <span v-if="t.error" class="text-rose-500" :title="t.error">· {{ t.error }}</span>
+                </div>
+              </div>
             </div>
 
             <form v-if="content.editable && auth.can('content.update')" class="mt-4 flex flex-wrap items-end gap-2" @submit.prevent="addVariant">

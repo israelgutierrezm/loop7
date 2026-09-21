@@ -75,7 +75,9 @@ class ContentController extends Controller
         $model = $this->resolve($content);
         abort_unless(request()->user()->can('content.view'), 403);
 
-        return ApiResponse::success($this->present($model->load(['variants.media', 'comments.user'])));
+        return ApiResponse::success($this->present($model->load([
+            'variants.media', 'variants.targets.destination', 'comments.user',
+        ])));
     }
 
     public function update(Request $request, string $content): JsonResponse
@@ -156,6 +158,16 @@ class ContentController extends Controller
             'format' => $variant->format,
             'media' => $variant->relationLoaded('media')
                 ? $variant->media->map(fn ($m) => ['id' => $m->public_id, 'original_name' => $m->original_name])->all()
+                : [],
+            'targets' => $variant->relationLoaded('targets')
+                ? $variant->targets->map(fn ($t) => [
+                    'id' => $t->public_id,
+                    'status' => $t->status->value,
+                    'status_label' => $t->status->label(),
+                    'destination' => $t->destination?->name,
+                    'remote_url' => $t->remote_url,
+                    'error' => $t->error,
+                ])->all()
                 : [],
         ];
     }

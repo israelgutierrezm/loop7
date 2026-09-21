@@ -41,5 +41,8 @@ class AppServiceProvider extends ServiceProvider
         // Límite estricto para endpoints de autenticación (anti fuerza bruta).
         RateLimiter::for('auth', fn (Request $request) => Limit::perMinute(10)
             ->by($request->ip()));
+
+        // Límite para los jobs de publicación social (protege las APIs externas).
+        RateLimiter::for('social-publish', fn () => Limit::perMinute(60));
     }
 }

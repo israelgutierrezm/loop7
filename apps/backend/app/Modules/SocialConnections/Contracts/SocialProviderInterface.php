@@ -82,4 +82,17 @@ interface SocialProviderInterface
      * @return list<RemoteDestination>
      */
     public function fetchDestinations(OAuthTokens $tokens, array $credentials): array;
+
+    /**
+     * Publica en un destino concreto. Debe ser idempotente respecto a
+     * $payload->idempotencyKey cuando el proveedor lo permita.
+     *
+     * @param  array<string, string>  $credentials
+     */
+    public function publish(
+        OAuthTokens $tokens,
+        string $destinationExternalId,
+        PublishPayload $payload,
+        array $credentials,
+    ): PublishResult;
 }

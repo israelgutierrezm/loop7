@@ -64,6 +64,9 @@ final class AuditAction
     public const CONTENT_APPROVED = 'content.approved';
     public const CONTENT_CHANGES_REQUESTED = 'content.changes_requested';
     public const CONTENT_SCHEDULED = 'content.scheduled';
+    public const CONTENT_PUBLISHING = 'content.publishing';
+    public const CONTENT_PUBLISHED = 'content.published';
+    public const CONTENT_PUBLISH_FAILED = 'content.publish_failed';
     public const CAMPAIGN_CREATED = 'campaign.created';
 
     // Social connections

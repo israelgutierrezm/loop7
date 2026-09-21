@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace App\Modules\SocialConnections\Providers;
 
 use App\Modules\SocialConnections\Contracts\OAuthTokens;
+use App\Modules\SocialConnections\Contracts\PublishPayload;
+use App\Modules\SocialConnections\Contracts\PublishResult;
 use App\Modules\SocialConnections\Contracts\RemoteDestination;
 use App\Modules\SocialConnections\Contracts\SocialProviderInterface;
 use App\Modules\SocialConnections\Enums\Capability;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 /**
  * Proveedor social simulado. Implementa el flujo completo sin depender de una
@@ -99,5 +102,24 @@ class FakeSocialProvider implements SocialProviderInterface
             new RemoteDestination('fake-page-1', 'Página Demo', 'page', $this->capabilities()),
             new RemoteDestination('fake-profile-1', 'Perfil Demo', 'profile', $this->capabilities()),
         ];
+    }
+
+    public function publish(
+        OAuthTokens $tokens,
+        string $destinationExternalId,
+        PublishPayload $payload,
+        array $credentials,
+    ): PublishResult {
+        // Permite simular fallos en pruebas incluyendo [[FAIL]] en el cuerpo.
+        if (str_contains($payload->body, '[[FAIL]]')) {
+            throw new RuntimeException('Fallo simulado de publicación.');
+        }
+
+        // Idempotencia: la misma idempotencyKey produce el mismo id remoto.
+        $remoteId = 'fake-post-' . ($payload->idempotencyKey !== ''
+            ? md5($payload->idempotencyKey)
+            : Str::random(10));
+
+        return new PublishResult($remoteId, "https://fake.social/{$destinationExternalId}/{$remoteId}");
     }
 }
