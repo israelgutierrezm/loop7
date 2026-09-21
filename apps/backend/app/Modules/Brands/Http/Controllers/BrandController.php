@@ -7,6 +7,9 @@ namespace App\Modules\Brands\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Audit\Enums\AuditAction;
 use App\Modules\Audit\Services\AuditLogger;
+use App\Modules\Billing\Entitlements\Entitlement;
+use App\Modules\Billing\Exceptions\PlanLimitExceededException;
+use App\Modules\Billing\Services\EntitlementsService;
 use App\Modules\Brands\Http\Resources\BrandResource;
 use App\Modules\Brands\Models\Brand;
 use App\Support\Http\ApiResponse;
@@ -47,9 +50,19 @@ class BrandController extends Controller
         return ApiResponse::paginated($brands);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(Request $request, EntitlementsService $entitlements): JsonResponse
     {
         $this->authorize('create', Brand::class);
+
+        // Límite de plan: nº de marcas (docs/15 "plan limita brands").
+        $organization = $this->context->organization();
+        $currentBrands = Brand::query()->count(); // acotado a la Org por OrganizationScope
+        if (! $entitlements->withinLimit($organization, Entitlement::BRANDS_MAX, $currentBrands)) {
+            throw new PlanLimitExceededException(
+                'Has alcanzado el número de marcas incluidas en tu plan.',
+                Entitlement::BRANDS_MAX,
+            );
+        }
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],

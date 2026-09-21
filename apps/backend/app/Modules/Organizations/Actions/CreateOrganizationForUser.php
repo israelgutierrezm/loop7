@@ -10,6 +10,7 @@ use App\Modules\Audit\Enums\AuditAction;
 use App\Modules\Audit\Services\AuditLogger;
 use App\Modules\Organizations\Enums\MembershipStatus;
 use App\Modules\Organizations\Enums\OrganizationStatus;
+use App\Modules\Organizations\Events\OrganizationCreated;
 use App\Modules\Organizations\Models\Organization;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -32,7 +33,7 @@ class CreateOrganizationForUser
      */
     public function handle(User $user, string $name, array $attributes = []): Organization
     {
-        return DB::transaction(function () use ($user, $name, $attributes): Organization {
+        $organization = DB::transaction(function () use ($user, $name, $attributes): Organization {
             $organization = Organization::create([
                 'name' => $name,
                 'slug' => $this->uniqueSlug($name),
@@ -64,6 +65,11 @@ class CreateOrganizationForUser
 
             return $organization;
         });
+
+        // Efecto secundario desacoplado: Billing inicia el trial (si hay planes).
+        event(new OrganizationCreated($organization));
+
+        return $organization;
     }
 
     private function uniqueSlug(string $name): string

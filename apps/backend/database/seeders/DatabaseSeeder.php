@@ -6,7 +6,9 @@ namespace Database\Seeders;
 
 use App\Models\User;
 use App\Modules\AccessControl\Database\Seeders\RolesAndPermissionsSeeder;
+use App\Modules\Billing\Database\Seeders\BillingSeeder;
 use App\Modules\Organizations\Actions\CreateOrganizationForUser;
+use App\Modules\Payments\Database\Seeders\PaymentGatewaySeeder;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -14,8 +16,12 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        // 1) Permisos y roles globales.
-        $this->call(RolesAndPermissionsSeeder::class);
+        // 1) Permisos, roles, planes/entitlements y pasarelas.
+        $this->call([
+            RolesAndPermissionsSeeder::class,
+            BillingSeeder::class,
+            PaymentGatewaySeeder::class,
+        ]);
 
         // 2) SUPERADMIN de plataforma.
         User::query()->firstOrCreate(

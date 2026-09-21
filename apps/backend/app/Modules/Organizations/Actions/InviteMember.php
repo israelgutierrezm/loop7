@@ -8,6 +8,9 @@ use App\Models\User;
 use App\Modules\AccessControl\Enums\OrganizationRole;
 use App\Modules\Audit\Enums\AuditAction;
 use App\Modules\Audit\Services\AuditLogger;
+use App\Modules\Billing\Entitlements\Entitlement;
+use App\Modules\Billing\Exceptions\PlanLimitExceededException;
+use App\Modules\Billing\Services\EntitlementsService;
 use App\Modules\Organizations\Enums\InvitationStatus;
 use App\Modules\Organizations\Models\Organization;
 use App\Modules\Organizations\Models\OrganizationInvitation;
@@ -18,8 +21,10 @@ use Illuminate\Validation\ValidationException;
 
 class InviteMember
 {
-    public function __construct(private readonly AuditLogger $audit)
-    {
+    public function __construct(
+        private readonly AuditLogger $audit,
+        private readonly EntitlementsService $entitlements,
+    ) {
     }
 
     public function handle(Organization $organization, string $email, string $role, User $invitedBy): OrganizationInvitation
@@ -34,6 +39,16 @@ class InviteMember
             throw ValidationException::withMessages([
                 'email' => 'Esta persona ya es miembro de la organización.',
             ]);
+        }
+
+        // Límite de plan: miembros del equipo (activos + invitaciones pendientes).
+        $projected = $organization->users()->count()
+            + $organization->invitations()->where('status', InvitationStatus::PENDING->value)->count();
+        if (! $this->entitlements->withinLimit($organization, Entitlement::TEAM_MEMBERS_MAX, $projected)) {
+            throw new PlanLimitExceededException(
+                'Has alcanzado el número de miembros incluidos en tu plan.',
+                Entitlement::TEAM_MEMBERS_MAX,
+            );
         }
 
         $plainToken = Str::random(48);

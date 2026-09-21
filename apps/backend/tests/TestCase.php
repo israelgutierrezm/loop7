@@ -6,9 +6,11 @@ namespace Tests;
 
 use App\Models\User;
 use App\Modules\AccessControl\Database\Seeders\RolesAndPermissionsSeeder;
+use App\Modules\Billing\Database\Seeders\BillingSeeder;
 use App\Modules\Organizations\Actions\CreateOrganizationForUser;
 use App\Modules\Organizations\Enums\MembershipStatus;
 use App\Modules\Organizations\Models\Organization;
+use App\Modules\Payments\Database\Seeders\PaymentGatewaySeeder;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\PermissionRegistrar;
@@ -25,11 +27,15 @@ abstract class TestCase extends BaseTestCase
     }
 
     /**
-     * Siembra permisos y roles globales (necesario para casi todos los tests).
+     * Siembra datos base (roles/permisos + planes/entitlements + pasarelas).
+     * Necesario para casi todos los tests: la creación de Organizations dispara
+     * el trial, y los límites de plan dependen de que existan los planes.
      */
     protected function seedRbac(): void
     {
         $this->seed(RolesAndPermissionsSeeder::class);
+        $this->seed(BillingSeeder::class);
+        $this->seed(PaymentGatewaySeeder::class);
         app(PermissionRegistrar::class)->forgetCachedPermissions();
     }
 
@@ -71,6 +77,16 @@ abstract class TestCase extends BaseTestCase
         $user->assignRole($role);
 
         return $user->fresh();
+    }
+
+    /**
+     * Cambia el plan de una Organization (para probar límites de plan).
+     */
+    protected function setOrganizationPlan(Organization $organization, string $planKey): void
+    {
+        $plan = \App\Modules\Billing\Models\Plan::query()->where('key', $planKey)->firstOrFail();
+        app(\App\Modules\Billing\Services\SubscriptionService::class)
+            ->activatePlan($organization, $plan, 'month', 'manual');
     }
 
     /**

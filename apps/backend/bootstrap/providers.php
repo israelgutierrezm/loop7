@@ -11,5 +11,7 @@ return [
     App\Modules\Brands\BrandServiceProvider::class,
     App\Modules\AccessControl\AccessControlServiceProvider::class,
     App\Modules\Audit\AuditServiceProvider::class,
+    App\Modules\Billing\BillingServiceProvider::class,
+    App\Modules\Payments\PaymentsServiceProvider::class,
     App\Modules\PlatformAdmin\PlatformAdminServiceProvider::class,
 ];

@@ -47,4 +47,12 @@ final class AuditAction
     public const SUPERADMIN_IMPERSONATION_STARTED = 'superadmin.impersonation_started';
     public const SUPERADMIN_IMPERSONATION_ENDED = 'superadmin.impersonation_ended';
     public const SUPERADMIN_ORGANIZATION_SUSPENDED = 'superadmin.organization_suspended';
+
+    // Billing / Payments
+    public const SUBSCRIPTION_TRIAL_STARTED = 'subscription.trial_started';
+    public const SUBSCRIPTION_CHANGED = 'subscription.changed';
+    public const SUBSCRIPTION_CANCELLED = 'subscription.cancelled';
+    public const PAYMENT_GATEWAY_UPDATED = 'payment.gateway_updated';
+    public const PAYMENT_WEBHOOK_PROCESSED = 'payment.webhook_processed';
+    public const PAYMENT_RECORDED = 'payment.recorded';
 }
