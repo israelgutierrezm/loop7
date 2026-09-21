@@ -41,7 +41,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'campaigns', name: 'campaigns', component: () => import('@/views/app/CampaignsView.vue'), meta: { title: 'Campañas' } },
       { path: 'inbox', name: 'inbox', component: () => import('@/views/app/InboxView.vue'), meta: { title: 'Inbox' } },
       { path: 'analytics', name: 'analytics', component: () => import('@/views/app/AnalyticsView.vue'), meta: { title: 'Analítica' } },
-      { path: 'automations', component: ComingSoon, meta: { title: 'Automatizaciones' } },
+      { path: 'automations', name: 'automations', component: () => import('@/views/app/AutomationsView.vue'), meta: { title: 'Automatizaciones' } },
       { path: 'billing', name: 'billing', component: () => import('@/views/app/BillingView.vue'), meta: { title: 'Facturación' } },
     ],
   },

@@ -87,6 +87,10 @@ final class RolePermissions
                 Permission::CAMPAIGNS_DELETE,
                 Permission::AI_GENERATE_VIDEO,
                 Permission::AI_VIEW_USAGE,
+                Permission::AUTOMATIONS_VIEW,
+                Permission::AUTOMATIONS_CREATE,
+                Permission::AUTOMATIONS_UPDATE,
+                Permission::AUTOMATIONS_DELETE,
             ],
         )));
 

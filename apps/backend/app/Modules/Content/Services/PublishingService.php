@@ -8,6 +8,7 @@ use App\Modules\Audit\Enums\AuditAction;
 use App\Modules\Audit\Services\AuditLogger;
 use App\Modules\Content\Enums\ContentStatus;
 use App\Modules\Content\Enums\TargetStatus;
+use App\Modules\Content\Events\ContentPublished;
 use App\Modules\Content\Jobs\PublishSocialPost;
 use App\Modules\Content\Models\ContentItem;
 use App\Modules\Content\Models\PostVariant;
@@ -185,6 +186,11 @@ class PublishingService
             ['published' => $published, 'failed' => $failed, 'total' => $total],
             organizationId: $content->organization_id,
         );
+
+        // Notifica a otros módulos (Automations) sin acoplarlos.
+        if ($status === ContentStatus::PUBLISHED || $status === ContentStatus::PARTIAL) {
+            event(new ContentPublished($content, $status->value));
+        }
     }
 
     private function ensureTargets(ContentItem $content, Carbon $when): void

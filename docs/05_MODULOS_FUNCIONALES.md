@@ -124,3 +124,45 @@ Reutiliza la Fase 7: `POST /inbox/{conversation}/suggest` compone un prompt con 
 Vista **Inbox** (`/app/inbox`): lista con filtros por estado y no leídos, hilo de
 conversación (entrante/respuesta/nota), responder, **sugerir con IA**, notas
 internas, asignación y cambio de estado, y sincronización manual.
+
+---
+
+## Automation — Implementación (Fase 10)
+
+### Motor de reglas
+`Automation` = trigger + condiciones + acciones (tenant-owned; global de la
+Organization o acotada a una Brand). El motor está **desacoplado por eventos**
+(CLAUDE.md): cada módulo emite eventos de dominio y Automations los escucha, sin
+que esos módulos conozcan a Automations.
+
+### Disparadores (eventos internos)
+- `content.published` ← evento `ContentPublished` (emitido por `PublishingService`
+  al consolidar published/partial).
+- `inbox.message_received` ← evento `InboxMessageReceived` (emitido por
+  `InboxService` al llegar un mensaje entrante nuevo).
+
+RSS/webhooks entrantes quedan previstos para una fase posterior.
+
+### Condiciones y acciones
+- Condiciones: lista de `{field, operator, value}` (operadores equals/not_equals/
+  contains/not_contains) evaluadas en AND contra un contexto plano del disparador.
+- Acciones (reutilizan módulos o efectos externos): `notify` (registro),
+  `webhook` (POST saliente), `inbox_reply` (respuesta automática vía `InboxService`),
+  `inbox_tag` (etiquetar conversación). Soportan tokens `{campo}` del contexto.
+
+### Ejecución y trazabilidad
+Los listeners traducen el evento a `AutomationEngine::dispatchForTrigger`, que
+verifica el plan (`feature.automations`), busca reglas activas que coinciden y
+despacha un job `RunAutomation` por regla (cola `automations`, aísla fallos). El
+motor evalúa condiciones y ejecuta acciones, registrando cada intento en
+`automation_runs` (success/failed/skipped) y actualizando `run_count`/`last_run_at`.
+
+### Endpoints
+CRUD `GET|POST /automations`, `GET|PUT|DELETE /automations/{automation}` y
+`GET /automations/meta` (catálogo de triggers/acciones/operadores para la UI).
+Requieren permisos `automations.*` + entitlement `feature.automations` (402).
+
+### Frontend
+Vista **Automatizaciones** (`/app/automations`): listado con activar/pausar y
+eliminar, y un editor (modal) con disparador, marca, condiciones y acciones
+dinámicas según el tipo.

@@ -7,6 +7,7 @@ namespace App\Modules\Inbox\Services;
 use App\Models\User;
 use App\Modules\Brands\Models\Brand;
 use App\Modules\Inbox\Enums\ConversationStatus;
+use App\Modules\Inbox\Events\InboxMessageReceived;
 use App\Modules\Inbox\Jobs\SyncInboxConversations;
 use App\Modules\Inbox\Models\InboxConversation;
 use App\Modules\Inbox\Models\InboxMessage;
@@ -135,6 +136,35 @@ class InboxService
         return $message;
     }
 
+    /**
+     * Respuesta automática (sin usuario): la envía el sistema/automatización.
+     */
+    public function systemReply(InboxConversation $conversation, string $body, string $authorName = 'Automatización'): InboxMessage
+    {
+        $connection = SocialConnection::query()->withoutGlobalScopes()->findOrFail($conversation->social_connection_id);
+        $adapter = $this->manager->adapter($connection->provider);
+        if ($adapter === null) {
+            throw new ProviderNotConfiguredException('Proveedor no disponible para responder.');
+        }
+
+        $credentials = $this->manager->record($connection->provider)?->credentialMap() ?? [];
+        $result = $adapter->replyToConversation($connection->toTokens(), $conversation->external_id, $body, $credentials);
+
+        $message = InboxMessage::query()->create([
+            'organization_id' => $conversation->organization_id,
+            'conversation_id' => $conversation->id,
+            'external_id' => $result->externalId,
+            'type' => 'reply',
+            'author_name' => $authorName,
+            'body' => $body,
+            'sent_at' => now(),
+        ]);
+
+        $conversation->update(['last_message_at' => now()]);
+
+        return $message;
+    }
+
     public function addNote(InboxConversation $conversation, User $user, string $body): InboxMessage
     {
         return InboxMessage::query()->create([
@@ -197,6 +227,7 @@ class InboxService
                 $newMessages++;
                 if ($msg->direction !== 'outbound') {
                     $conversation->increment('unread_count');
+                    event(new InboxMessageReceived($conversation, $created));
                 }
             }
         }

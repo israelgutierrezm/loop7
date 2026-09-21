@@ -73,6 +73,12 @@ final class Permission
     public const BILLING_PAYMENT_METHODS = 'billing.payment_methods';
     public const BILLING_CANCEL_SUBSCRIPTION = 'billing.cancel_subscription';
 
+    // Automations
+    public const AUTOMATIONS_VIEW = 'automations.view';
+    public const AUTOMATIONS_CREATE = 'automations.create';
+    public const AUTOMATIONS_UPDATE = 'automations.update';
+    public const AUTOMATIONS_DELETE = 'automations.delete';
+
     // AI
     public const AI_USE = 'ai.use';
     public const AI_GENERATE_TEXT = 'ai.generate_text';
@@ -143,6 +149,12 @@ final class Permission
             'analytics' => [
                 self::ANALYTICS_VIEW,
                 self::ANALYTICS_EXPORT,
+            ],
+            'automations' => [
+                self::AUTOMATIONS_VIEW,
+                self::AUTOMATIONS_CREATE,
+                self::AUTOMATIONS_UPDATE,
+                self::AUTOMATIONS_DELETE,
             ],
             'billing' => [
                 self::BILLING_VIEW,
