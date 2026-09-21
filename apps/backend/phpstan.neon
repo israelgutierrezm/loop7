@@ -1,0 +1,22 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    level: 5
+    paths:
+        - app
+    # Larastan infiere columnas/casts de estas rutas de migraciones (incluye módulos).
+    databaseMigrationsPath:
+        - database/migrations
+        - app/Modules/Organizations/Database/Migrations
+        - app/Modules/Brands/Database/Migrations
+        - app/Modules/Audit/Database/Migrations
+    excludePaths:
+        - app/Modules/*/Database/Migrations/*
+    checkModelProperties: false
+    noEnvCallsOutsideOfConfig: false
+    reportUnmatchedIgnoredErrors: false
+    ignoreErrors:
+        # El accessor ->pivot de relaciones belongsToMany es dinámico; Larastan no
+        # lo conoce pero existe en tiempo de ejecución cuando la relación se carga.
+        - '#Access to an undefined property .*::\$pivot#'
