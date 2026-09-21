@@ -55,4 +55,10 @@ final class AuditAction
     public const PAYMENT_GATEWAY_UPDATED = 'payment.gateway_updated';
     public const PAYMENT_WEBHOOK_PROCESSED = 'payment.webhook_processed';
     public const PAYMENT_RECORDED = 'payment.recorded';
+
+    // Social connections
+    public const SOCIAL_CONNECTED = 'social.connected';
+    public const SOCIAL_DISCONNECTED = 'social.disconnected';
+    public const SOCIAL_RECONNECTED = 'social.reconnected';
+    public const SOCIAL_TOKEN_REFRESHED = 'social.token_refreshed';
 }

@@ -5,18 +5,24 @@ declare(strict_types=1);
 namespace Tests;
 
 use App\Models\User;
-use App\Modules\AccessControl\Database\Seeders\RolesAndPermissionsSeeder;
-use App\Modules\Billing\Database\Seeders\BillingSeeder;
 use App\Modules\Organizations\Actions\CreateOrganizationForUser;
 use App\Modules\Organizations\Enums\MembershipStatus;
 use App\Modules\Organizations\Models\Organization;
-use App\Modules\Payments\Database\Seeders\PaymentGatewaySeeder;
+use Database\Seeders\PlatformBaseSeeder;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\PermissionRegistrar;
 
 abstract class TestCase extends BaseTestCase
 {
+    /**
+     * Siembra la base de la plataforma UNA sola vez (RefreshDatabase la ejecuta
+     * tras migrar; cada test corre en una transacción sobre esos datos).
+     */
+    protected bool $seed = true;
+
+    protected string $seeder = PlatformBaseSeeder::class;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -27,15 +33,11 @@ abstract class TestCase extends BaseTestCase
     }
 
     /**
-     * Siembra datos base (roles/permisos + planes/entitlements + pasarelas).
-     * Necesario para casi todos los tests: la creación de Organizations dispara
-     * el trial, y los límites de plan dependen de que existan los planes.
+     * La base ya está sembrada (propiedad $seed). Sólo limpia la caché de
+     * permisos de spatie entre tests. Se conserva por compatibilidad.
      */
     protected function seedRbac(): void
     {
-        $this->seed(RolesAndPermissionsSeeder::class);
-        $this->seed(BillingSeeder::class);
-        $this->seed(PaymentGatewaySeeder::class);
         app(PermissionRegistrar::class)->forgetCachedPermissions();
     }
 

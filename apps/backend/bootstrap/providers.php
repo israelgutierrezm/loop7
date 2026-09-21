@@ -14,5 +14,6 @@ return [
     App\Modules\Billing\BillingServiceProvider::class,
     App\Modules\Payments\PaymentsServiceProvider::class,
     App\Modules\MediaLibrary\MediaLibraryServiceProvider::class,
+    App\Modules\SocialConnections\SocialConnectionsServiceProvider::class,
     App\Modules\PlatformAdmin\PlatformAdminServiceProvider::class,
 ];
