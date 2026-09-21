@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
+    // Cualquier emisión del build va a un temp, nunca junto al código fuente
+    // (evita generar un vite.config.js que Vite cargaría en lugar del .ts).
+    "outDir": "./node_modules/.tmp/node-build",
+    "skipLibCheck": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "types": ["node"],
+    "strict": true,
+    "noEmit": true
+  },
+  "include": ["vite.config.ts"]
+}

@@ -1,0 +1,60 @@
+import axios, { type AxiosInstance } from 'axios'
+
+/**
+ * Cliente HTTP para la API v1.
+ *
+ * - withCredentials + withXSRFToken: autenticación SPA por cookies de Sanctum.
+ * - Inyecta cabeceras de tenant (X-Organization / X-Brand) en cada petición.
+ */
+const http: AxiosInstance = axios.create({
+  baseURL: '/api/v1',
+  withCredentials: true,
+  withXSRFToken: true,
+  headers: {
+    Accept: 'application/json',
+    'X-Requested-With': 'XMLHttpRequest',
+  },
+})
+
+let currentOrganizationId: string | null = null
+let currentBrandId: string | null = null
+let onUnauthorized: (() => void) | null = null
+
+export function setTenantHeaders(organizationId: string | null, brandId: string | null = null): void {
+  currentOrganizationId = organizationId
+  currentBrandId = brandId
+}
+
+export function setUnauthorizedHandler(handler: () => void): void {
+  onUnauthorized = handler
+}
+
+http.interceptors.request.use((config) => {
+  if (currentOrganizationId) {
+    config.headers.set('X-Organization', currentOrganizationId)
+  }
+  if (currentBrandId) {
+    config.headers.set('X-Brand', currentBrandId)
+  }
+  return config
+})
+
+http.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error?.response?.status
+    // 401 en cualquier endpoint distinto del login implica sesión expirada.
+    const url: string = error?.config?.url ?? ''
+    if (status === 401 && !url.includes('/auth/login') && onUnauthorized) {
+      onUnauthorized()
+    }
+    return Promise.reject(error)
+  },
+)
+
+/** Obtiene la cookie CSRF de Sanctum antes de operaciones autenticadas. */
+export async function fetchCsrfCookie(): Promise<void> {
+  await axios.get('/sanctum/csrf-cookie', { withCredentials: true })
+}
+
+export default http
