@@ -40,7 +40,7 @@ export const navigation: NavGroup[] = [
     items: [
       { label: 'Equipo', to: '/app/team', icon: 'team', permission: 'members.view' },
       { label: 'Automatizaciones', to: '/app/automations', icon: 'automations', soon: true },
-      { label: 'Facturación', to: '/app/billing', icon: 'billing', permission: 'billing.view', soon: true },
+      { label: 'Facturación', to: '/app/billing', icon: 'billing', permission: 'billing.view' },
       { label: 'Auditoría', to: '/app/audit', icon: 'shield', permission: 'organization.update' },
       { label: 'Configuración', to: '/app/settings', icon: 'settings', permission: 'organization.view' },
     ],

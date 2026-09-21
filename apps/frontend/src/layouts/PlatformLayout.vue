@@ -10,6 +10,7 @@ const links = [
   { to: '/platform', label: 'Dashboard', icon: 'dashboard', exact: true },
   { to: '/platform/organizations', label: 'Organizaciones', icon: 'building', exact: false },
   { to: '/platform/users', label: 'Usuarios', icon: 'team', exact: false },
+  { to: '/platform/gateways', label: 'Pasarelas', icon: 'billing', exact: false },
 ]
 
 async function logout(): Promise<void> {

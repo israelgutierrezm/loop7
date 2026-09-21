@@ -39,7 +39,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'inbox', component: ComingSoon, meta: { title: 'Inbox' } },
       { path: 'analytics', component: ComingSoon, meta: { title: 'Analítica' } },
       { path: 'automations', component: ComingSoon, meta: { title: 'Automatizaciones' } },
-      { path: 'billing', component: ComingSoon, meta: { title: 'Facturación' } },
+      { path: 'billing', name: 'billing', component: () => import('@/views/app/BillingView.vue'), meta: { title: 'Facturación' } },
     ],
   },
 
@@ -51,6 +51,7 @@ const routes: RouteRecordRaw[] = [
       { path: '', name: 'platform-dashboard', component: () => import('@/views/platform/PlatformDashboardView.vue'), meta: { title: 'Dashboard' } },
       { path: 'organizations', name: 'platform-organizations', component: () => import('@/views/platform/PlatformOrganizationsView.vue'), meta: { title: 'Organizaciones' } },
       { path: 'users', name: 'platform-users', component: () => import('@/views/platform/PlatformUsersView.vue'), meta: { title: 'Usuarios' } },
+      { path: 'gateways', name: 'platform-gateways', component: () => import('@/views/platform/PlatformGatewaysView.vue'), meta: { title: 'Pasarelas' } },
     ],
   },
 
