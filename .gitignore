@@ -1,0 +1,29 @@
+# Dependencias
+node_modules/
+vendor/
+
+# Entornos
+.env
+.env.*
+!.env.example
+*.local
+
+# Build / cache
+dist/
+build/
+.cache/
+.vite/
+coverage/
+*.log
+
+# Sistema operativo / editores
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Temporales
+*.tmp
+storage/*.key

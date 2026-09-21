@@ -1,0 +1,31 @@
+# Checklist de seguridad antes de producción
+
+- [ ] APP_DEBUG=false
+- [ ] HTTPS obligatorio
+- [ ] HSTS
+- [ ] CSP revisada
+- [ ] cookies Secure/HttpOnly/SameSite
+- [ ] CORS restrictivo
+- [ ] MFA disponible
+- [ ] rate limits
+- [ ] brute-force protection
+- [ ] email verification
+- [ ] backups automáticos
+- [ ] prueba de restore
+- [ ] tokens OAuth cifrados
+- [ ] API keys cifradas
+- [ ] logs sin secretos
+- [ ] webhooks firmados/verificados
+- [ ] idempotencia
+- [ ] tests IDOR/tenant isolation
+- [ ] dependency audit Composer/NPM
+- [ ] SAST/linters en CI
+- [ ] upload validation
+- [ ] URLs firmadas para privados
+- [ ] Horizon protegido
+- [ ] SUPERADMIN con MFA obligatorio
+- [ ] impersonación auditada
+- [ ] secret rotation procedure
+- [ ] incident response básico
+- [ ] revisión permisos OAuth mínimos
+- [ ] revisión de políticas oficiales de cada proveedor

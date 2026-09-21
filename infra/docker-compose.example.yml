@@ -1,0 +1,48 @@
+services:
+  app:
+    build: .
+    depends_on:
+      - mysql
+      - redis
+    env_file:
+      - .env
+
+  nginx:
+    image: nginx:alpine
+    depends_on:
+      - app
+    ports:
+      - "8080:80"
+
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: social_saas
+      MYSQL_USER: social_saas
+      MYSQL_PASSWORD: change_me
+      MYSQL_ROOT_PASSWORD: change_root
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+
+  horizon:
+    build: .
+    command: php artisan horizon
+    depends_on:
+      - app
+      - redis
+
+  scheduler:
+    build: .
+    command: php artisan schedule:work
+    depends_on:
+      - app
+
+volumes:
+  mysql_data:
+  redis_data:
