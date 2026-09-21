@@ -75,6 +75,12 @@ final class AuditAction
     public const SOCIAL_RECONNECTED = 'social.reconnected';
     public const SOCIAL_TOKEN_REFRESHED = 'social.token_refreshed';
 
+    // Inbox
+    public const INBOX_REPLIED = 'inbox.replied';
+    public const INBOX_NOTE_ADDED = 'inbox.note_added';
+    public const INBOX_ASSIGNED = 'inbox.assigned';
+    public const INBOX_STATUS_CHANGED = 'inbox.status_changed';
+
     // IA
     public const AI_TEXT_GENERATED = 'ai.text_generated';
     public const AI_IMAGE_GENERATED = 'ai.image_generated';

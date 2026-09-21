@@ -39,7 +39,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'calendar', name: 'calendar', component: () => import('@/views/app/CalendarView.vue'), meta: { title: 'Calendario' } },
       { path: 'social', component: ComingSoon, meta: { title: 'Redes sociales' } },
       { path: 'campaigns', name: 'campaigns', component: () => import('@/views/app/CampaignsView.vue'), meta: { title: 'Campañas' } },
-      { path: 'inbox', component: ComingSoon, meta: { title: 'Inbox' } },
+      { path: 'inbox', name: 'inbox', component: () => import('@/views/app/InboxView.vue'), meta: { title: 'Inbox' } },
       { path: 'analytics', name: 'analytics', component: () => import('@/views/app/AnalyticsView.vue'), meta: { title: 'Analítica' } },
       { path: 'automations', component: ComingSoon, meta: { title: 'Automatizaciones' } },
       { path: 'billing', name: 'billing', component: () => import('@/views/app/BillingView.vue'), meta: { title: 'Facturación' } },

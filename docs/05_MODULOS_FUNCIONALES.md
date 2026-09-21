@@ -84,3 +84,43 @@ de la Organization.
 Vista **Analítica** (`/app/analytics`): selector de marca y de rango (7/30/90 días),
 KPIs con comparación de periodo, gráfico de evolución (SVG), desglose por canal, top
 de publicaciones, actualización manual y exportación CSV (según plan).
+
+---
+
+## Inbox — Implementación (Fase 9)
+
+### Contrato de proveedor
+`SocialProviderInterface` incorpora `fetchConversations(...): InboxThread[]` y
+`replyToConversation(...): InboxReplyResult` (DTOs `InboxThread`/`InboxMessageData`/
+`InboxReplyResult`). `FakeSocialProvider` devuelve conversaciones de muestra
+(comentario/DM/mención); `FacebookProvider` lanza `ProviderNotConfiguredException`
+(requiere revisión de app + page token).
+
+### Modelo
+- `inbox_conversations`: tenant-owned, dedupe por (conexión, external_id); estado
+  (open/pending/resolved/snoozed), asignación, etiquetas, `unread_count`, preview.
+- `inbox_messages`: `type` inbound (entrante) | reply (saliente enviada) | note
+  (nota interna que no se envía a la red). Dedupe por (conversación, external_id).
+
+### Servicio y jobs
+`InboxService`: `syncBrand`/`syncDestination` (upsert idempotente, preserva estado/
+asignación al re-sincronizar, `unread_count` sólo por nuevos entrantes), `syncDue`
+(despacha jobs), `reply` (envía vía proveedor + guarda mensaje) y `addNote`. Job
+`SyncInboxConversations` en la cola `inbox`; comando `inbox:sync-due` cada 15 min.
+
+### Respuestas con IA
+Reutiliza la Fase 7: `POST /inbox/{conversation}/suggest` compone un prompt con el
+último mensaje entrante + Brand Brain y llama a `AiGenerationService` con la operación
+`suggest_reply` (consume créditos, permiso `ai.generate_text`).
+
+### Endpoints
+- `GET /brands/{brand}/inbox`, `POST /brands/{brand}/inbox/sync`
+- `GET /inbox/{conversation}` (marca como leída)
+- `POST /inbox/{conversation}/reply|note|assign|status|suggest`, `PUT .../tags`
+- Todo requiere permiso `social_accounts.inbox` + entitlement `feature.inbox` (402
+  si el plan no lo incluye).
+
+### Frontend
+Vista **Inbox** (`/app/inbox`): lista con filtros por estado y no leídos, hilo de
+conversación (entrante/respuesta/nota), responder, **sugerir con IA**, notas
+internas, asignación y cambio de estado, y sincronización manual.

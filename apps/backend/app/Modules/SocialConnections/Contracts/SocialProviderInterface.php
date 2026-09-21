@@ -117,4 +117,28 @@ interface SocialProviderInterface
         string $remoteId,
         array $credentials,
     ): PostMetrics;
+
+    /**
+     * Conversaciones (comentarios/DMs/menciones) del destino (inbox, docs/05).
+     *
+     * @param  array<string, string>  $credentials
+     * @return list<InboxThread>
+     */
+    public function fetchConversations(
+        OAuthTokens $tokens,
+        string $destinationExternalId,
+        array $credentials,
+    ): array;
+
+    /**
+     * Responde a una conversación. Debe ser idempotente cuando el proveedor lo permita.
+     *
+     * @param  array<string, string>  $credentials
+     */
+    public function replyToConversation(
+        OAuthTokens $tokens,
+        string $conversationExternalId,
+        string $body,
+        array $credentials,
+    ): InboxReplyResult;
 }

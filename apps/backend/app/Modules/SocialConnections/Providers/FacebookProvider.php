@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\SocialConnections\Providers;
 
 use App\Modules\SocialConnections\Contracts\AccountMetrics;
+use App\Modules\SocialConnections\Contracts\InboxReplyResult;
 use App\Modules\SocialConnections\Contracts\OAuthTokens;
 use App\Modules\SocialConnections\Contracts\PostMetrics;
 use App\Modules\SocialConnections\Contracts\PublishPayload;
@@ -200,6 +201,26 @@ class FacebookProvider implements SocialProviderInterface
     {
         throw new ProviderNotConfiguredException(
             'La analítica de Meta requiere revisión de app y token de página; pendiente de configuración.',
+        );
+    }
+
+    public function fetchConversations(OAuthTokens $tokens, string $destinationExternalId, array $credentials): array
+    {
+        // La lectura de comentarios/mensajes de Páginas requiere page access token
+        // y revisión de app (pages_messaging, pages_read_engagement). Pendiente.
+        throw new ProviderNotConfiguredException(
+            'El inbox de Meta requiere revisión de app y token de página; pendiente de configuración.',
+        );
+    }
+
+    public function replyToConversation(
+        OAuthTokens $tokens,
+        string $conversationExternalId,
+        string $body,
+        array $credentials,
+    ): InboxReplyResult {
+        throw new ProviderNotConfiguredException(
+            'Responder en Meta requiere revisión de app y token de página; pendiente de configuración.',
         );
     }
 

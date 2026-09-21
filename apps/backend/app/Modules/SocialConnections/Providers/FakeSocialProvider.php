@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace App\Modules\SocialConnections\Providers;
 
 use App\Modules\SocialConnections\Contracts\AccountMetrics;
+use App\Modules\SocialConnections\Contracts\InboxMessageData;
+use App\Modules\SocialConnections\Contracts\InboxReplyResult;
+use App\Modules\SocialConnections\Contracts\InboxThread;
 use App\Modules\SocialConnections\Contracts\OAuthTokens;
 use App\Modules\SocialConnections\Contracts\PostMetrics;
 use App\Modules\SocialConnections\Contracts\PublishPayload;
@@ -12,6 +15,7 @@ use App\Modules\SocialConnections\Contracts\PublishResult;
 use App\Modules\SocialConnections\Contracts\RemoteDestination;
 use App\Modules\SocialConnections\Contracts\SocialProviderInterface;
 use App\Modules\SocialConnections\Enums\Capability;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use RuntimeException;
 
@@ -158,5 +162,53 @@ class FakeSocialProvider implements SocialProviderInterface
             shares: (int) round($likes * 0.1),
             clicks: (int) round($impressions * 0.03),
         );
+    }
+
+    public function fetchConversations(OAuthTokens $tokens, string $destinationExternalId, array $credentials): array
+    {
+        // Conversaciones de muestra deterministas por destino (dev/demostración).
+        $samples = [
+            ['type' => 'comment', 'name' => 'Laura Gómez', 'text' => '¿Tienen envío a toda la república?'],
+            ['type' => 'dm', 'name' => 'Carlos Ruiz', 'text' => 'Hola, me interesa el plan anual, ¿me pasan info?'],
+            ['type' => 'mention', 'name' => 'Marketing Diario', 'text' => '¡Nos encantó su última campaña! 👏'],
+        ];
+
+        $threads = [];
+        foreach ($samples as $i => $s) {
+            $externalId = 'fake-conv-' . substr(md5($destinationExternalId . $i), 0, 10);
+            $sentAt = Carbon::now()->subHours($i + 1);
+            $threads[] = new InboxThread(
+                externalId: $externalId,
+                type: $s['type'],
+                participantName: $s['name'],
+                participantExternalId: 'fake-user-' . $i,
+                lastMessageAt: $sentAt,
+                messages: [
+                    new InboxMessageData(
+                        externalId: $externalId . '-m1',
+                        authorName: $s['name'],
+                        authorExternalId: 'fake-user-' . $i,
+                        body: $s['text'],
+                        direction: 'inbound',
+                        sentAt: $sentAt,
+                    ),
+                ],
+            );
+        }
+
+        return $threads;
+    }
+
+    public function replyToConversation(
+        OAuthTokens $tokens,
+        string $conversationExternalId,
+        string $body,
+        array $credentials,
+    ): InboxReplyResult {
+        if (str_contains($body, '[[FAIL]]')) {
+            throw new RuntimeException('Fallo simulado al responder.');
+        }
+
+        return new InboxReplyResult('fake-reply-' . substr(md5($conversationExternalId . $body), 0, 10));
     }
 }
