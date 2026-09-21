@@ -95,7 +95,12 @@ onMounted(load)
     </EmptyState>
 
     <div v-else class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      <div v-for="brand in brands" :key="brand.id" class="card p-5">
+      <RouterLink
+        v-for="brand in brands"
+        :key="brand.id"
+        :to="`/app/brands/${brand.id}`"
+        class="card p-5 transition hover:shadow-md hover:ring-1 hover:ring-brand-200"
+      >
         <div class="flex items-center gap-3">
           <span
             class="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-sm font-bold text-white"
@@ -111,7 +116,10 @@ onMounted(load)
         <p class="mt-3 line-clamp-2 text-sm text-slate-500">
           {{ brand.description ?? 'Sin descripción.' }}
         </p>
-      </div>
+        <p class="mt-3 flex items-center gap-1 text-xs font-medium text-brand-600">
+          Abrir Brand Brain <AppIcon name="chevron-right" :size="14" />
+        </p>
+      </RouterLink>
     </div>
 
     <ModalDialog :open="showCreate" title="Nueva marca" @close="showCreate = false">
