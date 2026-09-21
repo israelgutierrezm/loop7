@@ -53,6 +53,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'organizations', name: 'platform-organizations', component: () => import('@/views/platform/PlatformOrganizationsView.vue'), meta: { title: 'Organizaciones' } },
       { path: 'users', name: 'platform-users', component: () => import('@/views/platform/PlatformUsersView.vue'), meta: { title: 'Usuarios' } },
       { path: 'gateways', name: 'platform-gateways', component: () => import('@/views/platform/PlatformGatewaysView.vue'), meta: { title: 'Pasarelas' } },
+      { path: 'social', name: 'platform-social', component: () => import('@/views/platform/PlatformSocialProvidersView.vue'), meta: { title: 'Integraciones' } },
     ],
   },
 

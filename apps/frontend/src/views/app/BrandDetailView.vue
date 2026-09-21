@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import http from '@/services/http'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toasts'
@@ -16,8 +16,20 @@ interface Product { id: string; name: string; description: string | null; price:
 interface Service { id: string; name: string; description: string | null; url: string | null }
 interface Knowledge { id: string; type: string; title: string; body: string | null; url: string | null }
 interface MediaItem { id: string; original_name: string; url: string; is_image: boolean; size_bytes: number }
+interface SocialDestination { id: string; name: string; type: string }
+interface SocialConnection {
+  id: string
+  provider: string
+  status: string
+  status_label: string
+  needs_attention: boolean
+  account_name: string | null
+  destinations: SocialDestination[]
+}
+interface SocialProviderOption { key: string; name: string }
 
 const route = useRoute()
+const router = useRouter()
 const auth = useAuthStore()
 const toasts = useToastStore()
 const brandId = route.params.brand as string
@@ -25,7 +37,7 @@ const brandId = route.params.brand as string
 const loading = ref(true)
 const failed = ref(false)
 const brandName = ref('')
-const activeTab = ref<'identidad' | 'audiencias' | 'oferta' | 'conocimiento' | 'medios'>('identidad')
+const activeTab = ref<'identidad' | 'audiencias' | 'oferta' | 'conocimiento' | 'medios' | 'redes'>('identidad')
 
 const canEdit = computed(() => auth.can('brands.update'))
 
@@ -45,6 +57,8 @@ const products = ref<Product[]>([])
 const services = ref<Service[]>([])
 const knowledge = ref<Knowledge[]>([])
 const media = ref<MediaItem[]>([])
+const socialConnections = ref<SocialConnection[]>([])
+const socialProviders = ref<SocialProviderOption[]>([])
 
 const newAudience = reactive({ name: '', description: '' })
 const newProduct = reactive({ name: '', price: '', url: '' })
@@ -68,9 +82,11 @@ async function load(): Promise<void> {
   loading.value = true
   failed.value = false
   try {
-    const [brain, mediaResp] = await Promise.all([
+    const [brain, mediaResp, connectionsResp, providersResp] = await Promise.all([
       http.get(`/brands/${brandId}/brain`),
       http.get(`/brands/${brandId}/media`),
+      http.get(`/brands/${brandId}/social/connections`),
+      http.get(`/brands/${brandId}/social/providers`),
     ])
     const d = brain.data.data
     brandName.value = d.brand.name
@@ -88,6 +104,8 @@ async function load(): Promise<void> {
     services.value = d.services
     knowledge.value = d.knowledge
     media.value = mediaResp.data.data
+    socialConnections.value = connectionsResp.data.data
+    socialProviders.value = providersResp.data.data
   } catch {
     failed.value = true
   } finally {
@@ -165,15 +183,51 @@ async function deleteMedia(id: string): Promise<void> {
   }
 }
 
+async function connectSocial(providerKey: string): Promise<void> {
+  try {
+    const { data } = await http.post(`/brands/${brandId}/social/connections/${providerKey}/authorize`)
+    // Redirige al flujo OAuth del proveedor (el fake vuelve directo al callback).
+    window.location.href = data.data.authorize_url
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  }
+}
+
+async function disconnectSocial(id: string): Promise<void> {
+  if (!confirm('¿Eliminar esta conexión social?')) return
+  try {
+    await http.delete(`/social/connections/${id}`)
+    socialConnections.value = socialConnections.value.filter((c) => c.id !== id)
+    toasts.success('Conexión eliminada.')
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  }
+}
+
+function handleSocialReturn(): void {
+  const status = route.query.social as string | undefined
+  if (!status) return
+  activeTab.value = 'redes'
+  if (status === 'connected') toasts.success('Cuenta conectada.')
+  else if (status === 'denied') toasts.error('Autorización cancelada.')
+  else if (status === 'invalid') toasts.error('El enlace de conexión expiró. Inténtalo de nuevo.')
+  else if (status === 'error') toasts.error('No se pudo completar la conexión.')
+  router.replace({ query: {} })
+}
+
 const tabs = [
   { key: 'identidad', label: 'Identidad' },
   { key: 'audiencias', label: 'Audiencias' },
   { key: 'oferta', label: 'Productos y servicios' },
   { key: 'conocimiento', label: 'Conocimiento' },
   { key: 'medios', label: 'Medios' },
+  { key: 'redes', label: 'Redes' },
 ] as const
 
-onMounted(load)
+onMounted(async () => {
+  await load()
+  handleSocialReturn()
+})
 </script>
 
 <template>
@@ -337,6 +391,66 @@ onMounted(load)
                 <AppIcon name="close" :size="16" />
               </button>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Redes -->
+      <div v-show="activeTab === 'redes'" class="space-y-6">
+        <div>
+          <h3 class="mb-3 font-semibold text-slate-900 dark:text-white">Cuentas conectadas</h3>
+          <EmptyState
+            v-if="socialConnections.length === 0"
+            icon="social"
+            title="Sin cuentas conectadas"
+            description="Conecta una red social para empezar a publicar."
+          />
+          <div v-else class="space-y-3">
+            <div v-for="c in socialConnections" :key="c.id" class="card flex flex-wrap items-center justify-between gap-3 p-4">
+              <div class="flex items-center gap-3">
+                <span class="grid h-10 w-10 place-items-center rounded-lg bg-brand-50 text-brand-600 dark:bg-brand-950/50">
+                  <AppIcon name="social" :size="20" />
+                </span>
+                <div>
+                  <p class="font-medium capitalize text-slate-900 dark:text-white">
+                    {{ c.provider }} <span class="text-slate-400">· {{ c.account_name }}</span>
+                  </p>
+                  <p class="text-xs" :class="c.needs_attention ? 'text-amber-600' : 'text-emerald-600'">
+                    {{ c.status_label }}
+                    <span v-if="c.destinations.length" class="text-slate-400">
+                      · {{ c.destinations.length }} destino(s)
+                    </span>
+                  </p>
+                </div>
+              </div>
+              <button
+                v-if="auth.can('social_accounts.disconnect')"
+                class="btn-ghost text-sm text-rose-600"
+                @click="disconnectSocial(c.id)"
+              >
+                Desconectar
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="auth.can('social_accounts.connect')">
+          <h3 class="mb-3 font-semibold text-slate-900 dark:text-white">Conectar una red</h3>
+          <EmptyState
+            v-if="socialProviders.length === 0"
+            icon="alert"
+            title="No hay proveedores disponibles"
+            description="Un administrador de plataforma debe habilitar proveedores sociales."
+          />
+          <div v-else class="flex flex-wrap gap-3">
+            <button
+              v-for="p in socialProviders"
+              :key="p.key"
+              class="btn-secondary"
+              @click="connectSocial(p.key)"
+            >
+              <AppIcon name="plus" :size="16" /> {{ p.name }}
+            </button>
           </div>
         </div>
       </div>
