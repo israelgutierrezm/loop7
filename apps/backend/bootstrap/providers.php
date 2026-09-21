@@ -15,5 +15,7 @@ return [
     App\Modules\Payments\PaymentsServiceProvider::class,
     App\Modules\MediaLibrary\MediaLibraryServiceProvider::class,
     App\Modules\SocialConnections\SocialConnectionsServiceProvider::class,
+    App\Modules\Campaigns\CampaignsServiceProvider::class,
+    App\Modules\Content\ContentServiceProvider::class,
     App\Modules\PlatformAdmin\PlatformAdminServiceProvider::class,
 ];

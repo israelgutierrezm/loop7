@@ -56,6 +56,16 @@ final class AuditAction
     public const PAYMENT_WEBHOOK_PROCESSED = 'payment.webhook_processed';
     public const PAYMENT_RECORDED = 'payment.recorded';
 
+    // Content / Campaigns
+    public const CONTENT_CREATED = 'content.created';
+    public const CONTENT_UPDATED = 'content.updated';
+    public const CONTENT_DELETED = 'content.deleted';
+    public const CONTENT_SUBMITTED = 'content.submitted';
+    public const CONTENT_APPROVED = 'content.approved';
+    public const CONTENT_CHANGES_REQUESTED = 'content.changes_requested';
+    public const CONTENT_SCHEDULED = 'content.scheduled';
+    public const CAMPAIGN_CREATED = 'campaign.created';
+
     // Social connections
     public const SOCIAL_CONNECTED = 'social.connected';
     public const SOCIAL_DISCONNECTED = 'social.disconnected';
