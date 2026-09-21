@@ -7,7 +7,7 @@ namespace App\Modules\SocialConnections\Contracts;
 /**
  * Contrato de proveedor social. El dominio nunca se acopla a Meta/LinkedIn/etc.:
  * interactúa a través de este contrato (docs/06). Cubre el ciclo de vida de la
- * conexión OAuth; la publicación y las métricas se añaden en fases posteriores.
+ * conexión OAuth, la publicación y la lectura de métricas.
  */
 interface SocialProviderInterface
 {
@@ -95,4 +95,26 @@ interface SocialProviderInterface
         PublishPayload $payload,
         array $credentials,
     ): PublishResult;
+
+    /**
+     * Métricas actuales de la cuenta/página (analítica de cuenta).
+     *
+     * @param  array<string, string>  $credentials
+     */
+    public function fetchAccountMetrics(
+        OAuthTokens $tokens,
+        string $destinationExternalId,
+        array $credentials,
+    ): AccountMetrics;
+
+    /**
+     * Métricas actuales de una publicación por su id remoto (analítica de post).
+     *
+     * @param  array<string, string>  $credentials
+     */
+    public function fetchPostMetrics(
+        OAuthTokens $tokens,
+        string $remoteId,
+        array $credentials,
+    ): PostMetrics;
 }

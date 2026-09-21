@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Modules\SocialConnections\Providers;
 
+use App\Modules\SocialConnections\Contracts\AccountMetrics;
 use App\Modules\SocialConnections\Contracts\OAuthTokens;
+use App\Modules\SocialConnections\Contracts\PostMetrics;
 use App\Modules\SocialConnections\Contracts\PublishPayload;
 use App\Modules\SocialConnections\Contracts\PublishResult;
 use App\Modules\SocialConnections\Contracts\RemoteDestination;
@@ -179,6 +181,25 @@ class FacebookProvider implements SocialProviderInterface
         // que la app haya superado la revisión de Meta. Queda como TODO del MVP.
         throw new ProviderNotConfiguredException(
             'La publicación en Meta requiere revisión de app y token de página; pendiente de configuración.',
+        );
+    }
+
+    public function fetchAccountMetrics(
+        OAuthTokens $tokens,
+        string $destinationExternalId,
+        array $credentials,
+    ): AccountMetrics {
+        // La analítica de Páginas usa el page access token y métricas de Insights,
+        // que requieren revisión de app. Pendiente de configuración productiva.
+        throw new ProviderNotConfiguredException(
+            'La analítica de Meta requiere revisión de app y token de página; pendiente de configuración.',
+        );
+    }
+
+    public function fetchPostMetrics(OAuthTokens $tokens, string $remoteId, array $credentials): PostMetrics
+    {
+        throw new ProviderNotConfiguredException(
+            'La analítica de Meta requiere revisión de app y token de página; pendiente de configuración.',
         );
     }
 

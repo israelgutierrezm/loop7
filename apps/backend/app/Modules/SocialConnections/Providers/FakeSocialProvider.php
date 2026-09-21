@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Modules\SocialConnections\Providers;
 
+use App\Modules\SocialConnections\Contracts\AccountMetrics;
 use App\Modules\SocialConnections\Contracts\OAuthTokens;
+use App\Modules\SocialConnections\Contracts\PostMetrics;
 use App\Modules\SocialConnections\Contracts\PublishPayload;
 use App\Modules\SocialConnections\Contracts\PublishResult;
 use App\Modules\SocialConnections\Contracts\RemoteDestination;
@@ -121,5 +123,40 @@ class FakeSocialProvider implements SocialProviderInterface
             : Str::random(10));
 
         return new PublishResult($remoteId, "https://fake.social/{$destinationExternalId}/{$remoteId}");
+    }
+
+    public function fetchAccountMetrics(
+        OAuthTokens $tokens,
+        string $destinationExternalId,
+        array $credentials,
+    ): AccountMetrics {
+        // Valores deterministas por destino: estables entre ejecuciones, distintos
+        // por cuenta. Suficiente para demostrar dashboards con datos de muestra.
+        $seed = crc32($destinationExternalId);
+
+        return new AccountMetrics(
+            followers: 1200 + ($seed % 8800),
+            reach: 3000 + ($seed % 12000),
+            impressions: 5000 + ($seed % 20000),
+            engagement: 200 + ($seed % 1800),
+            postsCount: 10 + ($seed % 90),
+        );
+    }
+
+    public function fetchPostMetrics(OAuthTokens $tokens, string $remoteId, array $credentials): PostMetrics
+    {
+        $seed = crc32($remoteId);
+        $impressions = 400 + ($seed % 4600);
+        $reach = (int) round($impressions * 0.82);
+        $likes = (int) round($impressions * (0.02 + ($seed % 5) / 100));
+
+        return new PostMetrics(
+            impressions: $impressions,
+            reach: $reach,
+            likes: $likes,
+            comments: (int) round($likes * 0.15),
+            shares: (int) round($likes * 0.1),
+            clicks: (int) round($impressions * 0.03),
+        );
     }
 }

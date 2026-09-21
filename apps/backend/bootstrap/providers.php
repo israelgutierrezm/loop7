@@ -18,5 +18,6 @@ return [
     App\Modules\Campaigns\CampaignsServiceProvider::class,
     App\Modules\Content\ContentServiceProvider::class,
     App\Modules\Ai\AiServiceProvider::class,
+    App\Modules\Analytics\AnalyticsServiceProvider::class,
     App\Modules\PlatformAdmin\PlatformAdminServiceProvider::class,
 ];
