@@ -34,6 +34,7 @@ const routes: RouteRecordRaw[] = [
 
       { path: 'content', name: 'content', component: () => import('@/views/app/ContentView.vue'), meta: { title: 'Contenido' } },
       { path: 'content/:content', name: 'content-detail', component: () => import('@/views/app/ContentDetailView.vue'), meta: { title: 'Contenido' } },
+      { path: 'ai', name: 'ai', component: () => import('@/views/app/AiView.vue'), meta: { title: 'Asistente IA' } },
       { path: 'media', component: ComingSoon, meta: { title: 'Biblioteca' } },
       { path: 'calendar', name: 'calendar', component: () => import('@/views/app/CalendarView.vue'), meta: { title: 'Calendario' } },
       { path: 'social', component: ComingSoon, meta: { title: 'Redes sociales' } },
@@ -55,6 +56,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'users', name: 'platform-users', component: () => import('@/views/platform/PlatformUsersView.vue'), meta: { title: 'Usuarios' } },
       { path: 'gateways', name: 'platform-gateways', component: () => import('@/views/platform/PlatformGatewaysView.vue'), meta: { title: 'Pasarelas' } },
       { path: 'social', name: 'platform-social', component: () => import('@/views/platform/PlatformSocialProvidersView.vue'), meta: { title: 'Integraciones' } },
+      { path: 'ai-providers', name: 'platform-ai', component: () => import('@/views/platform/PlatformAiProvidersView.vue'), meta: { title: 'IA' } },
       { path: 'jobs', name: 'platform-jobs', component: () => import('@/views/platform/PlatformJobsView.vue'), meta: { title: 'Colas' } },
     ],
   },

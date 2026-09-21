@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Database\Seeders;
 
 use App\Modules\AccessControl\Database\Seeders\RolesAndPermissionsSeeder;
+use App\Modules\Ai\Database\Seeders\AiProviderSeeder;
 use App\Modules\Billing\Database\Seeders\BillingSeeder;
 use App\Modules\Payments\Database\Seeders\PaymentGatewaySeeder;
 use App\Modules\SocialConnections\Database\Seeders\SocialProviderSeeder;
@@ -24,6 +25,7 @@ class PlatformBaseSeeder extends Seeder
             BillingSeeder::class,
             PaymentGatewaySeeder::class,
             SocialProviderSeeder::class,
+            AiProviderSeeder::class,
         ]);
     }
 }

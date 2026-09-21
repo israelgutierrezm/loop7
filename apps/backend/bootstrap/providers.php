@@ -17,5 +17,6 @@ return [
     App\Modules\SocialConnections\SocialConnectionsServiceProvider::class,
     App\Modules\Campaigns\CampaignsServiceProvider::class,
     App\Modules\Content\ContentServiceProvider::class,
+    App\Modules\Ai\AiServiceProvider::class,
     App\Modules\PlatformAdmin\PlatformAdminServiceProvider::class,
 ];

@@ -21,6 +21,7 @@ interface Variant { id: string; provider: string; body: string | null; format: s
 interface Comment { id: string; body: string; author: string | null; created_at: string | null }
 interface Content {
   id: string
+  brand: string | null
   title: string
   body: string | null
   type: string
@@ -45,6 +46,56 @@ const busy = ref(false)
 const newVariant = reactive({ provider: 'facebook', body: '', format: 'text' })
 const newComment = ref('')
 const scheduleAt = ref('')
+
+// Asistente de IA
+const canUseAi = computed(() => auth.can('ai.generate_text'))
+const aiBrief = ref('')
+const showAiBrief = ref(false)
+const aiBusy = ref(false)
+
+async function generateBase(): Promise<void> {
+  if (!content.value?.brand) return
+  if (!aiBrief.value.trim()) {
+    toasts.error('Describe qué quieres publicar.')
+    return
+  }
+  aiBusy.value = true
+  try {
+    const { data } = await http.post(`/brands/${content.value.brand}/ai/text`, {
+      prompt: aiBrief.value,
+      operation: 'generate_post',
+    })
+    content.value.body = data.data.text
+    toasts.success(`Contenido generado (${data.data.credits} créditos).`)
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    aiBusy.value = false
+  }
+}
+
+async function adaptVariant(): Promise<void> {
+  if (!content.value?.brand) return
+  const base = content.value.body?.trim() || content.value.title
+  if (!base) {
+    toasts.error('Escribe primero el contenido base.')
+    return
+  }
+  aiBusy.value = true
+  try {
+    const { data } = await http.post(`/brands/${content.value.brand}/ai/text`, {
+      prompt: base,
+      operation: 'adapt_variant',
+      network: newVariant.provider,
+    })
+    newVariant.body = data.data.text
+    toasts.success(`Variante adaptada (${data.data.credits} créditos).`)
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    aiBusy.value = false
+  }
+}
 
 // Clases del badge según el estado del destino de publicación.
 const targetBadgeClass: Record<string, string> = {
@@ -213,7 +264,33 @@ onUnmounted(stopPolling)
         <!-- Contenido base + variantes -->
         <div class="space-y-6 lg:col-span-2">
           <div class="card p-6">
-            <h3 class="mb-4 font-semibold text-slate-900 dark:text-white">Contenido base</h3>
+            <div class="mb-4 flex items-center justify-between">
+              <h3 class="font-semibold text-slate-900 dark:text-white">Contenido base</h3>
+              <button
+                v-if="content.editable && canUseAi"
+                class="btn-secondary text-sm"
+                :disabled="aiBusy"
+                @click="showAiBrief = !showAiBrief"
+              >
+                <AppIcon name="sparkles" :size="16" /> Generar con IA
+              </button>
+            </div>
+
+            <!-- Brief para generación con IA -->
+            <div v-if="showAiBrief && content.editable && canUseAi" class="mb-4 rounded-lg border border-brand-100 bg-brand-50/50 p-3 dark:border-brand-900 dark:bg-brand-950/30">
+              <textarea
+                v-model="aiBrief"
+                rows="2"
+                class="input"
+                placeholder="Describe qué quieres comunicar (p. ej. lanzamiento de producto, promoción de verano…)"
+              />
+              <div class="mt-2 flex justify-end">
+                <button class="btn-primary text-sm" :disabled="aiBusy" @click="generateBase">
+                  <AppIcon name="sparkles" :size="16" /> {{ aiBusy ? 'Generando…' : 'Generar borrador' }}
+                </button>
+              </div>
+            </div>
+
             <fieldset :disabled="!content.editable || !auth.can('content.update')" class="space-y-4">
               <input v-model="content.title" class="input" placeholder="Título" />
               <textarea v-model="content.body" rows="4" class="input" placeholder="Texto base" />
@@ -263,6 +340,16 @@ onUnmounted(stopPolling)
                 <option value="tiktok">TikTok</option>
               </select>
               <input v-model="newVariant.body" class="input flex-1" placeholder="Texto adaptado para esta red" />
+              <button
+                v-if="canUseAi"
+                type="button"
+                class="btn-secondary"
+                :disabled="aiBusy"
+                :title="'Adaptar el contenido base para ' + newVariant.provider"
+                @click="adaptVariant"
+              >
+                <AppIcon name="sparkles" :size="16" /> IA
+              </button>
               <button type="submit" class="btn-primary" :disabled="busy">Añadir</button>
             </form>
           </div>

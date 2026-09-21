@@ -74,4 +74,12 @@ final class AuditAction
     public const SOCIAL_DISCONNECTED = 'social.disconnected';
     public const SOCIAL_RECONNECTED = 'social.reconnected';
     public const SOCIAL_TOKEN_REFRESHED = 'social.token_refreshed';
+
+    // IA
+    public const AI_TEXT_GENERATED = 'ai.text_generated';
+    public const AI_IMAGE_GENERATED = 'ai.image_generated';
+    public const AI_GENERATION_FAILED = 'ai.generation_failed';
+    public const AI_KEY_UPDATED = 'ai.key_updated';
+    public const AI_KEY_REMOVED = 'ai.key_removed';
+    public const AI_PROVIDER_UPDATED = 'ai.provider_updated';
 }

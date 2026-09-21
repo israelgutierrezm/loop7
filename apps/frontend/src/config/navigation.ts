@@ -21,6 +21,7 @@ export const navigation: NavGroup[] = [
     label: 'Contenido',
     items: [
       { label: 'Crear', to: '/app/content', icon: 'content', permission: 'content.view' },
+      { label: 'Asistente IA', to: '/app/ai', icon: 'ai', permission: 'ai.view_usage' },
       { label: 'Biblioteca', to: '/app/media', icon: 'brands', soon: true },
       { label: 'Calendario', to: '/app/calendar', icon: 'calendar', permission: 'content.view' },
     ],

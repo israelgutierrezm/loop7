@@ -76,7 +76,7 @@ class ContentController extends Controller
         abort_unless(request()->user()->can('content.view'), 403);
 
         return ApiResponse::success($this->present($model->load([
-            'variants.media', 'variants.targets.destination', 'comments.user',
+            'brand', 'variants.media', 'variants.targets.destination', 'comments.user',
         ])));
     }
 
@@ -126,6 +126,7 @@ class ContentController extends Controller
     {
         return [
             'id' => $content->public_id,
+            'brand' => $content->relationLoaded('brand') ? $content->brand?->public_id : null,
             'title' => $content->title,
             'body' => $content->body,
             'type' => $content->type->value,
