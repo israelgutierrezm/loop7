@@ -13,5 +13,6 @@ return [
     App\Modules\Audit\AuditServiceProvider::class,
     App\Modules\Billing\BillingServiceProvider::class,
     App\Modules\Payments\PaymentsServiceProvider::class,
+    App\Modules\MediaLibrary\MediaLibraryServiceProvider::class,
     App\Modules\PlatformAdmin\PlatformAdminServiceProvider::class,
 ];

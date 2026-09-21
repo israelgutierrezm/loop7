@@ -13,6 +13,7 @@ parameters:
         - app/Modules/Audit/Database/Migrations
         - app/Modules/Billing/Database/Migrations
         - app/Modules/Payments/Database/Migrations
+        - app/Modules/MediaLibrary/Database/Migrations
     excludePaths:
         - app/Modules/*/Database/Migrations/*
     checkModelProperties: false
