@@ -26,6 +26,9 @@ class ContextController extends Controller
         $user = $request->user();
 
         $permissions = $memberships->permissionsFor($user, $organization);
+        // Rol(es) del usuario en la Organization actual, para que el contexto sea
+        // coherente con /me y el frontend pueda mostrarlos.
+        $organization->current_roles = $memberships->rolesFor($user, $organization);
 
         $hasAllBrands = $organization->users()
             ->where('users.id', $user->id)
