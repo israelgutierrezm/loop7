@@ -22,5 +22,6 @@ return [
     App\Modules\Inbox\InboxServiceProvider::class,
     App\Modules\Automations\AutomationsServiceProvider::class,
     App\Modules\Api\ApiServiceProvider::class,
+    App\Modules\Compliance\ComplianceServiceProvider::class,
     App\Modules\PlatformAdmin\PlatformAdminServiceProvider::class,
 ];

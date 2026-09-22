@@ -54,3 +54,28 @@ El frontend debe habilitar/deshabilitar formatos según capabilities reales.
 
 ## Regla
 Antes de implementar una integración, revisar documentación oficial vigente, permisos, revisión/auditoría de app, límites, quotas, políticas de almacenamiento y restricciones de contenido.
+
+---
+
+## Cumplimiento para Meta App Review
+
+Meta exige, además de la app (App ID/Secret) y el OAuth redirect HTTPS, tres cosas
+que el App Review revisa. Ya están construidas del lado del código:
+
+- **Política de Privacidad (URL pública):** `/privacidad` (SPA, sin login).
+- **Términos de servicio (URL pública):** `/terminos`.
+- **Borrado de datos:** `/eliminar-datos` (instrucciones + consulta de estado) y el
+  **callback firmado** `POST /api/v1/data-deletion/facebook`, que:
+  - verifica el `signed_request` con HMAC-SHA256 y el App Secret del proveedor;
+  - registra la solicitud (`data_deletion_requests`) y lanza `PurgeExternalUserData`
+    (borra conexiones cuya cuenta pertenece al usuario y sus conversaciones de inbox);
+  - responde con `{ url, confirmation_code }` (formato requerido por Meta).
+  - Está exento de CSRF (llamada servidor-a-servidor).
+
+Plantillas legales: `PrivacyView`/`TermsView` traen placeholders `[NOMBRE DE LA
+EMPRESA]`, `[CORREO DE CONTACTO]`, `[PAÍS/JURISDICCIÓN]` — completar y revisar con
+asesoría legal antes de enviar a revisión.
+
+**Fuera del código (trámite del titular ante Meta):** verificación de negocio,
+screencast y justificación de cada permiso, y poner la app en modo *Live*. El
+almacenamiento seguro de tokens (cifrado at-rest) ya se cumple.

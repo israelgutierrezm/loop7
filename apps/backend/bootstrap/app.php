@@ -62,6 +62,12 @@ return Application::configure(basePath: dirname(__DIR__))
             'apikey' => AuthenticateApiKey::class,
             'scope' => EnsureApiScope::class,
         ]);
+
+        // Webhooks/callbacks públicos (llamadas servidor-a-servidor): sin CSRF.
+        $middleware->validateCsrfTokens(except: [
+            'api/v1/webhooks/payments/*',
+            'api/v1/data-deletion/*',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // Respuestas JSON consistentes para la API (mensajes en español + code estable).

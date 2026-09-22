@@ -4,6 +4,11 @@ import { useAuthStore } from '@/stores/auth'
 const routes: RouteRecordRaw[] = [
   { path: '/', redirect: '/app' },
 
+  // Páginas legales públicas (requisitos de Meta / privacidad).
+  { path: '/privacidad', name: 'privacy', component: () => import('@/views/legal/PrivacyView.vue') },
+  { path: '/terminos', name: 'terms', component: () => import('@/views/legal/TermsView.vue') },
+  { path: '/eliminar-datos', name: 'data-deletion', component: () => import('@/views/legal/DataDeletionView.vue') },
+
   {
     path: '/',
     component: () => import('@/layouts/AuthLayout.vue'),

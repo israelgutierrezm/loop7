@@ -40,6 +40,11 @@ const features = [
           <AppLogo />
         </div>
         <RouterView />
+        <div class="mt-8 flex flex-wrap justify-center gap-4 text-xs text-slate-400">
+          <RouterLink to="/privacidad" class="hover:text-brand-600">Privacidad</RouterLink>
+          <RouterLink to="/terminos" class="hover:text-brand-600">Términos</RouterLink>
+          <RouterLink to="/eliminar-datos" class="hover:text-brand-600">Borrado de datos</RouterLink>
+        </div>
       </div>
     </div>
   </div>
