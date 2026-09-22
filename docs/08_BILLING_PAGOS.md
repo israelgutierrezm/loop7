@@ -55,3 +55,11 @@ TRIALING, ACTIVE, PAST_DUE, GRACE, SUSPENDED, CANCELLED, EXPIRED.
 
 ## Webhooks
 Persistir evento externo con unique provider_event_id. Procesar una sola vez. Conservar payload sanitizado/seguro según necesidad de soporte.
+
+## Probar conexión (SUPERADMIN)
+Cada `PaymentGatewayInterface` expone `verifyCredentials(credentials)` (Stripe hace
+`GET /v1/balance`; Mercado Pago `GET /users/me`; Manual es no-op; Openpay pendiente).
+Endpoint `POST /platform/payment-gateways/{gateway}/test` verifica las credenciales
+del **entorno activo** (test/producción) y devuelve `{ ok, environment, message }`.
+El panel tiene un botón **"Probar conexión"** por pasarela. No expone el secreto
+(las credenciales siguen cifradas y enmascaradas).

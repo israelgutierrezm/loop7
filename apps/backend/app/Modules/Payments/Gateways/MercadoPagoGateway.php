@@ -11,6 +11,8 @@ use App\Modules\Payments\Contracts\PaymentGatewayInterface;
 use App\Modules\Payments\Contracts\WebhookEvent;
 use App\Modules\Payments\Exceptions\GatewayNotImplementedException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
+use RuntimeException;
 
 /**
  * Adaptador de Mercado Pago (esqueleto MVP). Verificación de firma best-effort
@@ -49,6 +51,20 @@ class MercadoPagoGateway implements PaymentGatewayInterface
         $expected = hash_hmac('sha256', $request->getContent(), $secret);
 
         return hash_equals($expected, $signature);
+    }
+
+    public function verifyCredentials(array $credentials): void
+    {
+        // En Mercado Pago el "secret_key" del formulario contiene el Access Token.
+        $token = $credentials['secret_key'] ?? '';
+        if ($token === '') {
+            throw new RuntimeException('Falta el Access Token (secret_key).');
+        }
+
+        $response = Http::withToken($token)->timeout(15)->get('https://api.mercadopago.com/users/me');
+        if ($response->failed()) {
+            throw new RuntimeException('Mercado Pago rechazó el token (HTTP ' . $response->status() . ').');
+        }
     }
 
     public function parseWebhook(Request $request): WebhookEvent

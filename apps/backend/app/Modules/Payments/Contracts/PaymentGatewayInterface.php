@@ -27,6 +27,14 @@ interface PaymentGatewayInterface
     public function verifyWebhook(Request $request, array $credentials): bool;
 
     /**
+     * Verifica que las credenciales del entorno son válidas ("probar conexión").
+     * Lanza una excepción si la verificación falla.
+     *
+     * @param  array<string, string>  $credentials
+     */
+    public function verifyCredentials(array $credentials): void;
+
+    /**
      * Normaliza el webhook a un WebhookEvent (id + tipo + datos).
      */
     public function parseWebhook(Request $request): WebhookEvent;

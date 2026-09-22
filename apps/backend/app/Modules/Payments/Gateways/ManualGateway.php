@@ -34,6 +34,11 @@ class ManualGateway implements PaymentGatewayInterface
         return hash_equals($secret, (string) $request->header('X-Webhook-Secret'));
     }
 
+    public function verifyCredentials(array $credentials): void
+    {
+        // Pasarela manual: no hay API externa que validar.
+    }
+
     public function parseWebhook(Request $request): WebhookEvent
     {
         $payload = $request->json()->all();

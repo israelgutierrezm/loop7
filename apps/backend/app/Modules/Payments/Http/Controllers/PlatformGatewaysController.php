@@ -9,10 +9,12 @@ use App\Modules\Audit\Enums\AuditAction;
 use App\Modules\Audit\Services\AuditLogger;
 use App\Modules\Payments\Models\PaymentGateway;
 use App\Modules\Payments\Models\PaymentGatewayCredential;
+use App\Modules\Payments\Services\GatewayManager;
 use App\Support\Http\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Throwable;
 
 /**
  * Gestión de pasarelas desde SUPERADMIN. Las credenciales se guardan cifradas
@@ -20,8 +22,41 @@ use Illuminate\Validation\Rule;
  */
 class PlatformGatewaysController extends Controller
 {
-    public function __construct(private readonly AuditLogger $audit)
+    public function __construct(
+        private readonly AuditLogger $audit,
+        private readonly GatewayManager $manager,
+    ) {
+    }
+
+    /**
+     * Prueba de conexión: verifica las credenciales del entorno activo contra la
+     * pasarela real. No expone el secreto.
+     */
+    public function test(string $gateway): JsonResponse
     {
+        $record = PaymentGateway::query()->with('credentials')->where('key', $gateway)->firstOrFail();
+        $adapter = $this->manager->adapter($gateway);
+
+        if ($adapter === null) {
+            return ApiResponse::success(['ok' => false, 'message' => 'Pasarela no disponible.']);
+        }
+
+        $credentials = $record->credentials
+            ->where('environment', $record->environment)
+            ->mapWithKeys(fn (PaymentGatewayCredential $c) => [$c->key => (string) $c->value])
+            ->all();
+
+        try {
+            $adapter->verifyCredentials($credentials);
+        } catch (Throwable $e) {
+            return ApiResponse::success([
+                'ok' => false, 'environment' => $record->environment, 'message' => $e->getMessage(),
+            ]);
+        }
+
+        return ApiResponse::success([
+            'ok' => true, 'environment' => $record->environment, 'message' => 'Conexión correcta.',
+        ]);
     }
 
     public function index(): JsonResponse

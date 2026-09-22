@@ -19,6 +19,7 @@ const toasts = useToastStore()
 const gateways = ref<Gateway[]>([])
 const loading = ref(true)
 const failed = ref(false)
+const tests = reactive<Record<string, { loading: boolean; ok?: boolean; message?: string }>>({})
 
 // Formulario de credenciales por gateway.
 const forms = reactive<Record<string, { environment: string; secret_key: string; public_key: string; webhook_secret: string }>>({})
@@ -46,6 +47,16 @@ async function update(g: Gateway, patch: Partial<Gateway>): Promise<void> {
     toasts.success('Pasarela actualizada.')
   } catch (e) {
     toasts.error(apiErrorMessage(e))
+  }
+}
+
+async function test(g: Gateway): Promise<void> {
+  tests[g.key] = { loading: true }
+  try {
+    const { data } = await http.post(`/platform/payment-gateways/${g.key}/test`)
+    tests[g.key] = { loading: false, ok: data.data.ok, message: data.data.message }
+  } catch (e) {
+    tests[g.key] = { loading: false, ok: false, message: apiErrorMessage(e) }
   }
 }
 
@@ -97,6 +108,9 @@ onMounted(load)
             </div>
           </div>
           <div class="flex items-center gap-3">
+            <button class="btn-secondary text-xs" :disabled="tests[g.key]?.loading" @click="test(g)">
+              <AppIcon name="billing" :size="14" :class="tests[g.key]?.loading ? 'animate-pulse' : ''" /> Probar conexión
+            </button>
             <select
               class="input w-auto py-1.5 text-sm"
               :value="g.environment"
@@ -116,6 +130,15 @@ onMounted(load)
             </label>
           </div>
         </div>
+
+        <!-- Resultado de la prueba de conexión -->
+        <p
+          v-if="tests[g.key]?.message"
+          class="mt-3 text-xs font-medium"
+          :class="tests[g.key]?.ok ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
+        >
+          {{ tests[g.key]?.ok ? '✓' : '✗' }} {{ tests[g.key]?.message }}
+        </p>
 
         <!-- Credenciales existentes (enmascaradas) -->
         <div v-if="g.credentials.length" class="mt-4 flex flex-wrap gap-2">

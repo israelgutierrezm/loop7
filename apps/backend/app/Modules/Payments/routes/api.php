@@ -15,4 +15,5 @@ Route::prefix('platform')->middleware(['auth:sanctum', 'superadmin'])->group(fun
     Route::get('/payment-gateways', [PlatformGatewaysController::class, 'index']);
     Route::put('/payment-gateways/{gateway}', [PlatformGatewaysController::class, 'update']);
     Route::put('/payment-gateways/{gateway}/credentials', [PlatformGatewaysController::class, 'setCredentials']);
+    Route::post('/payment-gateways/{gateway}/test', [PlatformGatewaysController::class, 'test']);
 });

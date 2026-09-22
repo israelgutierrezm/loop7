@@ -11,6 +11,7 @@ use App\Modules\Payments\Contracts\PaymentGatewayInterface;
 use App\Modules\Payments\Contracts\WebhookEvent;
 use App\Modules\Payments\Exceptions\GatewayNotImplementedException;
 use Illuminate\Http\Request;
+use RuntimeException;
 
 /**
  * Adaptador de Openpay (esqueleto MVP). Openpay usa verificación por secreto
@@ -36,6 +37,13 @@ class OpenpayGateway implements PaymentGatewayInterface
             ?? $request->header('X-Webhook-Secret', ''));
 
         return $provided !== '' && hash_equals($secret, $provided);
+    }
+
+    public function verifyCredentials(array $credentials): void
+    {
+        // Openpay requiere merchant_id y URL de entorno específicos, aún no modelados
+        // en el formulario genérico de credenciales.
+        throw new RuntimeException('La prueba de conexión de Openpay aún no está disponible.');
     }
 
     public function parseWebhook(Request $request): WebhookEvent

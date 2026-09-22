@@ -11,6 +11,8 @@ use App\Modules\Payments\Contracts\PaymentGatewayInterface;
 use App\Modules\Payments\Contracts\WebhookEvent;
 use App\Modules\Payments\Exceptions\GatewayNotImplementedException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
+use RuntimeException;
 
 /**
  * Adaptador de Stripe. La verificación de firma de webhook es real (HMAC-SHA256
@@ -51,6 +53,19 @@ class StripeGateway implements PaymentGatewayInterface
         $expected = hash_hmac('sha256', $timestamp . '.' . $request->getContent(), $secret);
 
         return hash_equals($expected, $signature);
+    }
+
+    public function verifyCredentials(array $credentials): void
+    {
+        $secret = $credentials['secret_key'] ?? '';
+        if ($secret === '') {
+            throw new RuntimeException('Falta la clave secreta (secret_key).');
+        }
+
+        $response = Http::withToken($secret)->timeout(15)->get('https://api.stripe.com/v1/balance');
+        if ($response->failed()) {
+            throw new RuntimeException('Stripe rechazó la clave (HTTP ' . $response->status() . ').');
+        }
     }
 
     public function parseWebhook(Request $request): WebhookEvent
