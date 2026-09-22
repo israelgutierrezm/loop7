@@ -87,6 +87,40 @@ npm audit --omit=dev --audit-level=high
 4. Comunicar según obligaciones legales/contractuales.
 5. Post-mortem y acciones correctivas.
 
+## Despliegue con Docker / GHCR
+Imagen única del producto (SPA + API en el mismo origen): `Dockerfile` +
+`docker/` (Nginx + PHP-FPM + Supervisor). El workflow
+`.github/workflows/deploy.yml` la construye y publica en GHCR al crear un tag
+`vX.Y.Z` (o manualmente); no requiere secretos (usa `GITHUB_TOKEN`).
+
+```bash
+# Publicar una versión
+git tag v1.0.0 && git push origin v1.0.0
+# Imagen resultante: ghcr.io/israelgutierrezm/loop7:1.0.0 (y :latest)
+```
+
+**Contenedor web** (expone el puerto 8080; TLS lo termina tu proxy/LB):
+```bash
+docker run -d --name loop7-web -p 8080:8080 --env-file .env.production \
+  -e RUN_MIGRATIONS=true ghcr.io/israelgutierrezm/loop7:latest
+```
+- El entrypoint ejecuta `package:discover`, `storage:link`, `config:cache` y, si
+  `RUN_MIGRATIONS=true`, `migrate --force` (en despliegues con varias réplicas,
+  ejecuta la migración como job puntual y deja `RUN_MIGRATIONS` sin definir).
+- Health check integrado en `GET /up`.
+- Recuerda `APP_KEY`, `TRUSTED_PROXIES` y las variables de `[PROD]` del `.env`.
+
+**Worker y scheduler** (misma imagen, distinto comando):
+```bash
+docker run -d --name loop7-worker --env-file .env.production \
+  --entrypoint php ghcr.io/israelgutierrezm/loop7:latest artisan queue:work --queue=default
+
+docker run -d --name loop7-scheduler --env-file .env.production \
+  --entrypoint php ghcr.io/israelgutierrezm/loop7:latest artisan schedule:work
+```
+En Linux se puede usar Redis + Horizon (`artisan horizon`) en un contenedor
+dedicado. Trabajos fallidos operables desde `/platform/jobs`.
+
 ## Colas y jobs en producción
 Redis + Horizon (`php artisan horizon`, protegido tras auth/SUPERADMIN) y
 `php artisan schedule:run` por cron. Trabajos fallidos operables desde `/platform/jobs`.

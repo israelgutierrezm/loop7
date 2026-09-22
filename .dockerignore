@@ -1,0 +1,28 @@
+# Control de versiones / CI
+.git
+.github
+.gitignore
+
+# Dependencias y artefactos (se instalan/compilan en el build)
+apps/backend/vendor
+apps/backend/node_modules
+apps/frontend/node_modules
+apps/frontend/dist
+
+# Entorno y secretos (NUNCA entran en la imagen)
+**/.env
+**/.env.*
+!**/.env.example
+
+# Datos locales / logs / caché
+apps/backend/storage/*.key
+apps/backend/storage/logs/*
+apps/backend/storage/framework/cache/*
+apps/backend/storage/framework/sessions/*
+apps/backend/storage/framework/views/*
+apps/backend/bootstrap/cache/*
+apps/backend/database/*.sqlite
+
+# Docs y misceláneos que no afectan al runtime
+docs
+*.md
