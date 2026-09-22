@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Http\Middleware\RequestId;
+use App\Http\Middleware\SecurityHeaders;
 use App\Modules\Api\Http\Middleware\AuthenticateApiKey;
 use App\Modules\Api\Http\Middleware\EnsureApiScope;
 use App\Modules\Identity\Http\Middleware\EnsureSuperAdmin;
@@ -32,6 +34,10 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // Sanctum SPA: cookies + CSRF para el frontend Vue de dominios de confianza.
         $middleware->statefulApi();
+
+        // Correlation id (entrada) y cabeceras de seguridad (salida) en todas las rutas.
+        $middleware->prepend(RequestId::class);
+        $middleware->append(SecurityHeaders::class);
 
         $middleware->alias([
             'tenant' => ResolveTenant::class,

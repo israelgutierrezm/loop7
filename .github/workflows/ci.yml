@@ -47,6 +47,9 @@ jobs:
       - name: Tests (PHPUnit, SQLite en memoria)
         run: php artisan test
 
+      - name: Dependency audit (Composer)
+        run: composer audit --no-dev
+
   frontend:
     name: Frontend (Vue)
     runs-on: ubuntu-latest
@@ -71,3 +74,6 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Dependency audit (npm)
+        run: npm audit --omit=dev --audit-level=high

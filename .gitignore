@@ -27,3 +27,6 @@ Thumbs.db
 # Temporales
 *.tmp
 storage/*.key
+
+# Claude Code runtime
+.claude/scheduled_tasks.lock
