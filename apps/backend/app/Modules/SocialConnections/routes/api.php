@@ -17,6 +17,7 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function (): void {
     Route::get('/brands/{brand}/social/providers', [SocialConnectionsController::class, 'providers']);
     Route::get('/brands/{brand}/social/connections', [SocialConnectionsController::class, 'index']);
     Route::post('/brands/{brand}/social/connections/{provider}/authorize', [SocialConnectionsController::class, 'connect']);
+    Route::post('/brands/{brand}/social/connections/{provider}/manual', [SocialConnectionsController::class, 'connectManual']);
     Route::delete('/social/connections/{connection}', [SocialConnectionsController::class, 'destroy']);
 });
 

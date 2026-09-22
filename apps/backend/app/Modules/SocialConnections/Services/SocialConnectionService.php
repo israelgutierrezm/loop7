@@ -133,6 +133,70 @@ class SocialConnectionService
         });
     }
 
+    /**
+     * Crea una conexión manualmente a partir de un token capturado a mano (p. ej.
+     * un System User token o uno de pruebas), sin pasar por el flujo OAuth. Útil
+     * para conectar/probar antes de la revisión de la app. El token se cifra.
+     *
+     * @param  array{external_account_name: string, external_account_id?: string|null, access_token: string, refresh_token?: string|null, token_expires_at?: string|null, destinations?: list<array{external_id: string, name: string, type?: string}>}  $data
+     */
+    public function connectManually(Brand $brand, string $providerKey, User $user, array $data): SocialConnection
+    {
+        $record = $this->manager->record($providerKey);
+        $adapter = $this->manager->adapter($providerKey);
+
+        if ($record === null || ! $record->is_enabled || $adapter === null) {
+            throw ValidationException::withMessages([
+                'provider' => 'El proveedor social seleccionado no está disponible.',
+            ]);
+        }
+
+        $capabilities = $adapter->capabilities();
+
+        return DB::transaction(function () use ($brand, $providerKey, $user, $data, $capabilities): SocialConnection {
+            $connection = SocialConnection::query()->create([
+                'organization_id' => $brand->organization_id,
+                'brand_id' => $brand->id,
+                'provider' => $providerKey,
+                'status' => ConnectionStatus::CONNECTED->value,
+                'external_account_id' => $data['external_account_id'] ?? null,
+                'external_account_name' => $data['external_account_name'],
+                'access_token' => $data['access_token'],
+                'refresh_token' => $data['refresh_token'] ?? null,
+                'token_expires_at' => $data['token_expires_at'] ?? null,
+                'scopes' => [],
+                'connected_by_user_id' => $user->id,
+                'last_health_check_at' => now(),
+                'meta' => ['manual' => true],
+            ]);
+
+            foreach ($data['destinations'] ?? [] as $destination) {
+                $connection->destinations()->create([
+                    'organization_id' => $brand->organization_id,
+                    'external_id' => $destination['external_id'],
+                    'name' => $destination['name'],
+                    'type' => $destination['type'] ?? 'page',
+                    'capabilities' => $capabilities,
+                ]);
+            }
+
+            SocialTokenEvent::query()->create([
+                'organization_id' => $brand->organization_id,
+                'social_connection_id' => $connection->id,
+                'event' => 'connected',
+            ]);
+
+            $this->audit->log(
+                AuditAction::SOCIAL_CONNECTED,
+                $connection,
+                ['provider' => $providerKey, 'account' => $data['external_account_name'], 'manual' => true],
+                organizationId: $brand->organization_id,
+            );
+
+            return $connection;
+        });
+    }
+
     public function disconnect(SocialConnection $connection): void
     {
         $connection->forceFill([

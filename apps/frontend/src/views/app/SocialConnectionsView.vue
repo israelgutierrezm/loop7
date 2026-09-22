@@ -9,6 +9,7 @@ import PageHeader from '@/components/ui/PageHeader.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import ErrorState from '@/components/ui/ErrorState.vue'
 import StatCard from '@/components/StatCard.vue'
+import ManualConnectionDialog from '@/components/social/ManualConnectionDialog.vue'
 import AppIcon from '@/components/AppIcon.vue'
 
 interface Connection {
@@ -33,6 +34,13 @@ const failed = ref(false)
 
 const totalConnections = computed(() => blocks.value.reduce((n, b) => n + b.connections.length, 0))
 const brandsConnected = computed(() => blocks.value.filter((b) => b.connections.length > 0).length)
+
+const manualOpen = ref(false)
+const manualBrandId = ref<string | null>(null)
+function openManual(brandId: string): void {
+  manualBrandId.value = brandId
+  manualOpen.value = true
+}
 
 async function load(): Promise<void> {
   loading.value = true
@@ -161,7 +169,7 @@ onMounted(() => {
           <p v-else class="mb-4 text-sm text-slate-400">Sin cuentas conectadas.</p>
 
           <!-- Conectar -->
-          <div v-if="auth.can('social_accounts.connect') && providers.length" class="flex flex-wrap gap-2">
+          <div v-if="auth.can('social_accounts.connect') && providers.length" class="flex flex-wrap items-center gap-2">
             <button
               v-for="p in providers"
               :key="p.key"
@@ -170,9 +178,20 @@ onMounted(() => {
             >
               <AppIcon name="plus" :size="14" /> {{ p.name }}
             </button>
+            <button class="btn-ghost text-sm" @click="openManual(block.id)">
+              <AppIcon name="key" :size="14" /> Conexión manual
+            </button>
           </div>
         </div>
       </div>
     </template>
+
+    <ManualConnectionDialog
+      :open="manualOpen"
+      :brand-id="manualBrandId"
+      :providers="providers"
+      @close="manualOpen = false"
+      @connected="load"
+    />
   </div>
 </template>

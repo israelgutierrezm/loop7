@@ -79,3 +79,18 @@ asesoría legal antes de enviar a revisión.
 **Fuera del código (trámite del titular ante Meta):** verificación de negocio,
 screencast y justificación de cada permiso, y poner la app en modo *Live*. El
 almacenamiento seguro de tokens (cifrado at-rest) ya se cumple.
+
+## Conexión manual por token
+
+Además del flujo OAuth, existe una **conexión manual** para capturar un token a
+mano (p. ej. un System User token o uno de pruebas del Graph API Explorer), útil
+para conectar/probar antes de completar la revisión de Meta:
+
+- `POST /api/v1/brands/{brand}/social/connections/{provider}/manual` con
+  `external_account_name`, `access_token` (obligatorios), `external_account_id`,
+  `refresh_token`, `token_expires_at` y `destinations[]` opcionales. Permiso
+  `social_accounts.connect`; el proveedor debe estar habilitado.
+- El token se guarda **cifrado** (igual que en OAuth). Es una función interna que
+  **no afecta** al App Review (no usa el Login de Meta).
+- Frontend: botón "Conexión manual" en *Redes sociales* (`/app/social`), diálogo
+  `ManualConnectionDialog`.

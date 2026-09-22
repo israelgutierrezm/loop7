@@ -66,6 +66,31 @@ class SocialConnectionsController extends Controller
         return ApiResponse::success(['authorize_url' => $url]);
     }
 
+    /**
+     * Conexión manual: captura un token a mano (sin OAuth) y crea la conexión.
+     */
+    public function connectManual(Request $request, string $brand, string $provider): JsonResponse
+    {
+        $brandModel = $this->resolveBrand($brand);
+        abort_unless($request->user()->can('social_accounts.connect'), 403);
+
+        $data = $request->validate([
+            'external_account_name' => ['required', 'string', 'max:120'],
+            'external_account_id' => ['nullable', 'string', 'max:120'],
+            'access_token' => ['required', 'string', 'max:4000'],
+            'refresh_token' => ['nullable', 'string', 'max:4000'],
+            'token_expires_at' => ['nullable', 'date'],
+            'destinations' => ['nullable', 'array', 'max:50'],
+            'destinations.*.external_id' => ['required_with:destinations', 'string', 'max:120'],
+            'destinations.*.name' => ['required_with:destinations', 'string', 'max:120'],
+            'destinations.*.type' => ['nullable', 'string', 'max:32'],
+        ]);
+
+        $connection = $this->service->connectManually($brandModel, $provider, $request->user(), $data);
+
+        return ApiResponse::success($this->present($connection->load('destinations')), 'Conexión creada.', status: 201);
+    }
+
     public function destroy(Request $request, string $connection): JsonResponse
     {
         /** @var SocialConnection $model */
