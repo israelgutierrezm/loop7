@@ -1,8 +1,6 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
-const ComingSoon = () => import('@/views/app/ComingSoonView.vue')
-
 const routes: RouteRecordRaw[] = [
   { path: '/', redirect: '/app' },
 
@@ -35,9 +33,9 @@ const routes: RouteRecordRaw[] = [
       { path: 'content', name: 'content', component: () => import('@/views/app/ContentView.vue'), meta: { title: 'Contenido' } },
       { path: 'content/:content', name: 'content-detail', component: () => import('@/views/app/ContentDetailView.vue'), meta: { title: 'Contenido' } },
       { path: 'ai', name: 'ai', component: () => import('@/views/app/AiView.vue'), meta: { title: 'Asistente IA' } },
-      { path: 'media', component: ComingSoon, meta: { title: 'Biblioteca' } },
+      { path: 'media', name: 'media', component: () => import('@/views/app/MediaLibraryView.vue'), meta: { title: 'Biblioteca' } },
       { path: 'calendar', name: 'calendar', component: () => import('@/views/app/CalendarView.vue'), meta: { title: 'Calendario' } },
-      { path: 'social', component: ComingSoon, meta: { title: 'Redes sociales' } },
+      { path: 'social', name: 'social', component: () => import('@/views/app/SocialConnectionsView.vue'), meta: { title: 'Redes sociales' } },
       { path: 'campaigns', name: 'campaigns', component: () => import('@/views/app/CampaignsView.vue'), meta: { title: 'Campañas' } },
       { path: 'inbox', name: 'inbox', component: () => import('@/views/app/InboxView.vue'), meta: { title: 'Inbox' } },
       { path: 'analytics', name: 'analytics', component: () => import('@/views/app/AnalyticsView.vue'), meta: { title: 'Analítica' } },

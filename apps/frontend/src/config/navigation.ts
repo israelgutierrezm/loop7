@@ -22,7 +22,7 @@ export const navigation: NavGroup[] = [
     items: [
       { label: 'Crear', to: '/app/content', icon: 'content', permission: 'content.view' },
       { label: 'Asistente IA', to: '/app/ai', icon: 'ai', permission: 'ai.view_usage' },
-      { label: 'Biblioteca', to: '/app/media', icon: 'brands', soon: true },
+      { label: 'Biblioteca', to: '/app/media', icon: 'brands', permission: 'content.view' },
       { label: 'Calendario', to: '/app/calendar', icon: 'calendar', permission: 'content.view' },
     ],
   },
@@ -30,7 +30,7 @@ export const navigation: NavGroup[] = [
     label: 'Gestión',
     items: [
       { label: 'Marcas', to: '/app/brands', icon: 'brands', permission: 'brands.view' },
-      { label: 'Redes sociales', to: '/app/social', icon: 'social', permission: 'social_accounts.view', soon: true },
+      { label: 'Redes sociales', to: '/app/social', icon: 'social', permission: 'social_accounts.view' },
       { label: 'Campañas', to: '/app/campaigns', icon: 'sparkles', permission: 'campaigns.view' },
       { label: 'Inbox', to: '/app/inbox', icon: 'inbox', permission: 'social_accounts.inbox' },
       { label: 'Analítica', to: '/app/analytics', icon: 'analytics', permission: 'analytics.view' },
