@@ -20,18 +20,34 @@ fallback `FRONTEND_URL`). `supports_credentials=true` (Sanctum) ⇒ nunca `*`.
 `App\Http\Middleware\RequestId` asigna `X-Request-Id` por request (acepta uno
 entrante con formato seguro), lo añade al contexto de logs y a la respuesta.
 
+## Proxy / HTTPS (detrás de balanceador o CDN)
+- `TRUSTED_PROXIES` (`*` o lista de IP/CIDR): necesario para que la app detecte
+  HTTPS por `X-Forwarded-Proto` y, con ello, envíe HSTS, marque cookies `Secure` y
+  genere URLs `https`. Se lee en `bootstrap/app.php` (funciona con variables de
+  entorno reales aunque se use `config:cache`).
+- En producción (`APP_ENV=production`) el esquema de URLs se fuerza a `https`
+  (`AppServiceProvider`), de modo que los `redirect_uri` de OAuth y las URLs
+  firmadas de media sean correctos.
+
 ## Variables de entorno mínimas en producción
 ```
 APP_ENV=production
 APP_DEBUG=false
+APP_URL=https://api.tudominio.com
+FRONTEND_URL=https://app.tudominio.com
+SESSION_DRIVER=redis
 SESSION_SECURE_COOKIE=true
 SESSION_SAME_SITE=lax
+SESSION_DOMAIN=.tudominio.com
 SANCTUM_STATEFUL_DOMAINS=app.tudominio.com
 CORS_ALLOWED_ORIGINS=https://app.tudominio.com
 SECURITY_HSTS=true
-LOG_CHANNEL=stack   # en prod: canal JSON (p.ej. stderr/json) para logs estructurados
+TRUSTED_PROXIES=*          # o la lista de IP/CIDR de tus balanceadores
 QUEUE_CONNECTION=redis
 CACHE_STORE=redis
+FILESYSTEM_DISK=s3
+LOG_CHANNEL=stack          # canal JSON hacia stdout/stderr para logs estructurados
+LOG_LEVEL=warning
 ```
 
 ## Backups y prueba de restore

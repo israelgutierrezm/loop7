@@ -33,4 +33,7 @@ return [
         'enabled' => (bool) env('SECURITY_HSTS', true),
         'value' => env('SECURITY_HSTS_VALUE', 'max-age=31536000; includeSubDomains'),
     ],
+
+    // Los proxies de confianza (TRUSTED_PROXIES) se configuran en bootstrap/app.php
+    // porque deben aplicarse antes de que el contenedor de config esté disponible.
 ];

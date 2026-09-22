@@ -39,6 +39,20 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->prepend(RequestId::class);
         $middleware->append(SecurityHeaders::class);
 
+        // Detrás de un proxy/balanceador con TLS: confiar para detectar HTTPS
+        // (necesario para HSTS, cookies Secure y URLs https). Se lee de env porque
+        // el contenedor de config aún no está disponible en este punto del arranque.
+        $proxies = (string) env('TRUSTED_PROXIES', '');
+        if ($proxies !== '') {
+            $middleware->trustProxies(
+                at: $proxies === '*' ? '*' : array_map('trim', explode(',', $proxies)),
+                headers: Request::HEADER_X_FORWARDED_FOR
+                    | Request::HEADER_X_FORWARDED_HOST
+                    | Request::HEADER_X_FORWARDED_PORT
+                    | Request::HEADER_X_FORWARDED_PROTO,
+            );
+        }
+
         $middleware->alias([
             'tenant' => ResolveTenant::class,
             'superadmin' => EnsureSuperAdmin::class,

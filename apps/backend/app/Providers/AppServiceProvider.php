@@ -9,6 +9,7 @@ use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -22,6 +23,12 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureRateLimiting();
+
+        // En producción todas las URLs generadas (redirect_uri OAuth, URLs
+        // firmadas de media, enlaces de correo) deben ser https.
+        if ($this->app->environment('production')) {
+            URL::forceScheme('https');
+        }
 
         // El enlace de restablecimiento de contraseña apunta al SPA (Vue).
         ResetPassword::createUrlUsing(function (object $notifiable, string $token): string {
