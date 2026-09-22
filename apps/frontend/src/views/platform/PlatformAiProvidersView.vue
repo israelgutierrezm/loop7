@@ -24,6 +24,7 @@ const providers = ref<Provider[]>([])
 const loading = ref(true)
 const failed = ref(false)
 const forms = reactive<Record<string, { api_key: string }>>({})
+const tests = reactive<Record<string, { loading: boolean; ok?: boolean; message?: string }>>({})
 
 async function load(): Promise<void> {
   loading.value = true
@@ -48,6 +49,16 @@ async function update(p: Provider, patch: Record<string, unknown>): Promise<void
     toasts.success('Proveedor actualizado.')
   } catch (e) {
     toasts.error(apiErrorMessage(e))
+  }
+}
+
+async function test(p: Provider): Promise<void> {
+  tests[p.key] = { loading: true }
+  try {
+    const { data } = await http.post(`/platform/ai-providers/${p.key}/test`)
+    tests[p.key] = { loading: false, ok: data.data.ok, message: data.data.message }
+  } catch (e) {
+    tests[p.key] = { loading: false, ok: false, message: apiErrorMessage(e) }
   }
 }
 
@@ -101,6 +112,9 @@ onMounted(load)
             </div>
           </div>
           <div class="flex items-center gap-3">
+            <button class="btn-secondary text-xs" :disabled="tests[p.key]?.loading" @click="test(p)">
+              <AppIcon name="refresh" :size="14" :class="tests[p.key]?.loading ? 'animate-spin' : ''" /> Probar conexión
+            </button>
             <button
               v-if="!p.is_default && p.is_enabled"
               class="btn-secondary text-xs"
@@ -119,6 +133,15 @@ onMounted(load)
             </label>
           </div>
         </div>
+
+        <!-- Resultado de la prueba de conexión -->
+        <p
+          v-if="tests[p.key]?.message"
+          class="mt-2 text-xs font-medium"
+          :class="tests[p.key]?.ok ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
+        >
+          {{ tests[p.key]?.ok ? '✓' : '✗' }} {{ tests[p.key]?.message }}
+        </p>
 
         <!-- Modelos por defecto -->
         <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">

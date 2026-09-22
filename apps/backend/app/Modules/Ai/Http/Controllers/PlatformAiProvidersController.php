@@ -6,20 +6,49 @@ namespace App\Modules\Ai\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Ai\Models\AiProvider;
+use App\Modules\Ai\Services\AiProviderManager;
 use App\Modules\Audit\Enums\AuditAction;
 use App\Modules\Audit\Services\AuditLogger;
 use App\Support\Http\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Throwable;
 
 /**
  * Configuración de proveedores de IA desde SUPERADMIN (docs/07): habilitar,
- * marcar por defecto, modelos y credenciales (cifradas y enmascaradas).
+ * marcar por defecto, modelos, credenciales (cifradas y enmascaradas) y prueba
+ * de conexión.
  */
 class PlatformAiProvidersController extends Controller
 {
-    public function __construct(private readonly AuditLogger $audit)
+    public function __construct(
+        private readonly AuditLogger $audit,
+        private readonly AiProviderManager $manager,
+    ) {
+    }
+
+    /**
+     * Prueba de conexión: verifica las credenciales guardadas contra el proveedor.
+     */
+    public function test(string $provider): JsonResponse
     {
+        $record = AiProvider::query()->where('key', $provider)->firstOrFail();
+        $adapter = $this->manager->textAdapter($provider);
+
+        if ($adapter === null) {
+            return ApiResponse::success(['ok' => false, 'message' => 'Este proveedor no tiene adaptador disponible.']);
+        }
+        if ($record->credentialMap() === [] && $provider !== 'fake') {
+            return ApiResponse::success(['ok' => false, 'message' => 'Configura y guarda la API key antes de probar.']);
+        }
+
+        try {
+            $adapter->verify($record->credentialMap());
+        } catch (Throwable $e) {
+            return ApiResponse::success(['ok' => false, 'message' => $e->getMessage()]);
+        }
+
+        return ApiResponse::success(['ok' => true, 'message' => 'Conexión correcta.']);
     }
 
     public function index(): JsonResponse

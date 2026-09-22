@@ -63,10 +63,18 @@ DTOs de petición/resultado en `app/Modules/Ai/Contracts`.
 ### Proveedores
 - **FakeAiProvider** (texto + imagen): funcional sin red, para dev/pruebas; simula
   fallo con el marcador `[[FAIL]]`.
-- **OpenAiProvider** (skeleton real): usa `Http` contra la API de OpenAI; sin
-  `api_key` lanza `AiProviderNotConfiguredException` (HTTP 503).
+- **OpenAiProvider** (skeleton real, texto + imagen): usa `Http` contra la API de
+  OpenAI; sin `api_key` lanza `AiProviderNotConfiguredException`.
+- **AnthropicProvider** (skeleton real, sólo texto): Messages API de Claude.
 - `AiProviderManager` resuelve el proveedor por modalidad (habilitado + por defecto
-  con adaptador disponible). Anthropic/Gemini quedan en el catálogo (sin adaptador aún).
+  con adaptador disponible). Gemini queda en el catálogo (sin adaptador aún).
+
+### Probar conexión (SUPERADMIN)
+Cada proveedor de texto expone `verify(credentials)` (OpenAI/Anthropic hacen un
+`GET /models`; fake es no-op). Endpoint `POST /platform/ai-providers/{provider}/test`
+verifica las credenciales guardadas y devuelve `{ ok, message }`. En el panel hay un
+botón **"Probar conexión"** por proveedor, además de habilitar/deshabilitar, marcar
+por defecto y elegir modelo.
 
 ### Brand Brain como contexto
 `BrandContextBuilder` compone voz/tono, propuestas de valor, CTA, hashtags,

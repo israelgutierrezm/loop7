@@ -56,6 +56,16 @@ class OpenAiProvider implements ImageAIProviderInterface, TextAIProviderInterfac
         );
     }
 
+    public function verify(array $credentials): void
+    {
+        $apiKey = $this->apiKey($credentials);
+        $response = Http::withToken($apiKey)->timeout(15)->get(self::BASE_URL . '/models');
+
+        if ($response->failed()) {
+            throw new RuntimeException('OpenAI rechazó la API key (HTTP ' . $response->status() . ').');
+        }
+    }
+
     public function generateImage(ImageGenerationRequest $request, array $credentials): ImageGenerationResult
     {
         $apiKey = $this->apiKey($credentials);

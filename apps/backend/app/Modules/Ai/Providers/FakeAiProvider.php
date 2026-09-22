@@ -35,6 +35,11 @@ class FakeAiProvider implements ImageAIProviderInterface, TextAIProviderInterfac
         return new TextGenerationResult($text, $model, $inputTokens, $outputTokens);
     }
 
+    public function verify(array $credentials): void
+    {
+        // El proveedor de prueba siempre está disponible.
+    }
+
     public function generateImage(ImageGenerationRequest $request, array $credentials): ImageGenerationResult
     {
         if (str_contains($request->prompt, '[[FAIL]]')) {

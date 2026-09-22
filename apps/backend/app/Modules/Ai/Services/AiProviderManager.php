@@ -8,6 +8,7 @@ use App\Modules\Ai\Contracts\ImageAIProviderInterface;
 use App\Modules\Ai\Contracts\TextAIProviderInterface;
 use App\Modules\Ai\Enums\AiModality;
 use App\Modules\Ai\Models\AiProvider;
+use App\Modules\Ai\Providers\AnthropicProvider;
 use App\Modules\Ai\Providers\FakeAiProvider;
 use App\Modules\Ai\Providers\OpenAiProvider;
 use Illuminate\Support\Collection;
@@ -28,8 +29,10 @@ class AiProviderManager
     {
         $fake = new FakeAiProvider();
         $openai = new OpenAiProvider();
+        $anthropic = new AnthropicProvider();
 
-        $this->textAdapters = ['fake' => $fake, 'openai' => $openai];
+        // Texto: fake, OpenAI y Anthropic. Imagen: fake y OpenAI (Anthropic no genera imágenes).
+        $this->textAdapters = ['fake' => $fake, 'openai' => $openai, 'anthropic' => $anthropic];
         $this->imageAdapters = ['fake' => $fake, 'openai' => $openai];
     }
 
