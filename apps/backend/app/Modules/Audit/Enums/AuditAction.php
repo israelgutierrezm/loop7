@@ -75,6 +75,10 @@ final class AuditAction
     public const SOCIAL_RECONNECTED = 'social.reconnected';
     public const SOCIAL_TOKEN_REFRESHED = 'social.token_refreshed';
 
+    // API pública
+    public const API_KEY_CREATED = 'api.key_created';
+    public const API_KEY_REVOKED = 'api.key_revoked';
+
     // Inbox
     public const INBOX_REPLIED = 'inbox.replied';
     public const INBOX_NOTE_ADDED = 'inbox.note_added';

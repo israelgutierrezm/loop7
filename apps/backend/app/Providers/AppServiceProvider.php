@@ -44,5 +44,14 @@ class AppServiceProvider extends ServiceProvider
 
         // Límite para los jobs de publicación social (protege las APIs externas).
         RateLimiter::for('social-publish', fn () => Limit::perMinute(60));
+
+        // Límite de la API pública por API key (o IP si aún no está resuelta).
+        RateLimiter::for('public-api', function (Request $request) {
+            $keyId = $request->attributes->get('api_key_id');
+
+            return $keyId !== null
+                ? Limit::perMinute(120)->by('apikey:' . $keyId)
+                : Limit::perMinute(30)->by($request->ip());
+        });
     }
 }

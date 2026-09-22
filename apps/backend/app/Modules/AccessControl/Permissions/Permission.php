@@ -79,6 +79,9 @@ final class Permission
     public const AUTOMATIONS_UPDATE = 'automations.update';
     public const AUTOMATIONS_DELETE = 'automations.delete';
 
+    // API pública
+    public const API_MANAGE = 'api.manage';
+
     // AI
     public const AI_USE = 'ai.use';
     public const AI_GENERATE_TEXT = 'ai.generate_text';
@@ -155,6 +158,9 @@ final class Permission
                 self::AUTOMATIONS_CREATE,
                 self::AUTOMATIONS_UPDATE,
                 self::AUTOMATIONS_DELETE,
+            ],
+            'api' => [
+                self::API_MANAGE,
             ],
             'billing' => [
                 self::BILLING_VIEW,

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Modules\Api\Http\Middleware\AuthenticateApiKey;
+use App\Modules\Api\Http\Middleware\EnsureApiScope;
 use App\Modules\Identity\Http\Middleware\EnsureSuperAdmin;
 use App\Modules\Organizations\Http\Middleware\ResolveTenant;
 use App\Support\Http\ApiResponse;
@@ -37,6 +39,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => RoleMiddleware::class,
             'permission' => PermissionMiddleware::class,
             'role_or_permission' => RoleOrPermissionMiddleware::class,
+            'apikey' => AuthenticateApiKey::class,
+            'scope' => EnsureApiScope::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

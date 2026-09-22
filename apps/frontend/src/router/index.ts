@@ -43,6 +43,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'analytics', name: 'analytics', component: () => import('@/views/app/AnalyticsView.vue'), meta: { title: 'Analítica' } },
       { path: 'automations', name: 'automations', component: () => import('@/views/app/AutomationsView.vue'), meta: { title: 'Automatizaciones' } },
       { path: 'billing', name: 'billing', component: () => import('@/views/app/BillingView.vue'), meta: { title: 'Facturación' } },
+      { path: 'api-keys', name: 'api-keys', component: () => import('@/views/app/ApiKeysView.vue'), meta: { title: 'API y accesos' } },
     ],
   },
 
