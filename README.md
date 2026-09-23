@@ -1,52 +1,57 @@
-# SaaS de Gestión de Redes Sociales con IA
+# Loop7 — gestión de redes sociales con IA
 
-Paquete de especificación funcional y técnica para construir una plataforma SaaS de gestión, creación, programación, publicación y análisis de contenido en múltiples redes sociales.
+SaaS multi-organización para crear, aprobar, programar, publicar y analizar
+contenido en redes sociales, con asistente de IA que usa el contexto de cada
+marca (*Brand Brain*), inbox unificado, automatizaciones y API pública.
 
-## Objetivo
-Crear una aplicación web SaaS segura y escalable donde cada cliente pueda registrarse, contratar una membresía, crear una o varias marcas, conectar sus propias cuentas sociales mediante OAuth, generar contenido con proveedores externos de IA, aprobarlo, programarlo y publicarlo desde un panel central.
+- **Backend:** Laravel 12 (PHP 8.3), monolito modular (`apps/backend/app/Modules/*`),
+  Sanctum (SPA por cookies), spatie/permission por organización, MySQL 8, Redis + Horizon.
+- **Frontend:** Vue 3 + TypeScript + Vite + Tailwind CSS 4 + Pinia (`apps/frontend`).
+- **Despliegue:** imagen Docker única (Nginx + PHP-FPM, SPA y API en el mismo
+  origen) publicada en GHCR; `docker-compose.yml` levanta app, worker, scheduler,
+  MySQL y Redis.
 
-## Stack objetivo
-- Backend: Laravel 12, PHP 8.3+
-- Frontend: Vue 3, Composition API, TypeScript, Vite, Tailwind CSS
-- Base de datos: MySQL 8+
-- Cache/colas: Redis + Laravel Horizon
-- Autenticación SPA/API: Laravel Sanctum
-- Roles/permisos: spatie/laravel-permission con ámbito por Organization
-- Almacenamiento: S3 compatible
-- Infraestructura: Docker, Nginx, PHP-FPM, Redis, workers, scheduler
-- API: REST /api/v1
+## Qué incluye
 
-> Laravel 12 se conserva por decisión de proyecto. La implementación debe quedar preparada para actualizar de versión mayor sin acoplamientos innecesarios.
+| Área | Módulos |
+|------|---------|
+| Clientes | Organizaciones, equipo y roles (9 roles, permisos granulares), marcas con Brand Brain, biblioteca de medios |
+| Contenido | Editor con variantes por red, flujo de aprobación, calendario, campañas, publicación por colas idempotente |
+| Redes | Facebook (Páginas) e Instagram (cuentas profesionales) vía Graph API; conexión OAuth o manual por token |
+| IA | OpenAI y Anthropic (texto), OpenAI (imagen); créditos por plan y claves propias (BYOK) |
+| Operación | Analítica, inbox con respuestas sugeridas, automatizaciones por eventos, API pública + servidor MCP |
+| Plataforma | Panel SUPERADMIN: organizaciones, usuarios, planes, suscripciones y pagos, pasarelas (Stripe, Mercado Pago, Openpay, manual), proveedores de IA y redes, colas, auditoría, configuración |
 
-## Idioma y convenciones
-- Interfaz, documentación, mensajes, validaciones y textos al usuario: español.
-- Código, clases, contratos, tablas y endpoints: inglés cuando sea convención natural del ecosistema y mejore mantenibilidad.
-- Comentarios de código: solo cuando aporten contexto, preferentemente en español.
-- No traducir términos estándar como OAuth, webhook, API, Job, Queue, DTO, Repository o Service si la traducción genera ambigüedad.
+## Estructura
 
-## Estructura del paquete
-- `CLAUDE.md`: instrucciones permanentes para Claude Code.
-- `prompts/PROMPT_INICIAL.md`: prompt para iniciar la construcción completa.
-- `docs/`: especificación funcional y técnica.
-- `database/`: modelo de datos y ERD de referencia.
-- `config/`: variables de entorno de ejemplo.
-- `infra/`: propuesta de Docker y despliegue.
+```
+apps/backend     API Laravel (módulos en app/Modules, pruebas en tests/)
+apps/frontend    SPA Vue
+docker/          configuración de la imagen (nginx, php, supervisor, entrypoint)
+docs/            especificación, decisiones, guías de operación
+Dockerfile       imagen de producción
+docker-compose.yml  stack completo (app, worker, scheduler, MySQL, Redis)
+```
 
-## Principios no negociables
-1. Seguridad por diseño y mínimo privilegio.
-2. Nunca almacenar contraseñas de redes sociales.
-3. Tokens OAuth y secretos cifrados y nunca expuestos al frontend.
-4. Aislamiento estricto entre Organizations.
-5. Autorización siempre validada en backend.
-6. Publicación social mediante colas, nunca directamente desde el request HTTP.
-7. Arquitectura Modular Monolith con límites claros.
-8. Proveedores de redes, pagos e IA implementados mediante interfaces/adaptadores.
-9. Toda operación crítica debe generar auditoría.
-10. Cobertura de pruebas obligatoria para autorización, billing, publicación, OAuth y aislamiento tenant.
+## Desarrollo local
 
-## Cómo iniciar con Claude Code
-1. Descomprimir este paquete en la raíz del repositorio nuevo.
-2. Abrir Claude Code en esa carpeta.
-3. Pedirle leer `CLAUDE.md`, `README.md` y toda la carpeta `docs/`.
-4. Copiar el contenido de `prompts/PROMPT_INICIAL.md` como instrucción inicial.
-5. Claude debe trabajar por fases y dejar cada fase ejecutable, probada y documentada.
+Guía completa en [docs/00_DESARROLLO_LOCAL.md](docs/00_DESARROLLO_LOCAL.md). Resumen:
+
+```bash
+cd apps/backend && composer install && cp .env.example .env && php artisan key:generate
+php artisan migrate --seed && php artisan serve --port=8000
+cd apps/frontend && npm install && npm run dev   # http://localhost:5173
+```
+
+Calidad: `php artisan test`, `vendor/bin/pint`, `vendor/bin/phpstan analyse`
+(backend) y `npm run type-check`, `npm run build` (frontend).
+
+## Documentación
+
+- Arquitectura y seguridad: [docs/02](docs/02_ARQUITECTURA.md), [docs/03](docs/03_TENANCY_SEGURIDAD.md), [docs/04](docs/04_ROLES_PERMISOS.md)
+- Integraciones sociales y Meta App Review: [docs/06](docs/06_INTEGRACIONES_SOCIALES.md)
+- Billing y pasarelas: [docs/08](docs/08_BILLING_PAGOS.md) · SUPERADMIN: [docs/09](docs/09_SUPERADMIN.md)
+- API pública y MCP: [docs/11](docs/11_API_CONVENCIONES.md)
+- Seguridad pre-producción y operación: [docs/19](docs/19_CHECKLIST_SEGURIDAD_PREPROD.md), [docs/21](docs/21_RUNBOOK_OPERACION.md)
+
+Las instrucciones permanentes para el desarrollo asistido están en [CLAUDE.md](CLAUDE.md).

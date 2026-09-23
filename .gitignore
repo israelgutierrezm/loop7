@@ -30,3 +30,4 @@ storage/*.key
 
 # Claude Code runtime
 .claude/scheduled_tasks.lock
+.claude/launch.json
