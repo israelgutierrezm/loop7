@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import http from '@/services/http'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toasts'
+import { useConfirmStore } from '@/stores/confirm'
 import { apiErrorMessage } from '@/utils/errors'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import ErrorState from '@/components/ui/ErrorState.vue'
@@ -37,6 +38,7 @@ interface KeysInfo { available: boolean; providers: { key: string; name: string 
 
 const auth = useAuthStore()
 const toasts = useToastStore()
+const confirmDialog = useConfirmStore()
 
 const usage = ref<Usage | null>(null)
 const keysInfo = ref<KeysInfo | null>(null)
@@ -90,7 +92,8 @@ async function saveKey(): Promise<void> {
 }
 
 async function removeKey(provider: string): Promise<void> {
-  if (!confirm(`¿Eliminar la clave propia de ${provider}?`)) return
+  const ok = await confirmDialog.ask({ title: 'Eliminar clave propia', message: `Se eliminará tu clave de ${provider}. Las generaciones volverán a consumir créditos del plan.`, confirmText: 'Eliminar', danger: true })
+  if (!ok) return
   try {
     await http.delete(`/ai/keys/${provider}`)
     toasts.success('Clave eliminada.')

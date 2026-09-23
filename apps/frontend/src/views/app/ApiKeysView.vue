@@ -2,6 +2,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import http from '@/services/http'
 import { useToastStore } from '@/stores/toasts'
+import { useConfirmStore } from '@/stores/confirm'
 import { apiErrorMessage } from '@/utils/errors'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
@@ -21,6 +22,7 @@ interface ApiKey {
 }
 
 const toasts = useToastStore()
+const confirmDialog = useConfirmStore()
 const keys = ref<ApiKey[]>([])
 const scopeCatalog = ref<Record<string, string>>({})
 const loading = ref(true)
@@ -84,7 +86,8 @@ async function copyKey(): Promise<void> {
 }
 
 async function revoke(k: ApiKey): Promise<void> {
-  if (!confirm(`¿Revocar la API key «${k.name}»? Dejará de funcionar de inmediato.`)) return
+  const ok = await confirmDialog.ask({ title: 'Revocar API key', message: `La clave «${k.name}» dejará de funcionar de inmediato.`, confirmText: 'Revocar', danger: true })
+  if (!ok) return
   try {
     await http.delete(`/api-keys/${k.id}`)
     keys.value = keys.value.filter((x) => x.id !== k.id)

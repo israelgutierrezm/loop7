@@ -2,6 +2,7 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 import http from '@/services/http'
 import { useToastStore } from '@/stores/toasts'
+import { useConfirmStore } from '@/stores/confirm'
 import { apiErrorMessage } from '@/utils/errors'
 import ErrorState from '@/components/ui/ErrorState.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
@@ -23,6 +24,7 @@ interface JobsHealth {
 }
 
 const toasts = useToastStore()
+const confirmDialog = useConfirmStore()
 const health = ref<JobsHealth | null>(null)
 const loading = ref(true)
 const failed = ref(false)
@@ -57,7 +59,8 @@ async function retry(job: FailedJob): Promise<void> {
 }
 
 async function forget(job: FailedJob): Promise<void> {
-  if (!confirm('¿Descartar este trabajo fallido? No se podrá reintentar.')) return
+  const ok = await confirmDialog.ask({ title: 'Descartar trabajo', message: 'El trabajo fallido se eliminará y ya no podrá reintentarse.', confirmText: 'Descartar', danger: true })
+  if (!ok) return
   busyId.value = job.id
   try {
     await http.delete(`/platform/jobs/${job.id}`)

@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import http from '@/services/http'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toasts'
+import { useConfirmStore } from '@/stores/confirm'
 import { apiErrorMessage } from '@/utils/errors'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import ErrorState from '@/components/ui/ErrorState.vue'
@@ -36,6 +37,7 @@ interface Content {
 const route = useRoute()
 const auth = useAuthStore()
 const toasts = useToastStore()
+const confirmDialog = useConfirmStore()
 const id = route.params.content as string
 
 const content = ref<Content | null>(null)
@@ -165,7 +167,8 @@ const submit = () => act(() => http.post(`/content/${id}/submit`), 'Enviado a re
 const approve = () => act(() => http.post(`/content/${id}/approve`), 'Aprobado.')
 
 async function publishNow(): Promise<void> {
-  if (!confirm('¿Publicar ahora en todas las redes conectadas? Esta acción no se puede deshacer.')) return
+  const ok = await confirmDialog.ask({ title: 'Publicar ahora', message: 'Se publicará en todas las cuentas conectadas de las redes de este contenido. No se puede deshacer.', confirmText: 'Publicar' })
+  if (!ok) return
   await act(() => http.post(`/content/${id}/publish-now`), 'Publicación en marcha.')
 }
 

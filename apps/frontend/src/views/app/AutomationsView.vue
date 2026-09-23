@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import http from '@/services/http'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toasts'
+import { useConfirmStore } from '@/stores/confirm'
 import { apiErrorMessage } from '@/utils/errors'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
@@ -33,6 +34,7 @@ interface Meta {
 
 const auth = useAuthStore()
 const toasts = useToastStore()
+const confirmDialog = useConfirmStore()
 
 const meta = ref<Meta | null>(null)
 const items = ref<Automation[]>([])
@@ -148,7 +150,8 @@ async function toggle(a: Automation): Promise<void> {
 }
 
 async function remove(a: Automation): Promise<void> {
-  if (!confirm(`¿Eliminar la automatización «${a.name}»?`)) return
+  const ok = await confirmDialog.ask({ title: 'Eliminar automatización', message: `Se eliminará «${a.name}» y su historial de ejecuciones.`, confirmText: 'Eliminar', danger: true })
+  if (!ok) return
   try {
     await http.delete(`/automations/${a.id}`)
     items.value = items.value.filter((x) => x.id !== a.id)

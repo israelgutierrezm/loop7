@@ -3,6 +3,7 @@ import { onMounted, reactive, ref } from 'vue'
 import http from '@/services/http'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toasts'
+import { useConfirmStore } from '@/stores/confirm'
 import type { Invitation, MemberEntry } from '@/types/models'
 import { apiErrorMessage, apiValidationErrors } from '@/utils/errors'
 import PageHeader from '@/components/ui/PageHeader.vue'
@@ -18,6 +19,7 @@ interface RoleOption {
 
 const auth = useAuthStore()
 const toasts = useToastStore()
+const confirmDialog = useConfirmStore()
 
 const members = ref<MemberEntry[]>([])
 const invitations = ref<Invitation[]>([])
@@ -79,7 +81,8 @@ async function changeRole(member: MemberEntry, role: string): Promise<void> {
 }
 
 async function removeMember(member: MemberEntry): Promise<void> {
-  if (!confirm(`¿Quitar a ${member.user.name} de la organización?`)) return
+  const ok = await confirmDialog.ask({ title: 'Quitar miembro', message: `${member.user.name} perderá el acceso a la organización.`, confirmText: 'Quitar', danger: true })
+  if (!ok) return
   try {
     await http.delete(`/organization/members/${member.user.id}`)
     members.value = members.value.filter((m) => m.user.id !== member.user.id)

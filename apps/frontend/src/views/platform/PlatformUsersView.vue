@@ -4,6 +4,7 @@ import http from '@/services/http'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toasts'
+import { useConfirmStore } from '@/stores/confirm'
 import { apiErrorMessage } from '@/utils/errors'
 import ErrorState from '@/components/ui/ErrorState.vue'
 
@@ -21,6 +22,7 @@ interface PlatformUser {
 const auth = useAuthStore()
 const router = useRouter()
 const toasts = useToastStore()
+const confirmDialog = useConfirmStore()
 const users = ref<PlatformUser[]>([])
 const loading = ref(true)
 const failed = ref(false)
@@ -40,7 +42,8 @@ async function load(): Promise<void> {
 }
 
 async function impersonate(user: PlatformUser): Promise<void> {
-  if (!confirm(`¿Impersonar a ${user.name}?`)) return
+  const ok = await confirmDialog.ask({ title: 'Impersonar usuario', message: `Entrarás como ${user.name}. La acción queda auditada y verás un aviso mientras dure.`, confirmText: 'Impersonar' })
+  if (!ok) return
   try {
     await http.post(`/platform/impersonate/${user.id}`)
     await auth.fetchMe()

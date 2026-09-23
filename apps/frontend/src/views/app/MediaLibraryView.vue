@@ -3,6 +3,7 @@ import { onMounted, ref, watch } from 'vue'
 import http from '@/services/http'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toasts'
+import { useConfirmStore } from '@/stores/confirm'
 import { apiErrorMessage } from '@/utils/errors'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
@@ -21,6 +22,7 @@ interface Asset {
 
 const auth = useAuthStore()
 const toasts = useToastStore()
+const confirmDialog = useConfirmStore()
 
 const brandId = ref<string | null>(auth.brands[0]?.id ?? null)
 const assets = ref<Asset[]>([])
@@ -62,7 +64,8 @@ async function upload(event: Event): Promise<void> {
 }
 
 async function remove(id: string): Promise<void> {
-  if (!confirm('¿Eliminar este archivo?')) return
+  const ok = await confirmDialog.ask({ title: 'Eliminar archivo', message: 'El archivo se eliminará de la biblioteca.', confirmText: 'Eliminar', danger: true })
+  if (!ok) return
   try {
     await http.delete(`/media/${id}`)
     assets.value = assets.value.filter((a) => a.id !== id)
