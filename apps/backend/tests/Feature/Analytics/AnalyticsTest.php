@@ -164,7 +164,8 @@ class AnalyticsTest extends TestCase
 
     public function test_proveedor_no_configurado_se_omite(): void
     {
-        // Facebook sin credenciales: la sincronización se omite sin crear snapshots.
+        // Facebook sin credenciales válidas: la sincronización se omite (sin red real).
+        \Illuminate\Support\Facades\Http::fake();
         [, $brand] = $this->connectedBrandWithPost('facebook');
 
         $counts = app(MetricsSyncService::class)->syncBrand($brand);

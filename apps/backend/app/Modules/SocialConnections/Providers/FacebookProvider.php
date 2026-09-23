@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Modules\SocialConnections\Providers;
 
 use App\Modules\SocialConnections\Contracts\AccountMetrics;
+use App\Modules\SocialConnections\Contracts\InboxMessageData;
 use App\Modules\SocialConnections\Contracts\InboxReplyResult;
+use App\Modules\SocialConnections\Contracts\InboxThread;
 use App\Modules\SocialConnections\Contracts\OAuthTokens;
 use App\Modules\SocialConnections\Contracts\PostMetrics;
 use App\Modules\SocialConnections\Contracts\PublishPayload;
@@ -14,7 +16,9 @@ use App\Modules\SocialConnections\Contracts\RemoteDestination;
 use App\Modules\SocialConnections\Contracts\SocialProviderInterface;
 use App\Modules\SocialConnections\Enums\Capability;
 use App\Modules\SocialConnections\Exceptions\ProviderNotConfiguredException;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
+use RuntimeException;
 
 /**
  * Adaptador de Meta (Facebook Pages). Implementa el flujo OAuth real de Graph
@@ -62,6 +66,8 @@ class FacebookProvider implements SocialProviderInterface
             'pages_show_list',
             'pages_read_engagement',
             'pages_manage_posts',
+            'pages_manage_engagement',
+            'read_insights',
         ];
     }
 
@@ -178,11 +184,29 @@ class FacebookProvider implements SocialProviderInterface
         PublishPayload $payload,
         array $credentials,
     ): PublishResult {
-        // La publicación en Páginas requiere el page access token del destino y
-        // que la app haya superado la revisión de Meta. Queda como TODO del MVP.
-        throw new ProviderNotConfiguredException(
-            'La publicación en Meta requiere revisión de app y token de página; pendiente de configuración.',
-        );
+        $pageToken = $this->pageToken($destinationExternalId, $tokens->accessToken);
+
+        if ($payload->mediaUrls !== []) {
+            // Publica la primera imagen con el texto como pie (photos edge).
+            $response = Http::asForm()->post(self::GRAPH . '/' . $destinationExternalId . '/photos', [
+                'url' => $payload->mediaUrls[0],
+                'caption' => $payload->body,
+                'access_token' => $pageToken,
+            ]);
+        } else {
+            $response = Http::asForm()->post(self::GRAPH . '/' . $destinationExternalId . '/feed', [
+                'message' => $payload->body,
+                'access_token' => $pageToken,
+            ]);
+        }
+
+        if ($response->failed()) {
+            throw new RuntimeException('Meta rechazó la publicación: ' . $response->body());
+        }
+
+        $remoteId = (string) ($response->json('post_id') ?? $response->json('id') ?? '');
+
+        return new PublishResult($remoteId, 'https://www.facebook.com/' . $remoteId);
     }
 
     public function fetchAccountMetrics(
@@ -190,27 +214,87 @@ class FacebookProvider implements SocialProviderInterface
         string $destinationExternalId,
         array $credentials,
     ): AccountMetrics {
-        // La analítica de Páginas usa el page access token y métricas de Insights,
-        // que requieren revisión de app. Pendiente de configuración productiva.
-        throw new ProviderNotConfiguredException(
-            'La analítica de Meta requiere revisión de app y token de página; pendiente de configuración.',
+        $pageToken = $this->pageToken($destinationExternalId, $tokens->accessToken);
+
+        $page = Http::get(self::GRAPH . '/' . $destinationExternalId, [
+            'fields' => 'fan_count,followers_count',
+            'access_token' => $pageToken,
+        ])->json();
+
+        $insights = Http::get(self::GRAPH . '/' . $destinationExternalId . '/insights', [
+            'metric' => 'page_impressions,page_impressions_unique,page_post_engagements',
+            'period' => 'day',
+            'access_token' => $pageToken,
+        ])->json('data', []);
+
+        return new AccountMetrics(
+            followers: (int) ($page['followers_count'] ?? $page['fan_count'] ?? 0),
+            reach: $this->latestInsightValue($insights, 'page_impressions_unique'),
+            impressions: $this->latestInsightValue($insights, 'page_impressions'),
+            engagement: $this->latestInsightValue($insights, 'page_post_engagements'),
+            postsCount: 0,
         );
     }
 
     public function fetchPostMetrics(OAuthTokens $tokens, string $remoteId, array $credentials): PostMetrics
     {
-        throw new ProviderNotConfiguredException(
-            'La analítica de Meta requiere revisión de app y token de página; pendiente de configuración.',
+        $pageToken = $this->pageToken($this->pageIdFromObjectId($remoteId), $tokens->accessToken);
+
+        $post = Http::get(self::GRAPH . '/' . $remoteId, [
+            'fields' => 'likes.summary(true),comments.summary(true),shares',
+            'access_token' => $pageToken,
+        ])->json();
+
+        $insights = Http::get(self::GRAPH . '/' . $remoteId . '/insights', [
+            'metric' => 'post_impressions,post_impressions_unique,post_clicks',
+            'access_token' => $pageToken,
+        ])->json('data', []);
+
+        return new PostMetrics(
+            impressions: $this->latestInsightValue($insights, 'post_impressions'),
+            reach: $this->latestInsightValue($insights, 'post_impressions_unique'),
+            likes: (int) ($post['likes']['summary']['total_count'] ?? 0),
+            comments: (int) ($post['comments']['summary']['total_count'] ?? 0),
+            shares: (int) ($post['shares']['count'] ?? 0),
+            clicks: $this->latestInsightValue($insights, 'post_clicks'),
         );
     }
 
     public function fetchConversations(OAuthTokens $tokens, string $destinationExternalId, array $credentials): array
     {
-        // La lectura de comentarios/mensajes de Páginas requiere page access token
-        // y revisión de app (pages_messaging, pages_read_engagement). Pendiente.
-        throw new ProviderNotConfiguredException(
-            'El inbox de Meta requiere revisión de app y token de página; pendiente de configuración.',
-        );
+        $pageToken = $this->pageToken($destinationExternalId, $tokens->accessToken);
+
+        $feed = Http::get(self::GRAPH . '/' . $destinationExternalId . '/feed', [
+            'fields' => 'comments.limit(25){id,message,created_time,from}',
+            'limit' => 25,
+            'access_token' => $pageToken,
+        ])->json('data', []);
+
+        $threads = [];
+        foreach ($feed as $post) {
+            foreach ($post['comments']['data'] ?? [] as $comment) {
+                $sentAt = isset($comment['created_time']) ? Carbon::parse($comment['created_time']) : now();
+                $author = (string) ($comment['from']['name'] ?? 'Usuario');
+                $authorId = (string) ($comment['from']['id'] ?? '');
+                $threads[] = new InboxThread(
+                    externalId: (string) $comment['id'],
+                    type: 'comment',
+                    participantName: $author,
+                    participantExternalId: $authorId,
+                    lastMessageAt: $sentAt,
+                    messages: [new InboxMessageData(
+                        externalId: (string) $comment['id'],
+                        authorName: $author,
+                        authorExternalId: $authorId,
+                        body: (string) ($comment['message'] ?? ''),
+                        direction: 'inbound',
+                        sentAt: $sentAt,
+                    )],
+                );
+            }
+        }
+
+        return $threads;
     }
 
     public function replyToConversation(
@@ -219,9 +303,65 @@ class FacebookProvider implements SocialProviderInterface
         string $body,
         array $credentials,
     ): InboxReplyResult {
-        throw new ProviderNotConfiguredException(
-            'Responder en Meta requiere revisión de app y token de página; pendiente de configuración.',
-        );
+        $pageToken = $this->pageToken($this->pageIdFromObjectId($conversationExternalId), $tokens->accessToken);
+
+        $response = Http::asForm()->post(self::GRAPH . '/' . $conversationExternalId . '/comments', [
+            'message' => $body,
+            'access_token' => $pageToken,
+        ]);
+
+        if ($response->failed()) {
+            throw new RuntimeException('Meta rechazó la respuesta: ' . $response->body());
+        }
+
+        return new InboxReplyResult((string) ($response->json('id') ?? ''));
+    }
+
+    /**
+     * Obtiene el page access token a partir del id de la página y el token de
+     * usuario (no se almacena: se deriva bajo demanda del token cifrado).
+     */
+    private function pageToken(string $pageId, string $userToken): string
+    {
+        $response = Http::get(self::GRAPH . '/' . $pageId, [
+            'fields' => 'access_token',
+            'access_token' => $userToken,
+        ]);
+
+        $token = (string) ($response->json('access_token') ?? '');
+        if ($token === '') {
+            throw new RuntimeException('No se pudo obtener el token de la página ' . $pageId . '.');
+        }
+
+        return $token;
+    }
+
+    /**
+     * Los ids de posts/comentarios de Página tienen la forma {pageId}_{...}.
+     */
+    private function pageIdFromObjectId(string $objectId): string
+    {
+        return str_contains($objectId, '_') ? explode('_', $objectId)[0] : $objectId;
+    }
+
+    /**
+     * Último valor de una métrica de Insights (data → item.name → values[].value).
+     *
+     * @param  array<int, array<string, mixed>>  $insights
+     */
+    private function latestInsightValue(array $insights, string $name): int
+    {
+        foreach ($insights as $item) {
+            if (($item['name'] ?? null) !== $name) {
+                continue;
+            }
+            $values = $item['values'] ?? [];
+            $last = is_array($values) && $values !== [] ? end($values) : null;
+
+            return (int) ($last['value'] ?? 0);
+        }
+
+        return 0;
     }
 
     /**

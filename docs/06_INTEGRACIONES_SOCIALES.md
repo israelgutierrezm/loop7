@@ -57,6 +57,26 @@ Antes de implementar una integración, revisar documentación oficial vigente, p
 
 ---
 
+## Adaptador de Meta (Facebook) — implementado
+
+`FacebookProvider` implementa contra Graph API v21.0 (además del OAuth):
+- **Publicar** en Páginas: texto/enlace (`/{page}/feed`) e imagen (`/{page}/photos`).
+- **Métricas de cuenta**: `followers_count`/`fan_count` + Insights
+  (`page_impressions`, `page_impressions_unique`, `page_post_engagements`).
+- **Métricas de post**: likes/comments/shares (summary) + Insights
+  (`post_impressions`, `post_impressions_unique`, `post_clicks`).
+- **Inbox**: lee comentarios del feed como conversaciones y **responde** a un
+  comentario (`/{comment}/comments`).
+
+El **page access token** se deriva bajo demanda del id de página + el token de
+usuario (cifrado); no se almacena en claro. Scopes: `pages_show_list`,
+`pages_read_engagement`, `pages_manage_posts`, `pages_manage_engagement`,
+`read_insights`.
+
+> **Pendiente: Instagram.** Comparte la app de Meta pero tiene un flujo distinto
+> (cuenta IG Business ligada a una Página + creación de *media container* en dos
+> pasos + URL pública de la imagen). Queda como siguiente adaptador.
+
 ## Cumplimiento para Meta App Review
 
 Meta exige, además de la app (App ID/Secret) y el OAuth redirect HTTPS, tres cosas

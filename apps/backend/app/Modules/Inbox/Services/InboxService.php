@@ -18,6 +18,7 @@ use App\Modules\SocialConnections\Models\SocialConnection;
 use App\Modules\SocialConnections\Models\SocialConnectionDestination;
 use App\Modules\SocialConnections\Services\SocialProviderManager;
 use Illuminate\Support\Str;
+use Throwable;
 
 /**
  * Sincroniza y opera el inbox (docs/05). Cada conversación se resuelve en el
@@ -54,7 +55,7 @@ class InboxService
 
             try {
                 $threads = $adapter->fetchConversations($connection->toTokens(), $destination->external_id, $credentials);
-            } catch (ProviderNotConfiguredException) {
+            } catch (Throwable) {
                 continue;
             }
 
@@ -100,7 +101,7 @@ class InboxService
 
         try {
             $threads = $adapter->fetchConversations($connection->toTokens(), $destination->external_id, $credentials);
-        } catch (ProviderNotConfiguredException) {
+        } catch (Throwable) {
             return;
         }
 

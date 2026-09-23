@@ -12,11 +12,11 @@ use App\Modules\Brands\Models\Brand;
 use App\Modules\Content\Enums\TargetStatus;
 use App\Modules\Content\Models\PublicationTarget;
 use App\Modules\SocialConnections\Enums\ConnectionStatus;
-use App\Modules\SocialConnections\Exceptions\ProviderNotConfiguredException;
 use App\Modules\SocialConnections\Models\SocialConnection;
 use App\Modules\SocialConnections\Models\SocialConnectionDestination;
 use App\Modules\SocialConnections\Services\SocialProviderManager;
 use Illuminate\Support\Carbon;
+use Throwable;
 
 /**
  * Sincroniza métricas desde los proveedores hacia snapshots diarios (docs/05).
@@ -46,7 +46,8 @@ class MetricsSyncService
 
         try {
             $metrics = $adapter->fetchAccountMetrics($connection->toTokens(), $destination->external_id, $credentials);
-        } catch (ProviderNotConfiguredException) {
+        } catch (Throwable) {
+            // Un proveedor sin configurar o con error puntual no debe romper la sync.
             return null;
         }
 
@@ -92,7 +93,7 @@ class MetricsSyncService
 
         try {
             $metrics = $adapter->fetchPostMetrics($connection->toTokens(), $target->remote_id, $credentials);
-        } catch (ProviderNotConfiguredException) {
+        } catch (Throwable) {
             return null;
         }
 
