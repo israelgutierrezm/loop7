@@ -26,4 +26,6 @@ Route::prefix('platform')->middleware(['auth:sanctum', 'superadmin'])->group(fun
     Route::get('/social-providers', [PlatformSocialProvidersController::class, 'index']);
     Route::put('/social-providers/{provider}', [PlatformSocialProvidersController::class, 'update']);
     Route::put('/social-providers/{provider}/credentials', [PlatformSocialProvidersController::class, 'setCredentials']);
+    Route::post('/social-providers/{provider}/test', [PlatformSocialProvidersController::class, 'test'])
+        ->middleware('throttle:20,1');
 });

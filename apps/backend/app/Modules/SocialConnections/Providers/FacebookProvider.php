@@ -13,23 +13,20 @@ use App\Modules\SocialConnections\Contracts\PostMetrics;
 use App\Modules\SocialConnections\Contracts\PublishPayload;
 use App\Modules\SocialConnections\Contracts\PublishResult;
 use App\Modules\SocialConnections\Contracts\RemoteDestination;
-use App\Modules\SocialConnections\Contracts\SocialProviderInterface;
 use App\Modules\SocialConnections\Enums\Capability;
-use App\Modules\SocialConnections\Exceptions\ProviderNotConfiguredException;
+use App\Modules\SocialConnections\Exceptions\SocialProviderException;
+use App\Modules\SocialConnections\Exceptions\SocialTokenExpiredException;
+use App\Modules\SocialConnections\Providers\Meta\AbstractMetaProvider;
+use App\Modules\SocialConnections\Providers\Meta\MetaGraph;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Http;
-use RuntimeException;
 
 /**
- * Adaptador de Meta (Facebook Pages). Implementa el flujo OAuth real de Graph
- * API; funcionará en cuanto se configuren credenciales válidas y la app pase la
- * revisión de Meta. Antes de producción: revisar permisos, quotas y políticas
- * oficiales vigentes (docs/06).
+ * Adaptador de Meta para Páginas de Facebook (Graph API). Publica texto/enlace,
+ * una o varias imágenes y video; lee métricas vigentes (views/reach tras la
+ * retirada de "impressions" en nov-2025) y gestiona comentarios del inbox.
  */
-class FacebookProvider implements SocialProviderInterface
+class FacebookProvider extends AbstractMetaProvider
 {
-    private const GRAPH = 'https://graph.facebook.com/v21.0';
-
     public function key(): string
     {
         return 'facebook';
@@ -42,21 +39,12 @@ class FacebookProvider implements SocialProviderInterface
             Capability::IMAGE => true,
             Capability::MULTI_IMAGE => true,
             Capability::VIDEO => true,
-            Capability::SHORT_VIDEO => true,
-            Capability::STORY => true,
-            Capability::CAROUSEL => true,
             Capability::LINK => true,
-            Capability::SCHEDULE_NATIVE => true,
             Capability::COMMENTS_READ => true,
             Capability::COMMENTS_REPLY => true,
             Capability::ANALYTICS_POST => true,
             Capability::ANALYTICS_ACCOUNT => true,
         ];
-    }
-
-    public function usesPkce(): bool
-    {
-        return false;
     }
 
     public function defaultScopes(): array
@@ -65,116 +53,32 @@ class FacebookProvider implements SocialProviderInterface
             'public_profile',
             'pages_show_list',
             'pages_read_engagement',
+            'pages_read_user_content',
             'pages_manage_posts',
             'pages_manage_engagement',
             'read_insights',
         ];
     }
 
-    public function authorizeUrl(
-        string $redirectUri,
-        string $state,
-        ?string $codeChallenge,
-        array $scopes,
-        array $credentials,
-    ): string {
-        $this->assertConfigured($credentials);
-
-        return 'https://www.facebook.com/v21.0/dialog/oauth?' . http_build_query([
-            'client_id' => $credentials['client_id'],
-            'redirect_uri' => $redirectUri,
-            'state' => $state,
-            'response_type' => 'code',
-            'scope' => implode(',', $scopes),
-        ]);
-    }
-
-    public function exchangeCode(
-        string $code,
-        string $redirectUri,
-        ?string $codeVerifier,
-        array $credentials,
-    ): OAuthTokens {
-        $this->assertConfigured($credentials);
-
-        $response = Http::get(self::GRAPH . '/oauth/access_token', [
-            'client_id' => $credentials['client_id'],
-            'client_secret' => $credentials['client_secret'],
-            'redirect_uri' => $redirectUri,
-            'code' => $code,
-        ]);
-
-        if ($response->failed()) {
-            throw new ProviderNotConfiguredException('Meta rechazó el intercambio del código: ' . $response->body());
-        }
-
-        $data = $response->json();
-
-        return new OAuthTokens(
-            accessToken: (string) ($data['access_token'] ?? ''),
-            refreshToken: null, // Meta usa long-lived tokens, no refresh_token clásico
-            expiresAt: isset($data['expires_in']) ? now()->addSeconds((int) $data['expires_in']) : null,
-            scopes: $this->defaultScopes(),
-        );
-    }
-
-    public function refreshTokens(string $refreshToken, array $credentials): OAuthTokens
-    {
-        $this->assertConfigured($credentials);
-
-        // Meta: intercambio por token de larga duración.
-        $response = Http::get(self::GRAPH . '/oauth/access_token', [
-            'grant_type' => 'fb_exchange_token',
-            'client_id' => $credentials['client_id'],
-            'client_secret' => $credentials['client_secret'],
-            'fb_exchange_token' => $refreshToken,
-        ]);
-
-        if ($response->failed()) {
-            throw new ProviderNotConfiguredException('Meta no pudo renovar el token: ' . $response->body());
-        }
-
-        $data = $response->json();
-
-        return new OAuthTokens(
-            accessToken: (string) ($data['access_token'] ?? ''),
-            refreshToken: null,
-            expiresAt: isset($data['expires_in']) ? now()->addSeconds((int) $data['expires_in']) : null,
-            scopes: $this->defaultScopes(),
-        );
-    }
-
-    public function accountLabel(OAuthTokens $tokens, array $credentials): string
-    {
-        $response = Http::get(self::GRAPH . '/me', [
-            'fields' => 'name',
-            'access_token' => $tokens->accessToken,
-        ]);
-
-        return $response->successful()
-            ? (string) ($response->json('name') ?? 'Cuenta de Meta')
-            : 'Cuenta de Meta';
-    }
-
     public function fetchDestinations(OAuthTokens $tokens, array $credentials): array
     {
-        $response = Http::get(self::GRAPH . '/me/accounts', [
-            'fields' => 'id,name,category',
+        $pages = MetaGraph::fromCredentials($credentials)->get('me/accounts', [
+            'fields' => 'id,name,category,access_token',
+            'limit' => 100,
             'access_token' => $tokens->accessToken,
-        ]);
+        ], 'listar tus páginas');
 
-        if ($response->failed()) {
-            return [];
-        }
-
-        return collect($response->json('data') ?? [])
+        return collect((array) ($pages['data'] ?? []))
+            ->filter(fn ($page) => is_array($page) && isset($page['id']))
             ->map(fn (array $page) => new RemoteDestination(
                 externalId: (string) $page['id'],
                 name: (string) ($page['name'] ?? 'Página'),
                 type: 'page',
                 capabilities: $this->capabilities(),
                 metadata: ['category' => $page['category'] ?? null],
+                accessToken: isset($page['access_token']) ? (string) $page['access_token'] : null,
             ))
+            ->values()
             ->all();
     }
 
@@ -184,27 +88,53 @@ class FacebookProvider implements SocialProviderInterface
         PublishPayload $payload,
         array $credentials,
     ): PublishResult {
-        $pageToken = $this->pageToken($destinationExternalId, $tokens->accessToken);
+        $graph = MetaGraph::fromCredentials($credentials);
+        $token = $this->pageToken($graph, $destinationExternalId, $tokens);
+        $page = $destinationExternalId;
 
-        if ($payload->mediaUrls !== []) {
-            // Publica la primera imagen con el texto como pie (photos edge).
-            $response = Http::asForm()->post(self::GRAPH . '/' . $destinationExternalId . '/photos', [
+        if ($payload->hasVideo()) {
+            // Un video por publicación: se publica el primero con el texto como descripción.
+            $index = (int) array_search('video', $payload->mediaTypes, true);
+            $video = $graph->post($page . '/videos', [
+                'file_url' => $payload->mediaUrls[$index],
+                'description' => $payload->body,
+                'access_token' => $token,
+            ], 'publicar el video');
+            $remoteId = (string) ($video['id'] ?? '');
+
+            return new PublishResult($remoteId, 'https://www.facebook.com/' . $remoteId);
+        }
+
+        if (count($payload->mediaUrls) === 1) {
+            $photo = $graph->post($page . '/photos', [
                 'url' => $payload->mediaUrls[0],
                 'caption' => $payload->body,
-                'access_token' => $pageToken,
-            ]);
-        } else {
-            $response = Http::asForm()->post(self::GRAPH . '/' . $destinationExternalId . '/feed', [
-                'message' => $payload->body,
-                'access_token' => $pageToken,
-            ]);
+                'access_token' => $token,
+            ], 'publicar la imagen');
+            $remoteId = (string) ($photo['post_id'] ?? $photo['id'] ?? '');
+
+            return new PublishResult($remoteId, 'https://www.facebook.com/' . $remoteId);
         }
 
-        if ($response->failed()) {
-            throw new RuntimeException('Meta rechazó la publicación: ' . $response->body());
+        $form = ['message' => $payload->body, 'access_token' => $token];
+
+        if (count($payload->mediaUrls) > 1) {
+            // Varias imágenes: se suben sin publicar y se adjuntan a una sola publicación.
+            foreach ($payload->mediaUrls as $i => $url) {
+                $photo = $graph->post($page . '/photos', [
+                    'url' => $url,
+                    'published' => 'false',
+                    'access_token' => $token,
+                ], 'subir las imágenes');
+                $form['attached_media[' . $i . ']'] = (string) json_encode(['media_fbid' => (string) ($photo['id'] ?? '')]);
+            }
+        } elseif (preg_match('~https?://\S+~u', $payload->body, $match) === 1) {
+            // Texto con enlace: se publica como enlace para generar la vista previa.
+            $form['link'] = $match[0];
         }
 
-        $remoteId = (string) ($response->json('post_id') ?? $response->json('id') ?? '');
+        $post = $graph->post($page . '/feed', $form, 'publicar en la página');
+        $remoteId = (string) ($post['id'] ?? '');
 
         return new PublishResult($remoteId, 'https://www.facebook.com/' . $remoteId);
     }
@@ -214,68 +144,76 @@ class FacebookProvider implements SocialProviderInterface
         string $destinationExternalId,
         array $credentials,
     ): AccountMetrics {
-        $pageToken = $this->pageToken($destinationExternalId, $tokens->accessToken);
+        $graph = MetaGraph::fromCredentials($credentials);
+        $token = $this->pageToken($graph, $destinationExternalId, $tokens);
 
-        $page = Http::get(self::GRAPH . '/' . $destinationExternalId, [
-            'fields' => 'fan_count,followers_count',
-            'access_token' => $pageToken,
-        ])->json();
+        $page = $graph->get($destinationExternalId, [
+            'fields' => 'followers_count,fan_count',
+            'access_token' => $token,
+        ], 'leer la página');
 
-        $insights = Http::get(self::GRAPH . '/' . $destinationExternalId . '/insights', [
-            'metric' => 'page_impressions,page_impressions_unique,page_post_engagements',
-            'period' => 'day',
-            'access_token' => $pageToken,
-        ])->json('data', []);
+        $insights = $graph->insights($destinationExternalId, [
+            'page_media_view',
+            'page_total_media_view_unique',
+            'page_post_engagements',
+        ], ['period' => 'day'], $token);
 
         return new AccountMetrics(
             followers: (int) ($page['followers_count'] ?? $page['fan_count'] ?? 0),
-            reach: $this->latestInsightValue($insights, 'page_impressions_unique'),
-            impressions: $this->latestInsightValue($insights, 'page_impressions'),
-            engagement: $this->latestInsightValue($insights, 'page_post_engagements'),
+            reach: $insights['page_total_media_view_unique'],
+            impressions: $insights['page_media_view'],
+            engagement: $insights['page_post_engagements'],
             postsCount: 0,
         );
     }
 
     public function fetchPostMetrics(OAuthTokens $tokens, string $remoteId, array $credentials): PostMetrics
     {
-        $pageToken = $this->pageToken($this->pageIdFromObjectId($remoteId), $tokens->accessToken);
+        $graph = MetaGraph::fromCredentials($credentials);
+        $token = $this->pageToken($graph, $this->pageIdFromObjectId($remoteId), $tokens);
 
-        $post = Http::get(self::GRAPH . '/' . $remoteId, [
-            'fields' => 'likes.summary(true),comments.summary(true),shares',
-            'access_token' => $pageToken,
-        ])->json();
+        $post = $graph->get($remoteId, [
+            'fields' => 'reactions.summary(true).limit(0),comments.summary(true).limit(0),shares',
+            'access_token' => $token,
+        ], 'leer la publicación');
 
-        $insights = Http::get(self::GRAPH . '/' . $remoteId . '/insights', [
-            'metric' => 'post_impressions,post_impressions_unique,post_clicks',
-            'access_token' => $pageToken,
-        ])->json('data', []);
+        $insights = $graph->insights($remoteId, [
+            'post_media_view',
+            'post_total_media_view_unique',
+            'post_clicks',
+        ], [], $token);
 
         return new PostMetrics(
-            impressions: $this->latestInsightValue($insights, 'post_impressions'),
-            reach: $this->latestInsightValue($insights, 'post_impressions_unique'),
-            likes: (int) ($post['likes']['summary']['total_count'] ?? 0),
+            impressions: $insights['post_media_view'],
+            reach: $insights['post_total_media_view_unique'],
+            likes: (int) ($post['reactions']['summary']['total_count'] ?? 0),
             comments: (int) ($post['comments']['summary']['total_count'] ?? 0),
             shares: (int) ($post['shares']['count'] ?? 0),
-            clicks: $this->latestInsightValue($insights, 'post_clicks'),
+            clicks: $insights['post_clicks'],
         );
     }
 
     public function fetchConversations(OAuthTokens $tokens, string $destinationExternalId, array $credentials): array
     {
-        $pageToken = $this->pageToken($destinationExternalId, $tokens->accessToken);
+        $graph = MetaGraph::fromCredentials($credentials);
+        $token = $this->pageToken($graph, $destinationExternalId, $tokens);
 
-        $feed = Http::get(self::GRAPH . '/' . $destinationExternalId . '/feed', [
-            'fields' => 'comments.limit(25){id,message,created_time,from}',
+        $feed = $graph->get($destinationExternalId . '/feed', [
+            'fields' => 'id,comments.limit(25){id,message,created_time,from}',
             'limit' => 25,
-            'access_token' => $pageToken,
-        ])->json('data', []);
+            'access_token' => $token,
+        ], 'leer los comentarios');
 
         $threads = [];
-        foreach ($feed as $post) {
-            foreach ($post['comments']['data'] ?? [] as $comment) {
-                $sentAt = isset($comment['created_time']) ? Carbon::parse($comment['created_time']) : now();
-                $author = (string) ($comment['from']['name'] ?? 'Usuario');
+        foreach ((array) ($feed['data'] ?? []) as $post) {
+            foreach ((array) ($post['comments']['data'] ?? []) as $comment) {
                 $authorId = (string) ($comment['from']['id'] ?? '');
+                if ($authorId === $destinationExternalId) {
+                    continue; // respuesta de la propia página
+                }
+                $author = (string) ($comment['from']['name'] ?? 'Usuario de Facebook');
+                $sentAt = isset($comment['created_time']) ? Carbon::parse((string) $comment['created_time']) : Carbon::now();
+
                 $threads[] = new InboxThread(
                     externalId: (string) $comment['id'],
                     type: 'comment',
@@ -303,76 +241,45 @@ class FacebookProvider implements SocialProviderInterface
         string $body,
         array $credentials,
     ): InboxReplyResult {
-        $pageToken = $this->pageToken($this->pageIdFromObjectId($conversationExternalId), $tokens->accessToken);
-
-        $response = Http::asForm()->post(self::GRAPH . '/' . $conversationExternalId . '/comments', [
+        // El id del comentario no identifica la página: se usa el token del destino.
+        $reply = MetaGraph::fromCredentials($credentials)->post($conversationExternalId . '/comments', [
             'message' => $body,
-            'access_token' => $pageToken,
-        ]);
+            'access_token' => $this->destinationToken($tokens),
+        ], 'responder el comentario');
 
-        if ($response->failed()) {
-            throw new RuntimeException('Meta rechazó la respuesta: ' . $response->body());
-        }
-
-        return new InboxReplyResult((string) ($response->json('id') ?? ''));
+        return new InboxReplyResult((string) ($reply['id'] ?? ''));
     }
 
     /**
-     * Obtiene el page access token a partir del id de la página y el token de
-     * usuario (no se almacena: se deriva bajo demanda del token cifrado).
+     * Page token: el guardado (cifrado) del destino; si no existe (conexión
+     * manual con token de usuario), se deriva al vuelo y, si tampoco es posible,
+     * se usa el token tal cual (puede ser ya un page token).
      */
-    private function pageToken(string $pageId, string $userToken): string
+    private function pageToken(MetaGraph $graph, string $pageId, OAuthTokens $tokens): string
     {
-        $response = Http::get(self::GRAPH . '/' . $pageId, [
-            'fields' => 'access_token',
-            'access_token' => $userToken,
-        ]);
-
-        $token = (string) ($response->json('access_token') ?? '');
-        if ($token === '') {
-            throw new RuntimeException('No se pudo obtener el token de la página ' . $pageId . '.');
+        if ($tokens->destinationToken !== null && $tokens->destinationToken !== '') {
+            return $tokens->destinationToken;
         }
 
-        return $token;
+        $accountToken = $this->accountToken($tokens);
+
+        try {
+            $page = $graph->get($pageId, ['fields' => 'access_token', 'access_token' => $accountToken]);
+            $token = (string) ($page['access_token'] ?? '');
+
+            return $token !== '' ? $token : $accountToken;
+        } catch (SocialTokenExpiredException $e) {
+            throw $e;
+        } catch (SocialProviderException) {
+            return $accountToken;
+        }
     }
 
     /**
-     * Los ids de posts/comentarios de Página tienen la forma {pageId}_{...}.
+     * Los ids de publicaciones de Página tienen la forma {pageId}_{postId}.
      */
     private function pageIdFromObjectId(string $objectId): string
     {
         return str_contains($objectId, '_') ? explode('_', $objectId)[0] : $objectId;
-    }
-
-    /**
-     * Último valor de una métrica de Insights (data → item.name → values[].value).
-     *
-     * @param  array<int, array<string, mixed>>  $insights
-     */
-    private function latestInsightValue(array $insights, string $name): int
-    {
-        foreach ($insights as $item) {
-            if (($item['name'] ?? null) !== $name) {
-                continue;
-            }
-            $values = $item['values'] ?? [];
-            $last = is_array($values) && $values !== [] ? end($values) : null;
-
-            return (int) ($last['value'] ?? 0);
-        }
-
-        return 0;
-    }
-
-    /**
-     * @param  array<string, string>  $credentials
-     */
-    private function assertConfigured(array $credentials): void
-    {
-        if (empty($credentials['client_id']) || empty($credentials['client_secret'])) {
-            throw new ProviderNotConfiguredException(
-                'Configura las credenciales de Meta (client_id y client_secret) en el panel SUPERADMIN.',
-            );
-        }
     }
 }

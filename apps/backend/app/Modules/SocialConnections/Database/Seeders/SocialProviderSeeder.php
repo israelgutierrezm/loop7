@@ -7,6 +7,10 @@ namespace App\Modules\SocialConnections\Database\Seeders;
 use App\Modules\SocialConnections\Models\SocialProvider;
 use Illuminate\Database\Seeder;
 
+/**
+ * Catálogo de redes con adaptador implementado. Una red nueva se añade aquí al
+ * implementar su `SocialProviderInterface` (ver docs/06).
+ */
 class SocialProviderSeeder extends Seeder
 {
     public function run(): void
@@ -18,17 +22,18 @@ class SocialProviderSeeder extends Seeder
             ['key' => 'fake', 'name' => 'Proveedor de prueba', 'is_enabled' => $fakeEnabled],
             ['key' => 'facebook', 'name' => 'Facebook', 'is_enabled' => false],
             ['key' => 'instagram', 'name' => 'Instagram', 'is_enabled' => false],
-            ['key' => 'threads', 'name' => 'Threads', 'is_enabled' => false],
-            ['key' => 'linkedin', 'name' => 'LinkedIn', 'is_enabled' => false],
-            ['key' => 'tiktok', 'name' => 'TikTok', 'is_enabled' => false],
-            ['key' => 'x', 'name' => 'X', 'is_enabled' => false],
         ];
 
         foreach ($providers as $provider) {
-            SocialProvider::query()->updateOrCreate(
+            SocialProvider::query()->firstOrCreate(
                 ['key' => $provider['key']],
                 ['name' => $provider['name'], 'is_enabled' => $provider['is_enabled']],
             );
         }
+
+        // Retira del catálogo las redes que ya no tienen adaptador.
+        SocialProvider::query()
+            ->whereNotIn('key', array_column($providers, 'key'))
+            ->delete();
     }
 }

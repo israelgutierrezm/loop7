@@ -12,6 +12,7 @@ use App\Modules\SocialConnections\Contracts\OAuthTokens;
 use App\Modules\SocialConnections\Contracts\PostMetrics;
 use App\Modules\SocialConnections\Contracts\PublishPayload;
 use App\Modules\SocialConnections\Contracts\PublishResult;
+use App\Modules\SocialConnections\Contracts\RemoteAccount;
 use App\Modules\SocialConnections\Contracts\RemoteDestination;
 use App\Modules\SocialConnections\Contracts\SocialProviderInterface;
 use App\Modules\SocialConnections\Enums\Capability;
@@ -97,9 +98,14 @@ class FakeSocialProvider implements SocialProviderInterface
         );
     }
 
-    public function accountLabel(OAuthTokens $tokens, array $credentials): string
+    public function verifyCredentials(array $credentials): void
     {
-        return 'Cuenta de demostración';
+        // Sin API externa: siempre válido.
+    }
+
+    public function fetchAccount(OAuthTokens $tokens, array $credentials): RemoteAccount
+    {
+        return new RemoteAccount('fake-account', 'Cuenta de demostración');
     }
 
     public function fetchDestinations(OAuthTokens $tokens, array $credentials): array

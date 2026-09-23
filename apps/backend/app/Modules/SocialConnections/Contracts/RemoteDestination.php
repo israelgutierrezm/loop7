@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace App\Modules\SocialConnections\Contracts;
 
 /**
- * Destino publicable dentro de una conexión (p.ej. una página de Facebook,
- * una cuenta de Instagram Business, una organización de LinkedIn).
+ * Destino publicable dentro de una conexión (p.ej. una página de Facebook o
+ * una cuenta de Instagram Business). `accessToken` es el token propio del
+ * destino si el proveedor lo emite (se guarda cifrado, nunca sale al frontend).
  */
 final class RemoteDestination
 {
@@ -20,6 +21,7 @@ final class RemoteDestination
         public readonly string $type,
         public readonly array $capabilities = [],
         public readonly array $metadata = [],
+        public readonly ?string $accessToken = null,
     ) {
     }
 }

@@ -12,8 +12,10 @@ use App\Modules\Brands\Models\Brand;
 use App\Modules\Content\Enums\TargetStatus;
 use App\Modules\Content\Models\PublicationTarget;
 use App\Modules\SocialConnections\Enums\ConnectionStatus;
+use App\Modules\SocialConnections\Exceptions\SocialTokenExpiredException;
 use App\Modules\SocialConnections\Models\SocialConnection;
 use App\Modules\SocialConnections\Models\SocialConnectionDestination;
+use App\Modules\SocialConnections\Services\SocialConnectionService;
 use App\Modules\SocialConnections\Services\SocialProviderManager;
 use Illuminate\Support\Carbon;
 use Throwable;
@@ -25,8 +27,10 @@ use Throwable;
  */
 class MetricsSyncService
 {
-    public function __construct(private readonly SocialProviderManager $manager)
-    {
+    public function __construct(
+        private readonly SocialProviderManager $manager,
+        private readonly SocialConnectionService $connections,
+    ) {
     }
 
     public function syncAccount(SocialConnectionDestination $destination, ?Carbon $date = null): ?AccountMetricSnapshot
@@ -42,10 +46,16 @@ class MetricsSyncService
             return null;
         }
 
-        $credentials = $this->manager->record($connection->provider)?->credentialMap() ?? [];
-
         try {
-            $metrics = $adapter->fetchAccountMetrics($connection->toTokens(), $destination->external_id, $credentials);
+            $metrics = $adapter->fetchAccountMetrics(
+                $connection->toTokens($destination),
+                $destination->external_id,
+                $this->manager->credentials($connection->provider),
+            );
+        } catch (SocialTokenExpiredException $e) {
+            $this->connections->markExpired($connection, $e->getMessage());
+
+            return null;
         } catch (Throwable) {
             // Un proveedor sin configurar o con error puntual no debe romper la sync.
             return null;
@@ -80,7 +90,7 @@ class MetricsSyncService
         }
 
         $connection = SocialConnection::query()->withoutGlobalScopes()->find($destination->social_connection_id);
-        if ($connection === null) {
+        if ($connection === null || $connection->status !== ConnectionStatus::CONNECTED) {
             return null;
         }
 
@@ -89,10 +99,16 @@ class MetricsSyncService
             return null;
         }
 
-        $credentials = $this->manager->record($connection->provider)?->credentialMap() ?? [];
-
         try {
-            $metrics = $adapter->fetchPostMetrics($connection->toTokens(), $target->remote_id, $credentials);
+            $metrics = $adapter->fetchPostMetrics(
+                $connection->toTokens($destination),
+                $target->remote_id,
+                $this->manager->credentials($connection->provider),
+            );
+        } catch (SocialTokenExpiredException $e) {
+            $this->connections->markExpired($connection, $e->getMessage());
+
+            return null;
         } catch (Throwable) {
             return null;
         }

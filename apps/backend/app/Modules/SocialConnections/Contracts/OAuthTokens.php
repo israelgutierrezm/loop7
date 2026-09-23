@@ -8,6 +8,10 @@ use Illuminate\Support\Carbon;
 
 /**
  * Tokens OAuth normalizados devueltos por un proveedor.
+ *
+ * `destinationToken` es el token propio del destino cuando el proveedor lo
+ * emite (p. ej. el page access token de Meta, que no caduca); si existe, los
+ * adaptadores lo prefieren al token de la cuenta.
  */
 final class OAuthTokens
 {
@@ -19,6 +23,7 @@ final class OAuthTokens
         public readonly ?string $refreshToken = null,
         public readonly ?Carbon $expiresAt = null,
         public readonly array $scopes = [],
+        public readonly ?string $destinationToken = null,
     ) {
     }
 }

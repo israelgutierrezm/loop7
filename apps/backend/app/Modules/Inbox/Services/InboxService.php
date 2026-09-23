@@ -11,11 +11,14 @@ use App\Modules\Inbox\Events\InboxMessageReceived;
 use App\Modules\Inbox\Jobs\SyncInboxConversations;
 use App\Modules\Inbox\Models\InboxConversation;
 use App\Modules\Inbox\Models\InboxMessage;
+use App\Modules\SocialConnections\Contracts\InboxReplyResult;
 use App\Modules\SocialConnections\Contracts\InboxThread;
 use App\Modules\SocialConnections\Enums\ConnectionStatus;
 use App\Modules\SocialConnections\Exceptions\ProviderNotConfiguredException;
+use App\Modules\SocialConnections\Exceptions\SocialTokenExpiredException;
 use App\Modules\SocialConnections\Models\SocialConnection;
 use App\Modules\SocialConnections\Models\SocialConnectionDestination;
+use App\Modules\SocialConnections\Services\SocialConnectionService;
 use App\Modules\SocialConnections\Services\SocialProviderManager;
 use Illuminate\Support\Str;
 use Throwable;
@@ -26,8 +29,10 @@ use Throwable;
  */
 class InboxService
 {
-    public function __construct(private readonly SocialProviderManager $manager)
-    {
+    public function __construct(
+        private readonly SocialProviderManager $manager,
+        private readonly SocialConnectionService $connections,
+    ) {
     }
 
     /**
@@ -46,18 +51,7 @@ class InboxService
                 continue;
             }
 
-            $adapter = $this->manager->adapter($connection->provider);
-            if ($adapter === null) {
-                continue;
-            }
-
-            $credentials = $this->manager->record($connection->provider)?->credentialMap() ?? [];
-
-            try {
-                $threads = $adapter->fetchConversations($connection->toTokens(), $destination->external_id, $credentials);
-            } catch (Throwable) {
-                continue;
-            }
+            $threads = $this->fetchThreads($connection, $destination);
 
             foreach ($threads as $thread) {
                 [$isNewConv, $newMessages] = $this->storeThread($connection, $destination, $thread);
@@ -92,34 +86,14 @@ class InboxService
             return;
         }
 
-        $adapter = $this->manager->adapter($connection->provider);
-        if ($adapter === null) {
-            return;
-        }
-
-        $credentials = $this->manager->record($connection->provider)?->credentialMap() ?? [];
-
-        try {
-            $threads = $adapter->fetchConversations($connection->toTokens(), $destination->external_id, $credentials);
-        } catch (Throwable) {
-            return;
-        }
-
-        foreach ($threads as $thread) {
+        foreach ($this->fetchThreads($connection, $destination) as $thread) {
             $this->storeThread($connection, $destination, $thread);
         }
     }
 
     public function reply(InboxConversation $conversation, User $user, string $body): InboxMessage
     {
-        $connection = SocialConnection::query()->withoutGlobalScopes()->findOrFail($conversation->social_connection_id);
-        $adapter = $this->manager->adapter($connection->provider);
-        if ($adapter === null) {
-            throw new ProviderNotConfiguredException('Proveedor no disponible para responder.');
-        }
-
-        $credentials = $this->manager->record($connection->provider)?->credentialMap() ?? [];
-        $result = $adapter->replyToConversation($connection->toTokens(), $conversation->external_id, $body, $credentials);
+        $result = $this->sendReply($conversation, $body);
 
         $message = InboxMessage::query()->create([
             'organization_id' => $conversation->organization_id,
@@ -142,14 +116,7 @@ class InboxService
      */
     public function systemReply(InboxConversation $conversation, string $body, string $authorName = 'Automatización'): InboxMessage
     {
-        $connection = SocialConnection::query()->withoutGlobalScopes()->findOrFail($conversation->social_connection_id);
-        $adapter = $this->manager->adapter($connection->provider);
-        if ($adapter === null) {
-            throw new ProviderNotConfiguredException('Proveedor no disponible para responder.');
-        }
-
-        $credentials = $this->manager->record($connection->provider)?->credentialMap() ?? [];
-        $result = $adapter->replyToConversation($connection->toTokens(), $conversation->external_id, $body, $credentials);
+        $result = $this->sendReply($conversation, $body);
 
         $message = InboxMessage::query()->create([
             'organization_id' => $conversation->organization_id,
@@ -177,6 +144,63 @@ class InboxService
             'via_user_id' => $user->id,
             'sent_at' => now(),
         ]);
+    }
+
+    /**
+     * Lee las conversaciones del destino; un token rechazado marca la conexión
+     * como expirada y cualquier otro error del proveedor se omite (no rompe la sync).
+     *
+     * @return list<InboxThread>
+     */
+    private function fetchThreads(SocialConnection $connection, SocialConnectionDestination $destination): array
+    {
+        $adapter = $this->manager->adapter($connection->provider);
+        if ($adapter === null) {
+            return [];
+        }
+
+        try {
+            return $adapter->fetchConversations(
+                $connection->toTokens($destination),
+                $destination->external_id,
+                $this->manager->credentials($connection->provider),
+            );
+        } catch (SocialTokenExpiredException $e) {
+            $this->connections->markExpired($connection, $e->getMessage());
+        } catch (Throwable) {
+            // Proveedor sin configurar o error puntual: se reintenta en la próxima sync.
+        }
+
+        return [];
+    }
+
+    private function sendReply(InboxConversation $conversation, string $body): InboxReplyResult
+    {
+        $connection = SocialConnection::query()->withoutGlobalScopes()->findOrFail($conversation->social_connection_id);
+        $adapter = $this->manager->adapter($connection->provider);
+        if ($adapter === null) {
+            throw new ProviderNotConfiguredException('Proveedor no disponible para responder.');
+        }
+        if ($connection->status !== ConnectionStatus::CONNECTED) {
+            throw new SocialTokenExpiredException('La conexión con la red social no está activa.');
+        }
+
+        $destination = $conversation->social_connection_destination_id !== null
+            ? SocialConnectionDestination::query()->withoutGlobalScopes()->find($conversation->social_connection_destination_id)
+            : null;
+
+        try {
+            return $adapter->replyToConversation(
+                $connection->toTokens($destination),
+                $conversation->external_id,
+                $body,
+                $this->manager->credentials($connection->provider),
+            );
+        } catch (SocialTokenExpiredException $e) {
+            $this->connections->markExpired($connection, $e->getMessage());
+
+            throw $e;
+        }
     }
 
     /**

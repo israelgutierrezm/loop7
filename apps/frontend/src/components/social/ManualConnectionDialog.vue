@@ -42,7 +42,7 @@ function addDestination(): void {
 async function save(): Promise<void> {
   if (!props.brandId) return
   if (!form.provider || !form.external_account_name.trim() || !form.access_token.trim()) {
-    toasts.error('Proveedor, nombre de la cuenta y token son obligatorios.')
+    toasts.error('Red, nombre de la cuenta y token son obligatorios.')
     return
   }
   saving.value = true
@@ -65,55 +65,78 @@ async function save(): Promise<void> {
 </script>
 
 <template>
-  <ModalDialog :open="open" title="Conexión manual" @close="emit('close')">
-    <div class="space-y-4">
+  <ModalDialog
+    :open="open"
+    title="Conexión manual"
+    description="Conecta pegando un token de acceso, sin pasar por la autorización de la red."
+    @close="emit('close')"
+  >
+    <form id="manual-connection" class="space-y-4" @submit.prevent="save">
       <p class="rounded-lg bg-slate-50 p-3 text-xs text-slate-500 dark:bg-slate-800/50">
-        Pega un token de acceso obtenido de forma manual (p. ej. un token de usuario de sistema o de pruebas). Se
-        guarda cifrado. Útil para conectar antes de completar el flujo OAuth del proveedor.
+        Útil con un token de usuario de sistema o de pruebas. El token se guarda cifrado y nunca vuelve a mostrarse.
+        Si no indicas destinos, se detectan automáticamente con el token cuando la red lo permite.
       </p>
 
       <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Proveedor</label>
-        <select v-model="form.provider" class="input">
+        <label for="mc-provider" class="label">Red social</label>
+        <select id="mc-provider" v-model="form.provider" class="input">
           <option v-for="p in providers" :key="p.key" :value="p.key">{{ p.name }}</option>
         </select>
       </div>
 
       <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Nombre de la cuenta</label>
-          <input v-model="form.external_account_name" class="input" placeholder="Ej. Mi Página" />
+          <label for="mc-name" class="label">Nombre de la cuenta</label>
+          <input id="mc-name" v-model="form.external_account_name" class="input" placeholder="Ej. Mi Página" required />
         </div>
         <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">ID externo (opcional)</label>
-          <input v-model="form.external_account_id" class="input" placeholder="Ej. 1234567890" />
+          <label for="mc-id" class="label">ID de la cuenta <span class="text-slate-400">(opcional)</span></label>
+          <input id="mc-id" v-model="form.external_account_id" class="input" placeholder="Ej. 1234567890" />
         </div>
       </div>
 
       <div>
-        <label class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Access token</label>
-        <textarea v-model="form.access_token" rows="3" class="input font-mono text-xs" placeholder="Pega aquí el token…" />
+        <label for="mc-token" class="label">Access token</label>
+        <textarea
+          id="mc-token"
+          v-model="form.access_token"
+          rows="3"
+          class="input font-mono text-xs"
+          placeholder="Pega aquí el token…"
+          autocomplete="off"
+          spellcheck="false"
+          required
+        />
       </div>
 
-      <div>
+      <fieldset>
         <div class="mb-1 flex items-center justify-between">
-          <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Destinos (páginas/perfiles)</label>
-          <button class="btn-ghost text-xs" @click="addDestination"><AppIcon name="plus" :size="14" /> Añadir</button>
+          <legend class="text-sm font-medium text-slate-700 dark:text-slate-300">Destinos (páginas/cuentas)</legend>
+          <button type="button" class="btn-ghost px-2 py-1 text-xs" @click="addDestination">
+            <AppIcon name="plus" :size="14" /> Añadir
+          </button>
         </div>
-        <p v-if="form.destinations.length === 0" class="text-xs text-slate-400">
-          Opcional. Añade las páginas/cuentas donde se publicará.
-        </p>
+        <p v-if="form.destinations.length === 0" class="text-xs text-slate-400">Opcional.</p>
         <div v-for="(d, i) in form.destinations" :key="i" class="mb-2 flex items-center gap-2">
-          <input v-model="d.external_id" class="input flex-1" placeholder="ID del destino" />
-          <input v-model="d.name" class="input flex-1" placeholder="Nombre" />
-          <button class="text-rose-500" @click="form.destinations.splice(i, 1)"><AppIcon name="close" :size="14" /></button>
+          <input v-model="d.external_id" class="input flex-1" placeholder="ID del destino" :aria-label="`ID del destino ${i + 1}`" />
+          <input v-model="d.name" class="input flex-1" placeholder="Nombre" :aria-label="`Nombre del destino ${i + 1}`" />
+          <button
+            type="button"
+            class="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+            :aria-label="`Quitar destino ${i + 1}`"
+            @click="form.destinations.splice(i, 1)"
+          >
+            <AppIcon name="close" :size="14" />
+          </button>
         </div>
-      </div>
+      </fieldset>
+    </form>
 
-      <div class="flex justify-end gap-2">
-        <button class="btn-secondary text-sm" @click="emit('close')">Cancelar</button>
-        <button class="btn-primary text-sm" :disabled="saving" @click="save">{{ saving ? 'Conectando…' : 'Conectar' }}</button>
-      </div>
-    </div>
+    <template #footer>
+      <button type="button" class="btn-secondary text-sm" @click="emit('close')">Cancelar</button>
+      <button type="submit" form="manual-connection" class="btn-primary text-sm" :disabled="saving">
+        {{ saving ? 'Conectando…' : 'Conectar' }}
+      </button>
+    </template>
   </ModalDialog>
 </template>

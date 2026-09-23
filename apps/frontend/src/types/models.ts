@@ -69,3 +69,29 @@ export interface Invitation {
   accepted_at: string | null
   created_at: string | null
 }
+
+export interface SocialProviderOption {
+  key: string
+  name: string
+  capabilities?: Record<string, boolean>
+}
+
+export interface SocialDestination {
+  id: string
+  external_id?: string
+  name: string
+  type: string
+}
+
+export interface SocialConnection {
+  id: string
+  provider: string
+  status: string
+  status_label: string
+  needs_attention: boolean
+  account_name: string | null
+  is_manual: boolean
+  token_expires_at?: string | null
+  destinations: SocialDestination[]
+  created_at?: string | null
+}

@@ -8,20 +8,19 @@ use App\Models\User;
 use App\Modules\Audit\Enums\AuditAction;
 use App\Modules\Audit\Services\AuditLogger;
 use App\Modules\Content\Enums\ContentStatus;
-use App\Modules\Content\Enums\TargetStatus;
 use App\Modules\Content\Models\ApprovalRequest;
 use App\Modules\Content\Models\ContentComment;
 use App\Modules\Content\Models\ContentItem;
-use App\Modules\Content\Models\PublicationTarget;
-use App\Modules\SocialConnections\Models\SocialConnectionDestination;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class WorkflowService
 {
-    public function __construct(private readonly AuditLogger $audit)
-    {
+    public function __construct(
+        private readonly AuditLogger $audit,
+        private readonly PublicationPlanner $planner,
+    ) {
     }
 
     public function submit(ContentItem $content, User $user): void
@@ -81,7 +80,12 @@ class WorkflowService
 
     public function schedule(ContentItem $content, Carbon $when, User $user): void
     {
-        $this->assertStatusIn($content, [ContentStatus::APPROVED], 'El contenido debe estar aprobado para programarse.');
+        $this->assertStatusIn(
+            $content,
+            [ContentStatus::APPROVED, ContentStatus::SCHEDULED],
+            'El contenido debe estar aprobado para programarse.',
+        );
+        $this->planner->assertPublishable($content);
 
         DB::transaction(function () use ($content, $when): void {
             $content->update([
@@ -89,29 +93,7 @@ class WorkflowService
                 'scheduled_at' => $when,
             ]);
 
-            $content->loadMissing('variants');
-            foreach ($content->variants as $variant) {
-                $destinations = SocialConnectionDestination::query()
-                    ->whereHas('connection', fn ($q) => $q
-                        ->where('brand_id', $content->brand_id)
-                        ->where('provider', $variant->provider)
-                        ->where('status', 'connected'))
-                    ->get();
-
-                foreach ($destinations as $destination) {
-                    PublicationTarget::query()->updateOrCreate(
-                        [
-                            'post_variant_id' => $variant->id,
-                            'social_connection_destination_id' => $destination->id,
-                        ],
-                        [
-                            'organization_id' => $content->organization_id,
-                            'status' => TargetStatus::SCHEDULED->value,
-                            'scheduled_at' => $when,
-                        ],
-                    );
-                }
-            }
+            $this->planner->createTargets($content, $when);
 
             $this->audit->log(AuditAction::CONTENT_SCHEDULED, $content, ['scheduled_at' => $when->toIso8601String()]);
         });

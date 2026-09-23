@@ -18,6 +18,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $name
  * @property string $type
  * @property array<string, bool>|null $capabilities
+ * @property array<string, mixed>|null $metadata
+ * @property string|null $access_token
  * @property bool $is_active
  */
 class SocialConnectionDestination extends Model
@@ -27,14 +29,20 @@ class SocialConnectionDestination extends Model
 
     protected $fillable = [
         'organization_id', 'social_connection_id', 'external_id',
-        'name', 'type', 'capabilities', 'metadata', 'is_active',
+        'name', 'type', 'capabilities', 'metadata', 'access_token', 'is_active',
     ];
+
+    /**
+     * @var list<string>
+     */
+    protected $hidden = ['access_token'];
 
     protected function casts(): array
     {
         return [
             'capabilities' => 'array',
             'metadata' => 'array',
+            'access_token' => 'encrypted',
             'is_active' => 'boolean',
         ];
     }

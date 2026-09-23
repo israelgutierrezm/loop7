@@ -115,13 +115,16 @@ class SocialConnectionsController extends Controller
             'status_label' => $connection->status->label(),
             'needs_attention' => $connection->status->needsAttention(),
             'account_name' => $connection->external_account_name,
+            'is_manual' => (bool) ($connection->meta['manual'] ?? false),
             'token_expires_at' => $connection->token_expires_at?->toIso8601String(),
-            'destinations' => $connection->destinations->map(fn ($d) => [
-                'id' => $d->public_id,
-                'external_id' => $d->external_id,
-                'name' => $d->name,
-                'type' => $d->type,
-            ])->all(),
+            'destinations' => $connection->destinations
+                ->where('is_active', true)
+                ->map(fn ($d) => [
+                    'id' => $d->public_id,
+                    'external_id' => $d->external_id,
+                    'name' => $d->name,
+                    'type' => $d->type,
+                ])->values()->all(),
             'created_at' => $connection->created_at?->toIso8601String(),
         ];
     }

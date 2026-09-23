@@ -37,4 +37,10 @@ return [
         ],
     ],
 
+    // Graph API de Meta (Facebook + Instagram). Meta retira cada versión ~2 años
+    // después de publicarla: se puede sobrescribir por proveedor desde SUPERADMIN.
+    'meta' => [
+        'graph_version' => env('META_GRAPH_VERSION', 'v25.0'),
+    ],
+
 ];

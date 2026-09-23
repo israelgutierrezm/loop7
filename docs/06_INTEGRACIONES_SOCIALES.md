@@ -57,25 +57,85 @@ Antes de implementar una integración, revisar documentación oficial vigente, p
 
 ---
 
-## Adaptador de Meta (Facebook) — implementado
+## Redes disponibles
 
-`FacebookProvider` implementa contra Graph API v21.0 (además del OAuth):
-- **Publicar** en Páginas: texto/enlace (`/{page}/feed`) e imagen (`/{page}/photos`).
-- **Métricas de cuenta**: `followers_count`/`fan_count` + Insights
-  (`page_impressions`, `page_impressions_unique`, `page_post_engagements`).
-- **Métricas de post**: likes/comments/shares (summary) + Insights
-  (`post_impressions`, `post_impressions_unique`, `post_clicks`).
-- **Inbox**: lee comentarios del feed como conversaciones y **responde** a un
-  comentario (`/{comment}/comments`).
+El catálogo (`SocialProviderSeeder`) sólo contiene redes **con adaptador
+implementado**: `fake` (pruebas, deshabilitado en producción), `facebook` e
+`instagram`. Una red nueva se añade implementando `SocialProviderInterface`,
+registrándola en `SocialProviderManager` y añadiéndola al seeder. El seeder usa
+`firstOrCreate`: re-ejecutarlo no deshabilita lo que SUPERADMIN ya habilitó.
 
-El **page access token** se deriva bajo demanda del id de página + el token de
-usuario (cifrado); no se almacena en claro. Scopes: `pages_show_list`,
-`pages_read_engagement`, `pages_manage_posts`, `pages_manage_engagement`,
-`read_insights`.
+## Adaptadores de Meta (Facebook e Instagram) — implementados
 
-> **Pendiente: Instagram.** Comparte la app de Meta pero tiene un flujo distinto
-> (cuenta IG Business ligada a una Página + creación de *media container* en dos
-> pasos + URL pública de la imagen). Queda como siguiente adaptador.
+Ambos extienden `Providers/Meta/AbstractMetaProvider` (OAuth común de Facebook
+Login) y usan `Providers/Meta/MetaGraph` (cliente Graph API):
+
+- **Versión de Graph API configurable**: `META_GRAPH_VERSION` (por defecto
+  `v25.0`) o, con prioridad, el ajuste del proveedor en SUPERADMIN →
+  Integraciones sociales → Ajustes avanzados. Meta retira cada versión ~2 años
+  después de publicarla (la v21.0 caduca el 21-ene-2027).
+- **Tokens**: tras el código se canjea un token de usuario de **larga duración**
+  (`fb_exchange_token`); con él, `/me/accounts` devuelve **page tokens que no
+  caducan**, que se guardan **cifrados por destino**
+  (`social_connection_destinations.access_token`, cast `encrypted`, oculto). Los
+  adaptadores prefieren el token del destino (`OAuthTokens::destinationToken`).
+- **Caducidad/revocación**: si Graph responde error 190 (token inválido), el
+  adaptador lanza `SocialTokenExpiredException`; la conexión pasa a **Expirada**
+  (evento `expired` + auditoría `social.token_expired`) y la UI muestra
+  **Reconectar**. El comando `social:refresh-tokens` (cada hora) renueva los tokens
+  con refresh token que caducan en <24 h y marca expirados los que ya no se pueden
+  renovar.
+- **Reconexión sin duplicados**: el OAuth guarda `external_account_id` (id de la
+  cuenta de Meta) y, si la cuenta ya estaba conectada a la marca, **actualiza** la
+  conexión (tokens, destinos; los destinos que ya no llegan se desactivan).
+- **Errores legibles**: `SocialProviderException` (HTTP 502) con el mensaje de
+  Meta; nunca incluye tokens.
+- **Métricas vigentes**: Meta retiró `page_impressions*`/`post_impressions*` (nov-2025)
+  e `impressions` de Instagram (abr-2025). Se usan `views`/`reach`; si alguna
+  métrica no está disponible se consulta el resto por separado (queda en 0).
+
+### Facebook (Páginas)
+- **Publicar**: texto (con enlace → vista previa vía `link`), una imagen
+  (`/{page}/photos`), **varias imágenes** en una sola publicación (fotos sin
+  publicar + `attached_media`) y **video** (`/{page}/videos`, `file_url`).
+- **Métricas de cuenta**: `followers_count` + Insights `page_media_view`,
+  `page_total_media_view_unique`, `page_post_engagements`.
+- **Métricas de post**: reacciones/comentarios/compartidos + `post_media_view`,
+  `post_total_media_view_unique`, `post_clicks`.
+- **Inbox**: comentarios del feed (omite los de la propia página) y respuesta con
+  `/{comment}/comments`.
+- Scopes por defecto: `public_profile`, `pages_show_list`, `pages_read_engagement`,
+  `pages_read_user_content`, `pages_manage_posts`, `pages_manage_engagement`,
+  `read_insights` (editables en SUPERADMIN).
+
+### Instagram (cuenta profesional vinculada a una Página)
+- **Misma app de Meta**: si Instagram no tiene credenciales propias usa las de
+  Facebook (`SocialProviderManager::credentials`).
+- **Destinos**: `/me/accounts{instagram_business_account}` → una por cuenta
+  profesional (`@usuario`), con el page token de su Página.
+- **Publicar en dos pasos** (contenedor → `media_publish`): imagen, **reel**
+  (`media_type=REELS`, espera a `status_code=FINISHED`) y **carrusel** de 2–10
+  elementos (imágenes y/o videos). Instagram **no admite sólo texto**
+  (`Capability::TEXT=false`) y descarga los archivos desde una URL pública: se usa
+  la URL firmada temporal del archivo (120 min).
+- **Métricas**: `followers_count`/`media_count` + Insights `reach`, `views`,
+  `total_interactions` (`metric_type=total_value`); por publicación `like_count`,
+  `comments_count` + `views`, `reach`, `shares`.
+- **Inbox**: comentarios de las publicaciones y respuesta con `/{comment}/replies`.
+- Scopes: `instagram_basic`, `instagram_content_publish`,
+  `instagram_manage_comments`, `instagram_manage_insights`, `pages_show_list`,
+  `pages_read_engagement`.
+
+### Validación antes de publicar
+`PublicationPlanner` valida al **programar** y al **publicar ahora**: la red debe
+tener cuentas conectadas y activas en la marca, y recibir lo que exige (Instagram:
+al menos una imagen o video; sin video en redes que no lo admiten). Errores → 422.
+
+### SUPERADMIN
+Integraciones sociales permite habilitar cada red, guardar App ID/Secret
+(cifrados), **Probar conexión** (`POST /platform/social-providers/{p}/test`, emite
+un app token), ajustar versión de Graph y scopes, y copiar las URLs que pide Meta
+(redirect OAuth, callback de borrado de datos, privacidad y términos).
 
 ## Cumplimiento para Meta App Review
 

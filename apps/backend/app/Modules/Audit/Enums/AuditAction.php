@@ -74,6 +74,8 @@ final class AuditAction
     public const SOCIAL_DISCONNECTED = 'social.disconnected';
     public const SOCIAL_RECONNECTED = 'social.reconnected';
     public const SOCIAL_TOKEN_REFRESHED = 'social.token_refreshed';
+    public const SOCIAL_TOKEN_EXPIRED = 'social.token_expired';
+    public const SOCIAL_PROVIDER_UPDATED = 'social.provider_updated';
 
     // API pública
     public const API_KEY_CREATED = 'api.key_created';

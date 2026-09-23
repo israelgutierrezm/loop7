@@ -86,4 +86,9 @@ class MediaAsset extends Model
     {
         return str_starts_with($this->mime_type, 'image/');
     }
+
+    public function isVideo(): bool
+    {
+        return str_starts_with($this->mime_type, 'video/');
+    }
 }

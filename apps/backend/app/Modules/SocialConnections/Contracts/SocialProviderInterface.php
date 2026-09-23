@@ -8,6 +8,9 @@ namespace App\Modules\SocialConnections\Contracts;
  * Contrato de proveedor social. El dominio nunca se acopla a Meta/LinkedIn/etc.:
  * interactúa a través de este contrato (docs/06). Cubre el ciclo de vida de la
  * conexión OAuth, la publicación y la lectura de métricas.
+ *
+ * Si el proveedor rechaza el token (caducado/revocado), el adaptador lanza
+ * SocialTokenExpiredException para que la conexión se marque como expirada.
  */
 interface SocialProviderInterface
 {
@@ -69,11 +72,19 @@ interface SocialProviderInterface
     public function refreshTokens(string $refreshToken, array $credentials): OAuthTokens;
 
     /**
-     * Etiqueta legible de la cuenta conectada (nombre de usuario/página).
+     * Verifica las credenciales de la app (client_id/secret) contra el
+     * proveedor. Lanza excepción con un mensaje legible si no son válidas.
      *
      * @param  array<string, string>  $credentials
      */
-    public function accountLabel(OAuthTokens $tokens, array $credentials): string;
+    public function verifyCredentials(array $credentials): void;
+
+    /**
+     * Cuenta externa que autorizó la conexión (id estable + nombre legible).
+     *
+     * @param  array<string, string>  $credentials
+     */
+    public function fetchAccount(OAuthTokens $tokens, array $credentials): RemoteAccount;
 
     /**
      * Destinos publicables disponibles para la conexión.

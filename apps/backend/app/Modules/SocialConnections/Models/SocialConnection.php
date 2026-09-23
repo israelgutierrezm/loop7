@@ -27,6 +27,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|null $refresh_token
  * @property \Illuminate\Support\Carbon|null $token_expires_at
  * @property list<string>|null $scopes
+ * @property array<string, mixed>|null $meta
+ * @property \Illuminate\Support\Carbon|null $last_health_check_at
  */
 class SocialConnection extends Model
 {
@@ -88,13 +90,18 @@ class SocialConnection extends Model
         return $this->token_expires_at !== null && $this->token_expires_at->isPast();
     }
 
-    public function toTokens(): OAuthTokens
+    /**
+     * Tokens para operar con el proveedor; si se indica el destino, incluye su
+     * token propio (p. ej. page token de Meta) para que el adaptador lo prefiera.
+     */
+    public function toTokens(?SocialConnectionDestination $destination = null): OAuthTokens
     {
         return new OAuthTokens(
             accessToken: (string) $this->access_token,
             refreshToken: $this->refresh_token,
             expiresAt: $this->token_expires_at,
             scopes: $this->scopes ?? [],
+            destinationToken: $destination?->access_token,
         );
     }
 }

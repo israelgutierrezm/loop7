@@ -15,9 +15,11 @@ use App\Modules\Content\Models\PostVariant;
 use App\Modules\Content\Models\PublicationTarget;
 use App\Modules\MediaLibrary\Services\MediaService;
 use App\Modules\SocialConnections\Contracts\PublishPayload;
+use App\Modules\SocialConnections\Enums\ConnectionStatus;
+use App\Modules\SocialConnections\Exceptions\SocialTokenExpiredException;
 use App\Modules\SocialConnections\Models\SocialConnectionDestination;
+use App\Modules\SocialConnections\Services\SocialConnectionService;
 use App\Modules\SocialConnections\Services\SocialProviderManager;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Throwable;
@@ -31,6 +33,8 @@ class PublishingService
 {
     public function __construct(
         private readonly SocialProviderManager $manager,
+        private readonly SocialConnectionService $connections,
+        private readonly PublicationPlanner $planner,
         private readonly MediaService $media,
         private readonly AuditLogger $audit,
     ) {
@@ -59,25 +63,37 @@ class PublishingService
         $adapter = $this->manager->adapter($connection->provider);
         if ($adapter === null) {
             $this->markFailed($target, 'Proveedor no disponible.');
+            $this->rollup($target);
 
             return;
         }
 
-        $credentials = $this->manager->record($connection->provider)?->credentialMap() ?? [];
-        $attemptNumber = $this->nextAttemptNumber($target);
+        if ($connection->status !== ConnectionStatus::CONNECTED) {
+            $this->markFailed($target, 'La conexión con la red social no está activa. Reconecta la cuenta.');
+            $this->rollup($target);
 
+            return;
+        }
+
+        $attemptNumber = $this->nextAttemptNumber($target);
         $target->update(['status' => TargetStatus::PUBLISHING->value]);
 
         try {
-            $mediaUrls = $variant->media->map(fn ($m) => $this->media->temporaryUrl($m))->values()->all();
             $payload = new PublishPayload(
                 body: $variant->body ?? '',
-                mediaUrls: $mediaUrls,
+                // Minutos suficientes para que la red descargue (y procese) el archivo.
+                mediaUrls: $variant->media->map(fn ($m) => $this->media->temporaryUrl($m, 120))->values()->all(),
                 format: $variant->format,
                 idempotencyKey: $target->public_id,
+                mediaTypes: $variant->media->map(fn ($m) => $m->isVideo() ? 'video' : 'image')->values()->all(),
             );
 
-            $result = $adapter->publish($connection->toTokens(), $destination->external_id, $payload, $credentials);
+            $result = $adapter->publish(
+                $connection->toTokens($destination),
+                $destination->external_id,
+                $payload,
+                $this->manager->credentials($connection->provider),
+            );
 
             $target->update([
                 'status' => TargetStatus::PUBLISHED->value,
@@ -87,6 +103,11 @@ class PublishingService
                 'error' => null,
             ]);
             $this->recordAttempt($target, $attemptNumber, 'published', ['remote_id' => $result->remoteId]);
+            $this->rollup($target);
+        } catch (SocialTokenExpiredException $e) {
+            // Token caducado/revocado: reintentar no sirve; hay que reconectar.
+            $this->connections->markExpired($connection, $e->getMessage());
+            $this->markFailed($target, 'La conexión con la red social expiró. Reconecta la cuenta y vuelve a publicar.', $attemptNumber);
             $this->rollup($target);
         } catch (Throwable $e) {
             $this->markFailed($target, $e->getMessage(), $attemptNumber);
@@ -131,8 +152,10 @@ class PublishingService
      */
     public function publishNow(ContentItem $content): void
     {
+        $this->planner->assertPublishable($content);
+
         DB::transaction(function () use ($content): void {
-            $this->ensureTargets($content, now());
+            $this->planner->createTargets($content, now());
             $content->update(['status' => ContentStatus::PUBLISHING->value]);
             $this->audit->log(AuditAction::CONTENT_PUBLISHING, $content);
         });
@@ -190,30 +213,6 @@ class PublishingService
         // Notifica a otros módulos (Automations) sin acoplarlos.
         if ($status === ContentStatus::PUBLISHED || $status === ContentStatus::PARTIAL) {
             event(new ContentPublished($content, $status->value));
-        }
-    }
-
-    private function ensureTargets(ContentItem $content, Carbon $when): void
-    {
-        $content->loadMissing('variants');
-        foreach ($content->variants as $variant) {
-            $destinations = SocialConnectionDestination::query()->withoutGlobalScopes()
-                ->whereHas('connection', fn ($q) => $q
-                    ->where('brand_id', $content->brand_id)
-                    ->where('provider', $variant->provider)
-                    ->where('status', 'connected'))
-                ->get();
-
-            foreach ($destinations as $destination) {
-                PublicationTarget::query()->updateOrCreate(
-                    ['post_variant_id' => $variant->id, 'social_connection_destination_id' => $destination->id],
-                    [
-                        'organization_id' => $content->organization_id,
-                        'status' => TargetStatus::SCHEDULED->value,
-                        'scheduled_at' => $when,
-                    ],
-                );
-            }
         }
     }
 
