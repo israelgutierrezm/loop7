@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Automations;
 
 use App\Models\User;
+use App\Modules\AccessControl\Enums\OrganizationRole;
 use App\Modules\Automations\Models\Automation;
 use App\Modules\Brands\Models\Brand;
 use App\Modules\Content\Events\ContentPublished;
@@ -14,6 +15,7 @@ use App\Modules\Organizations\Models\Organization;
 use App\Modules\SocialConnections\Models\SocialConnection;
 use App\Modules\SocialConnections\Models\SocialConnectionDestination;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -128,14 +130,81 @@ class AutomationTest extends TestCase
         $content = ContentItem::query()->create([
             'organization_id' => $org->id, 'brand_id' => $brand->id, 'title' => 'Novedad', 'status' => 'published',
         ]);
+        // IP pública literal: la validación anti-SSRF no depende del DNS en los tests.
         $automation = $this->makeAutomation($org, 'content.published', [
-            ['type' => 'webhook', 'config' => ['url' => 'https://example.test/hook']],
+            ['type' => 'webhook', 'config' => ['url' => 'https://93.184.216.34/hook']],
         ]);
 
         event(new ContentPublished($content, 'published'));
 
-        Http::assertSent(fn ($request) => str_contains($request->url(), 'example.test'));
+        Http::assertSent(fn ($request) => str_contains($request->url(), '93.184.216.34')
+            && $request['context']['content_id'] === $content->public_id);
         $this->assertDatabaseHas('automation_runs', ['automation_id' => $automation->id, 'status' => 'success']);
+    }
+
+    public function test_webhook_hacia_red_interna_se_rechaza(): void
+    {
+        Http::fake();
+        [$owner, $org] = $this->proOrg();
+
+        foreach ([
+            'http://127.0.0.1:6379/',
+            'http://169.254.169.254/latest/meta-data/',
+            'http://10.0.0.8/admin',
+            'http://localhost/hook',
+            'http://servicio.internal/hook',
+            'ftp://93.184.216.34/hook',
+            'https://usuario:clave@93.184.216.34/hook',
+        ] as $url) {
+            $this->actingInOrganization($owner, $org)
+                ->postJson('/api/v1/automations', [
+                    'name' => 'SSRF', 'trigger' => 'content.published',
+                    'actions' => [['type' => 'webhook', 'config' => ['url' => $url]]],
+                ])
+                ->assertStatus(422)
+                ->assertJsonValidationErrors(['actions.0.config.url']);
+        }
+
+        // Aunque la regla ya existiera (p. ej. el DNS cambió), al ejecutarse tampoco sale.
+        $brand = Brand::factory()->create(['organization_id' => $org->id]);
+        $content = ContentItem::query()->create([
+            'organization_id' => $org->id, 'brand_id' => $brand->id, 'title' => 'X', 'status' => 'published',
+        ]);
+        $automation = $this->makeAutomation($org, 'content.published', [
+            ['type' => 'webhook', 'config' => ['url' => 'http://169.254.169.254/latest/meta-data/']],
+        ]);
+
+        event(new ContentPublished($content, 'published'));
+
+        Http::assertNothingSent();
+        $this->assertDatabaseHas('automation_runs', ['automation_id' => $automation->id, 'status' => 'failed']);
+    }
+
+    public function test_accion_avisar_notifica_a_la_audiencia_con_acceso_a_la_marca(): void
+    {
+        [$owner, $org] = $this->proOrg();
+        $brand = Brand::factory()->create(['organization_id' => $org->id]);
+        $approver = $this->addMember($org, OrganizationRole::APPROVER->value);
+        $outsider = $this->addMember($org, OrganizationRole::APPROVER->value, allBrandsAccess: false);
+        $creator = $this->addMember($org, OrganizationRole::CONTENT_CREATOR->value);
+        $content = ContentItem::query()->create([
+            'organization_id' => $org->id, 'brand_id' => $brand->id, 'title' => 'Novedad', 'status' => 'published',
+        ]);
+        $this->makeAutomation($org, 'content.published', [
+            ['type' => 'notify', 'config' => ['message' => 'Revisen {content_title}', 'audience' => 'approvers']],
+        ]);
+
+        event(new ContentPublished($content, 'published'));
+
+        $notified = DB::table('notifications')->where('type', 'automation.notify')->pluck('notifiable_id')->sort()->values()->all();
+        $this->assertSame(collect([$owner->id, $approver->id])->sort()->values()->all(), $notified);
+        $this->assertNotContains($outsider->id, $notified); // sin acceso a la marca
+        $this->assertNotContains($creator->id, $notified);  // no es aprobador
+
+        $row = DB::table('notifications')->where('notifiable_id', $approver->id)->first();
+        $this->assertSame($org->id, (int) $row->organization_id);
+        $this->assertSame('Revisen Novedad', json_decode($row->data, true)['body']);
+        $this->assertSame("/app/content/{$content->public_id}", json_decode($row->data, true)['path']);
     }
 
     public function test_auto_respuesta_de_inbox_por_evento(): void

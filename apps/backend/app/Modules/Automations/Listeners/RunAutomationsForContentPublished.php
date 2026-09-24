@@ -31,7 +31,10 @@ class RunAutomationsForContentPublished
             [
                 'content_title' => $content->title,
                 'content_status' => $event->status,
-                'brand' => $brand->name,
+                'brand' => $brand->name ?? '',
+                // Identificadores públicos: enlazan el aviso y sirven a los webhooks.
+                'content_id' => $content->public_id,
+                'brand_id' => $brand?->public_id,
             ],
         );
     }

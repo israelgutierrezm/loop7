@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Modules\Automations\Enums\AutomationActionType;
 use App\Modules\Automations\Enums\AutomationTrigger;
 use App\Modules\Automations\Enums\ConditionOperator;
+use App\Modules\Automations\Enums\NotifyAudience;
 use App\Modules\Automations\Models\Automation;
 use App\Modules\Automations\Models\AutomationRun;
 use App\Modules\Billing\Entitlements\Entitlement;
@@ -16,10 +17,13 @@ use App\Modules\Billing\Services\EntitlementsService;
 use App\Modules\Brands\Models\Brand;
 use App\Modules\Brands\Services\BrandAccess;
 use App\Support\Http\ApiResponse;
+use App\Support\Security\OutboundUrl;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
+use InvalidArgumentException;
 
 /**
  * CRUD de automatizaciones (docs/05). Requiere permisos automations.* y el
@@ -51,6 +55,10 @@ class AutomationController extends Controller
                 'value' => $o->value,
                 'label' => $o->label(),
             ], ConditionOperator::cases()),
+            'audiences' => array_map(fn (NotifyAudience $a) => [
+                'value' => $a->value,
+                'label' => $a->label(),
+            ], NotifyAudience::cases()),
         ]);
     }
 
@@ -136,10 +144,12 @@ class AutomationController extends Controller
             'conditions.*.field' => ['required_with:conditions', 'string', 'max:60'],
             'conditions.*.operator' => ['required_with:conditions', Rule::in(ConditionOperator::values())],
             'conditions.*.value' => ['nullable', 'string', 'max:255'],
-            'actions' => ['required', 'array', 'min:1'],
+            'actions' => ['required', 'array', 'min:1', 'max:10'],
             'actions.*.type' => ['required', Rule::in(AutomationActionType::values())],
             'actions.*.config' => ['nullable', 'array'],
         ]);
+
+        $this->validateActionConfigs($data['actions']);
 
         $brandId = null;
         if (! empty($data['brand'])) {
@@ -156,6 +166,54 @@ class AutomationController extends Controller
             'conditions' => array_values($data['conditions'] ?? []),
             'actions' => array_values($data['actions']),
         ];
+    }
+
+    /**
+     * Cada acción exige su propia configuración (se valida al guardar para no
+     * descubrir el error cuando la regla ya se está ejecutando).
+     *
+     * @param  array<int, array{type: string, config?: array<string, mixed>|null}>  $actions
+     */
+    private function validateActionConfigs(array $actions): void
+    {
+        $errors = [];
+
+        foreach ($actions as $i => $action) {
+            $config = $action['config'] ?? [];
+            $text = fn (string $key): string => trim((string) ($config[$key] ?? ''));
+
+            switch (AutomationActionType::from($action['type'])) {
+                case AutomationActionType::NOTIFY:
+                    if ($text('message') === '' || mb_strlen($text('message')) > 1000) {
+                        $errors["actions.{$i}.config.message"] = 'Escribe el mensaje del aviso (máx. 1000 caracteres).';
+                    }
+                    if ($text('audience') !== '' && NotifyAudience::tryFrom($text('audience')) === null) {
+                        $errors["actions.{$i}.config.audience"] = 'Elige a quién avisar.';
+                    }
+                    break;
+                case AutomationActionType::WEBHOOK:
+                    try {
+                        OutboundUrl::resolve($text('url'));
+                    } catch (InvalidArgumentException $e) {
+                        $errors["actions.{$i}.config.url"] = $e->getMessage();
+                    }
+                    break;
+                case AutomationActionType::INBOX_REPLY:
+                    if ($text('message') === '' || mb_strlen($text('message')) > 2000) {
+                        $errors["actions.{$i}.config.message"] = 'Escribe la respuesta automática (máx. 2000 caracteres).';
+                    }
+                    break;
+                case AutomationActionType::INBOX_TAG:
+                    if ($text('tag') === '' || mb_strlen($text('tag')) > 40) {
+                        $errors["actions.{$i}.config.tag"] = 'Indica la etiqueta (máx. 40 caracteres).';
+                    }
+                    break;
+            }
+        }
+
+        if ($errors !== []) {
+            throw ValidationException::withMessages($errors);
+        }
     }
 
     private function resolve(string $publicId): Automation

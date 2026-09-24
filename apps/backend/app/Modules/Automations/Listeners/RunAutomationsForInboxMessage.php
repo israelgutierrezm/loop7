@@ -6,6 +6,7 @@ namespace App\Modules\Automations\Listeners;
 
 use App\Modules\Automations\Enums\AutomationTrigger;
 use App\Modules\Automations\Services\AutomationEngine;
+use App\Modules\Brands\Models\Brand;
 use App\Modules\Inbox\Events\InboxMessageReceived;
 
 /**
@@ -28,6 +29,7 @@ class RunAutomationsForInboxMessage
             $conversation->brand_id,
             [
                 'conversation_id' => $conversation->public_id,
+                'brand_id' => Brand::query()->withoutGlobalScopes()->whereKey($conversation->brand_id)->value('public_id'),
                 'provider' => $conversation->provider,
                 'type' => $conversation->type,
                 'participant' => $conversation->participant_name ?? '',

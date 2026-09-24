@@ -6,7 +6,7 @@ namespace App\Modules\Automations\Enums;
 
 /**
  * Tipos de acción que una automatización puede ejecutar. Reutilizan módulos
- * existentes (Inbox) o realizan efectos externos (webhook saliente).
+ * existentes (Notifications, Inbox) o realizan efectos externos (webhook saliente).
  */
 enum AutomationActionType: string
 {
@@ -18,7 +18,7 @@ enum AutomationActionType: string
     public function label(): string
     {
         return match ($this) {
-            self::NOTIFY => 'Registrar notificación',
+            self::NOTIFY => 'Avisar al equipo',
             self::WEBHOOK => 'Llamar webhook saliente',
             self::INBOX_REPLY => 'Responder en el inbox',
             self::INBOX_TAG => 'Etiquetar conversación',

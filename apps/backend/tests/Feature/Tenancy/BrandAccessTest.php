@@ -121,7 +121,7 @@ class BrandAccessTest extends TestCase
     {
         $payload = fn (Brand $b) => [
             'name' => 'Aviso ' . $b->name, 'trigger' => 'content.published', 'brand' => $b->public_id,
-            'actions' => [['type' => 'webhook', 'config' => ['url' => 'https://example.test/hook']]],
+            'actions' => [['type' => 'webhook', 'config' => ['url' => 'https://93.184.216.34/hook']]],
         ];
         $foreignId = $this->actingInOrganization($this->owner, $this->org)
             ->postJson('/api/v1/automations', $payload($this->other))

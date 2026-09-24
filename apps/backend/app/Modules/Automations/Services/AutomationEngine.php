@@ -58,14 +58,15 @@ class AutomationEngine
             ->pluck('id');
 
         foreach ($automations as $id) {
-            RunAutomation::dispatch($id, $context);
+            RunAutomation::dispatch($id, $context, $brandId);
         }
     }
 
     /**
      * @param  array<string, mixed>  $context
+     * @param  int|null  $brandId  Brand del evento (acota a quién avisar)
      */
-    public function run(Automation $automation, array $context): AutomationRun
+    public function run(Automation $automation, array $context, ?int $brandId = null): AutomationRun
     {
         if (! $this->evaluateConditions($automation->conditions ?? [], $context)) {
             return $this->record($automation, 'skipped', 'No cumple las condiciones.', $context);
@@ -74,7 +75,7 @@ class AutomationEngine
         $messages = [];
         try {
             foreach ($automation->actions as $action) {
-                $messages[] = $this->executor->execute($action, $context);
+                $messages[] = $this->executor->execute($action, $context, $automation, $brandId);
             }
         } catch (Throwable $e) {
             $this->touch($automation);

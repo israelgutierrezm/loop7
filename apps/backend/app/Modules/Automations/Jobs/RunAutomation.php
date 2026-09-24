@@ -34,6 +34,7 @@ class RunAutomation implements ShouldQueue
     public function __construct(
         public readonly int $automationId,
         public readonly array $context,
+        public readonly ?int $brandId = null,
     ) {
         $this->onQueue('automations');
     }
@@ -43,7 +44,7 @@ class RunAutomation implements ShouldQueue
         $automation = Automation::query()->withoutGlobalScopes()->find($this->automationId);
 
         if ($automation !== null && $automation->is_enabled) {
-            $engine->run($automation, $this->context);
+            $engine->run($automation, $this->context, $this->brandId);
         }
     }
 }

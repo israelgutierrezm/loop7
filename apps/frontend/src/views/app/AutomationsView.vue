@@ -4,7 +4,7 @@ import http from '@/services/http'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toasts'
 import { useConfirmStore } from '@/stores/confirm'
-import { apiErrorMessage } from '@/utils/errors'
+import { apiErrorMessage, apiValidationErrors } from '@/utils/errors'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import ErrorState from '@/components/ui/ErrorState.vue'
@@ -30,6 +30,13 @@ interface Meta {
   triggers: { value: string; label: string; fields: string[] }[]
   actions: { value: string; label: string }[]
   operators: { value: string; label: string }[]
+  audiences: { value: string; label: string }[]
+}
+interface FieldDef {
+  key: string
+  label: string
+  placeholder?: string
+  kind: 'text' | 'textarea' | 'audience'
 }
 
 const auth = useAuthStore()
@@ -42,7 +49,9 @@ const loading = ref(true)
 const failed = ref(false)
 const saving = ref(false)
 const modalOpen = ref(false)
+const errors = ref<Record<string, string[]>>({})
 
+const newAction = (type = 'notify'): ActionRow => ({ type, config: type === 'notify' ? { audience: 'managers' } : {} })
 const blank = () => ({
   id: '' as string,
   name: '',
@@ -50,19 +59,30 @@ const blank = () => ({
   brand: '',
   is_enabled: true,
   conditions: [] as Condition[],
-  actions: [{ type: 'notify', config: {} as Record<string, string> }] as ActionRow[],
+  actions: [newAction()] as ActionRow[],
 })
 const form = reactive(blank())
 
-// Campo de configuración por tipo de acción.
-const actionField: Record<string, { key: string; label: string; placeholder: string }> = {
-  notify: { key: 'message', label: 'Mensaje', placeholder: 'Ej. Se publicó {content_title}' },
-  webhook: { key: 'url', label: 'URL', placeholder: 'https://tu-endpoint.com/hook' },
-  inbox_reply: { key: 'message', label: 'Respuesta', placeholder: 'Ej. Hola {participant}, gracias.' },
-  inbox_tag: { key: 'tag', label: 'Etiqueta', placeholder: 'Ej. urgente' },
+// Configuración que pide cada tipo de acción.
+const actionFields: Record<string, FieldDef[]> = {
+  notify: [
+    { key: 'message', label: 'Mensaje del aviso', placeholder: 'Ej. Se publicó {content_title} en {brand}', kind: 'text' },
+    { key: 'audience', label: 'Avisar a', kind: 'audience' },
+  ],
+  webhook: [{ key: 'url', label: 'URL del webhook', placeholder: 'https://tu-servidor.com/hook', kind: 'text' }],
+  inbox_reply: [{ key: 'message', label: 'Respuesta automática', placeholder: 'Ej. Hola {participant}, gracias por escribir.', kind: 'textarea' }],
+  inbox_tag: [{ key: 'tag', label: 'Etiqueta', placeholder: 'Ej. urgente', kind: 'text' }],
 }
 
 const triggerFields = computed(() => meta.value?.triggers.find((t) => t.value === form.trigger)?.fields ?? [])
+
+function fieldError(path: string): string | undefined {
+  return errors.value[path]?.[0]
+}
+
+function changeActionType(action: ActionRow, type: string): void {
+  Object.assign(action, newAction(type))
+}
 
 async function load(): Promise<void> {
   loading.value = true
@@ -80,6 +100,7 @@ async function load(): Promise<void> {
 
 function openCreate(): void {
   Object.assign(form, blank())
+  errors.value = {}
   modalOpen.value = true
 }
 
@@ -93,6 +114,7 @@ function openEdit(a: Automation): void {
     conditions: a.conditions.map((c) => ({ ...c })),
     actions: a.actions.map((ac) => ({ type: ac.type, config: { ...ac.config } })),
   })
+  errors.value = {}
   modalOpen.value = true
 }
 
@@ -100,7 +122,7 @@ function addCondition(): void {
   form.conditions.push({ field: triggerFields.value[0] ?? '', operator: 'equals', value: '' })
 }
 function addAction(): void {
-  form.actions.push({ type: 'notify', config: {} })
+  form.actions.push(newAction())
 }
 
 async function save(): Promise<void> {
@@ -109,6 +131,7 @@ async function save(): Promise<void> {
     return
   }
   saving.value = true
+  errors.value = {}
   const payload = {
     name: form.name,
     trigger: form.trigger,
@@ -127,7 +150,8 @@ async function save(): Promise<void> {
     modalOpen.value = false
     await load()
   } catch (e) {
-    toasts.error(apiErrorMessage(e))
+    errors.value = apiValidationErrors(e)
+    toasts.error(Object.keys(errors.value).length ? 'Revisa los campos marcados.' : apiErrorMessage(e))
   } finally {
     saving.value = false
   }
@@ -224,20 +248,21 @@ onMounted(load)
     <ModalDialog :open="modalOpen" :title="form.id ? 'Editar automatización' : 'Nueva automatización'" @close="modalOpen = false">
       <div class="max-h-[70vh] space-y-4 overflow-y-auto pr-1">
         <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Nombre</label>
-          <input v-model="form.name" class="input" placeholder="Ej. Avisar al equipo al publicar" />
+          <label for="auto-name" class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Nombre</label>
+          <input id="auto-name" v-model="form.name" class="input" placeholder="Ej. Avisar al equipo al publicar" />
+          <p v-if="fieldError('name')" class="mt-1 text-xs text-rose-600">{{ fieldError('name') }}</p>
         </div>
 
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <label class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Cuando… (disparador)</label>
-            <select v-model="form.trigger" class="input">
+            <label for="auto-trigger" class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Cuando… (disparador)</label>
+            <select id="auto-trigger" v-model="form.trigger" class="input">
               <option v-for="t in meta?.triggers" :key="t.value" :value="t.value">{{ t.label }}</option>
             </select>
           </div>
           <div>
-            <label class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Marca</label>
-            <select v-model="form.brand" class="input">
+            <label for="auto-brand" class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Marca</label>
+            <select id="auto-brand" v-model="form.brand" class="input">
               <option value="">Todas las marcas</option>
               <option v-for="b in auth.brands" :key="b.id" :value="b.id">{{ b.name }}</option>
             </select>
@@ -245,47 +270,75 @@ onMounted(load)
         </div>
 
         <!-- Condiciones -->
-        <div>
+        <fieldset>
           <div class="mb-1 flex items-center justify-between">
-            <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Si se cumple (opcional)</label>
-            <button class="btn-ghost text-xs" @click="addCondition"><AppIcon name="plus" :size="14" /> Condición</button>
+            <legend class="text-sm font-medium text-slate-700 dark:text-slate-300">Si se cumple (opcional)</legend>
+            <button type="button" class="btn-ghost text-xs" @click="addCondition"><AppIcon name="plus" :size="14" /> Condición</button>
           </div>
           <div v-for="(c, i) in form.conditions" :key="i" class="mb-2 flex flex-wrap items-center gap-2">
-            <select v-model="c.field" class="input w-auto flex-1">
+            <select v-model="c.field" class="input w-auto flex-1" :aria-label="`Campo de la condición ${i + 1}`">
               <option v-for="f in triggerFields" :key="f" :value="f">{{ f }}</option>
             </select>
-            <select v-model="c.operator" class="input w-auto">
+            <select v-model="c.operator" class="input w-auto" :aria-label="`Operador de la condición ${i + 1}`">
               <option v-for="o in meta?.operators" :key="o.value" :value="o.value">{{ o.label }}</option>
             </select>
-            <input v-model="c.value" class="input w-auto flex-1" placeholder="valor" />
-            <button class="text-rose-500" @click="form.conditions.splice(i, 1)"><AppIcon name="close" :size="14" /></button>
+            <input v-model="c.value" class="input w-auto flex-1" placeholder="valor" :aria-label="`Valor de la condición ${i + 1}`" />
+            <button type="button" class="text-rose-500" :aria-label="`Quitar condición ${i + 1}`" @click="form.conditions.splice(i, 1)">
+              <AppIcon name="close" :size="14" />
+            </button>
           </div>
-        </div>
+        </fieldset>
 
         <!-- Acciones -->
-        <div>
+        <fieldset>
           <div class="mb-1 flex items-center justify-between">
-            <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Entonces (acciones)</label>
-            <button class="btn-ghost text-xs" @click="addAction"><AppIcon name="plus" :size="14" /> Acción</button>
+            <legend class="text-sm font-medium text-slate-700 dark:text-slate-300">Entonces (acciones)</legend>
+            <button type="button" class="btn-ghost text-xs" @click="addAction"><AppIcon name="plus" :size="14" /> Acción</button>
           </div>
-          <div v-for="(a, i) in form.actions" :key="i" class="mb-2 rounded-lg border border-slate-100 p-3 dark:border-slate-800">
+          <p class="mb-2 text-xs text-slate-500">
+            En los textos puedes usar:
+            <code v-for="f in triggerFields" :key="f" class="mr-1 rounded bg-slate-100 px-1 dark:bg-slate-800">{{ '{' + f + '}' }}</code>
+          </p>
+          <div v-for="(a, i) in form.actions" :key="i" class="mb-2 space-y-2 rounded-lg border border-slate-100 p-3 dark:border-slate-800">
             <div class="flex items-center gap-2">
-              <select v-model="a.type" class="input w-auto flex-1">
+              <select
+                :value="a.type"
+                class="input w-auto flex-1"
+                :aria-label="`Tipo de la acción ${i + 1}`"
+                @change="changeActionType(a, ($event.target as HTMLSelectElement).value)"
+              >
                 <option v-for="ac in meta?.actions" :key="ac.value" :value="ac.value">{{ ac.label }}</option>
               </select>
-              <button v-if="form.actions.length > 1" class="text-rose-500" @click="form.actions.splice(i, 1)">
+              <button
+                v-if="form.actions.length > 1"
+                type="button"
+                class="text-rose-500"
+                :aria-label="`Quitar acción ${i + 1}`"
+                @click="form.actions.splice(i, 1)"
+              >
                 <AppIcon name="close" :size="14" />
               </button>
             </div>
-            <div v-if="actionField[a.type]" class="mt-2">
-              <input
-                v-model="a.config[actionField[a.type].key]"
+            <div v-for="f in actionFields[a.type] ?? []" :key="f.key">
+              <label :for="`action-${i}-${f.key}`" class="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">{{ f.label }}</label>
+              <select v-if="f.kind === 'audience'" :id="`action-${i}-${f.key}`" v-model="a.config[f.key]" class="input">
+                <option v-for="au in meta?.audiences" :key="au.value" :value="au.value">{{ au.label }}</option>
+              </select>
+              <textarea
+                v-else-if="f.kind === 'textarea'"
+                :id="`action-${i}-${f.key}`"
+                v-model="a.config[f.key]"
+                rows="2"
                 class="input"
-                :placeholder="actionField[a.type].placeholder"
+                :placeholder="f.placeholder"
               />
+              <input v-else :id="`action-${i}-${f.key}`" v-model="a.config[f.key]" class="input" :placeholder="f.placeholder" />
+              <p v-if="fieldError(`actions.${i}.config.${f.key}`)" class="mt-1 text-xs text-rose-600">
+                {{ fieldError(`actions.${i}.config.${f.key}`) }}
+              </p>
             </div>
           </div>
-        </div>
+        </fieldset>
       </div>
 
       <div class="mt-6 flex justify-end gap-2">

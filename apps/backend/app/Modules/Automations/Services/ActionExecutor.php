@@ -5,32 +5,44 @@ declare(strict_types=1);
 namespace App\Modules\Automations\Services;
 
 use App\Modules\Automations\Enums\AutomationActionType;
+use App\Modules\Automations\Enums\NotifyAudience;
+use App\Modules\Automations\Models\Automation;
 use App\Modules\Inbox\Models\InboxConversation;
 use App\Modules\Inbox\Services\InboxService;
+use App\Modules\Notifications\Enums\NotificationCategory;
+use App\Modules\Notifications\Notifications\OrganizationNotice;
+use App\Modules\Notifications\Services\Notifier;
+use App\Support\Security\OutboundUrl;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
+use InvalidArgumentException;
 use RuntimeException;
 
 /**
- * Ejecuta una acción de automatización reutilizando los módulos existentes o
- * realizando efectos externos (webhook). Devuelve un mensaje del resultado.
+ * Ejecuta una acción de automatización reutilizando los módulos existentes
+ * (avisos, inbox) o realizando efectos externos (webhook). Devuelve un mensaje
+ * del resultado.
  */
 class ActionExecutor
 {
-    public function __construct(private readonly InboxService $inbox)
-    {
+    public function __construct(
+        private readonly InboxService $inbox,
+        private readonly Notifier $notifier,
+    ) {
     }
 
     /**
      * @param  array{type: string, config?: array<string, mixed>}  $action
      * @param  array<string, mixed>  $context
+     * @param  int|null  $brandId  Brand del evento que disparó la regla
      */
-    public function execute(array $action, array $context): string
+    public function execute(array $action, array $context, Automation $automation, ?int $brandId = null): string
     {
         $type = AutomationActionType::tryFrom($action['type']);
         $config = $action['config'] ?? [];
 
         return match ($type) {
-            AutomationActionType::NOTIFY => $this->notify($config, $context),
+            AutomationActionType::NOTIFY => $this->notify($config, $context, $automation, $brandId ?? $automation->brand_id),
             AutomationActionType::WEBHOOK => $this->webhook($config, $context),
             AutomationActionType::INBOX_REPLY => $this->inboxReply($config, $context),
             AutomationActionType::INBOX_TAG => $this->inboxTag($config, $context),
@@ -39,14 +51,56 @@ class ActionExecutor
     }
 
     /**
+     * Aviso in-app (y por correo, según preferencias) a la audiencia elegida
+     * con acceso a la marca del evento.
+     *
      * @param  array<string, mixed>  $config
      * @param  array<string, mixed>  $context
      */
-    private function notify(array $config, array $context): string
+    private function notify(array $config, array $context, Automation $automation, ?int $brandId): string
     {
-        $message = $this->interpolate((string) ($config['message'] ?? 'Evento de automatización'), $context);
+        $message = trim($this->interpolate((string) ($config['message'] ?? ''), $context));
+        if ($message === '') {
+            throw new RuntimeException('El aviso requiere un mensaje.');
+        }
 
-        return 'Notificación registrada: ' . $message;
+        $audience = NotifyAudience::tryFrom((string) ($config['audience'] ?? '')) ?? NotifyAudience::MANAGERS;
+
+        $sent = $this->notifier->toMembersWithPermission(
+            $audience->permission(),
+            new OrganizationNotice(
+                organizationId: $automation->organization_id,
+                kind: 'automation.notify',
+                category: NotificationCategory::AUTOMATIONS,
+                title: $automation->name,
+                body: Str::limit($message, 500),
+                path: $this->pathFor($context),
+            ),
+            brandId: $brandId,
+        );
+
+        return "Aviso enviado a {$sent} persona(s)";
+    }
+
+    /**
+     * Pantalla relacionada con el evento, si la hay.
+     *
+     * @param  array<string, mixed>  $context
+     */
+    private function pathFor(array $context): ?string
+    {
+        if (! empty($context['content_id'])) {
+            return '/app/content/' . $context['content_id'];
+        }
+
+        if (! empty($context['conversation_id'])) {
+            return '/app/inbox?' . http_build_query(array_filter([
+                'brand' => $context['brand_id'] ?? null,
+                'conversation' => $context['conversation_id'],
+            ]));
+        }
+
+        return null;
     }
 
     /**
@@ -60,10 +114,20 @@ class ActionExecutor
             throw new RuntimeException('El webhook requiere una URL.');
         }
 
-        $response = Http::timeout(10)->asJson()->post($url, [
-            'trigger' => $context['trigger'] ?? null,
-            'context' => $context,
-        ]);
+        // Anti-SSRF: se revalida al ejecutar (el DNS pudo cambiar) y se fija la IP.
+        try {
+            $target = OutboundUrl::resolve($url);
+        } catch (InvalidArgumentException $e) {
+            throw new RuntimeException($e->getMessage(), 0, $e);
+        }
+
+        $response = Http::timeout(10)
+            ->withOptions(OutboundUrl::pinnedOptions($target))
+            ->asJson()
+            ->post($url, [
+                'trigger' => $context['trigger'] ?? null,
+                'context' => $context,
+            ]);
 
         if ($response->failed()) {
             throw new RuntimeException('El webhook respondió ' . $response->status());
