@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace App\Modules\MediaLibrary\Services;
 
 use App\Models\User;
+use App\Modules\Billing\Entitlements\Entitlement;
+use App\Modules\Billing\Exceptions\PlanLimitExceededException;
+use App\Modules\Billing\Services\EntitlementsService;
 use App\Modules\Brands\Models\Brand;
 use App\Modules\MediaLibrary\Models\MediaAsset;
+use App\Modules\Organizations\Models\Organization;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
@@ -15,6 +19,10 @@ use Illuminate\Support\Str;
 class MediaService
 {
     private const DISK = 'local';
+
+    public function __construct(private readonly EntitlementsService $entitlements)
+    {
+    }
 
     public function upload(Brand $brand, UploadedFile $file, ?int $folderId, User $uploader): MediaAsset
     {
@@ -44,6 +52,55 @@ class MediaService
             'height' => $height,
             'checksum' => $checksum,
         ]);
+    }
+
+    /**
+     * Guarda en la biblioteca un archivo generado por el sistema (p. ej. una
+     * imagen de IA). Sólo acepta imágenes rasterizadas.
+     */
+    public function storeGenerated(Brand $brand, string $contents, string $mime, string $name, User $creator): MediaAsset
+    {
+        $extensions = ['image/png' => 'png', 'image/jpeg' => 'jpg', 'image/webp' => 'webp'];
+        if (! isset($extensions[$mime])) {
+            throw new \InvalidArgumentException('Formato de imagen no admitido: ' . $mime);
+        }
+
+        $extension = $extensions[$mime];
+        $path = "media/{$brand->public_id}/" . Str::ulid() . '.' . $extension;
+        Storage::disk(self::DISK)->put($path, $contents);
+
+        $info = @getimagesizefromstring($contents);
+
+        return MediaAsset::query()->create([
+            'organization_id' => $brand->organization_id,
+            'brand_id' => $brand->id,
+            'folder_id' => null,
+            'uploaded_by_user_id' => $creator->id,
+            'disk' => self::DISK,
+            'path' => $path,
+            'original_name' => Str::limit(Str::slug($name), 60, '') . '.' . $extension,
+            'mime_type' => $mime,
+            'extension' => $extension,
+            'size_bytes' => strlen($contents),
+            'width' => $info !== false ? (int) $info[0] : null,
+            'height' => $info !== false ? (int) $info[1] : null,
+            'checksum' => hash('sha256', $contents),
+        ]);
+    }
+
+    /**
+     * Lanza 402 si sumar `$bytes` supera el almacenamiento del plan.
+     */
+    public function ensureStorageAvailable(Organization $organization, int $bytes): void
+    {
+        $limitGb = $this->entitlements->limit($organization, Entitlement::STORAGE_GB);
+        if ($limitGb === Entitlement::UNLIMITED) {
+            return;
+        }
+
+        if ($this->storageUsedBytes($organization->id) + $bytes > $limitGb * 1024 ** 3) {
+            throw new PlanLimitExceededException('Has alcanzado el límite de almacenamiento de tu plan.', Entitlement::STORAGE_GB);
+        }
     }
 
     public function delete(MediaAsset $asset): void

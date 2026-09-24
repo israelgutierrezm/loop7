@@ -129,17 +129,27 @@ class AiTest extends TestCase
         [$org, $brand] = $this->orgWithBrand();
         $owner = $org->owner;
 
-        $this->actingInOrganization($owner, $org)
+        \Illuminate\Support\Facades\Storage::fake('local');
+
+        $response = $this->actingInOrganization($owner, $org)
             ->postJson("/api/v1/brands/{$brand->public_id}/ai/image", ['prompt' => 'Foto de producto minimalista'])
             ->assertOk()
             ->assertJsonPath('data.provider', 'fake')
-            ->assertJsonPath('data.credits', AiOperation::GENERATE_IMAGE->defaultCredits());
+            ->assertJsonPath('data.credits', AiOperation::GENERATE_IMAGE->defaultCredits())
+            ->assertJsonCount(1, 'data.media');
 
         $this->assertDatabaseHas('ai_usage_logs', [
             'organization_id' => $org->id,
             'modality' => 'image',
             'status' => 'succeeded',
         ]);
+
+        // La imagen queda en la biblioteca de la marca (PNG real) para adjuntarla a publicaciones.
+        $asset = \App\Modules\MediaLibrary\Models\MediaAsset::query()->withoutGlobalScopes()
+            ->where('public_id', $response->json('data.media.0.id'))->firstOrFail();
+        $this->assertSame($brand->id, $asset->brand_id);
+        $this->assertSame('image/png', $asset->mime_type);
+        \Illuminate\Support\Facades\Storage::disk('local')->assertExists($asset->path);
     }
 
     public function test_fallo_del_proveedor_no_consume_creditos_y_registra_fallo(): void

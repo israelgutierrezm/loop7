@@ -5,10 +5,19 @@ declare(strict_types=1);
 namespace App\Modules\Ai\Database\Seeders;
 
 use App\Modules\Ai\Models\AiProvider;
+use App\Modules\Ai\Providers\AnthropicProvider;
 use Illuminate\Database\Seeder;
 
+/**
+ * Proveedores de IA con adaptador implementado. Idempotente y NO destructivo:
+ * re-ejecutarlo no cambia lo que SUPERADMIN configuró (habilitado, por defecto,
+ * modelos). La lista de modelos se refresca en vivo desde el panel.
+ */
 class AiProviderSeeder extends Seeder
 {
+    /** Modelos de Anthropic sugeridos (generación actual). */
+    private const ANTHROPIC_MODELS = [AnthropicProvider::DEFAULT_MODEL, 'claude-sonnet-5', 'claude-haiku-4-5'];
+
     public function run(): void
     {
         // El proveedor "fake" se habilita y marca por defecto fuera de producción.
@@ -29,9 +38,9 @@ class AiProviderSeeder extends Seeder
                 'is_default' => false,
                 'config' => [
                     'text_model' => 'gpt-4o-mini',
-                    'image_model' => 'dall-e-3',
+                    'image_model' => 'gpt-image-1',
                     'text_models' => ['gpt-4o-mini', 'gpt-4o'],
-                    'image_models' => ['dall-e-3'],
+                    'image_models' => ['gpt-image-1'],
                 ],
             ],
             [
@@ -39,27 +48,23 @@ class AiProviderSeeder extends Seeder
                 'name' => 'Anthropic',
                 'is_enabled' => false,
                 'is_default' => false,
-                'config' => ['text_model' => 'claude-3-5-sonnet', 'text_models' => ['claude-3-5-sonnet']],
-            ],
-            [
-                'key' => 'gemini',
-                'name' => 'Google Gemini',
-                'is_enabled' => false,
-                'is_default' => false,
-                'config' => ['text_model' => 'gemini-1.5-pro', 'text_models' => ['gemini-1.5-pro']],
+                'config' => ['text_model' => AnthropicProvider::DEFAULT_MODEL, 'text_models' => self::ANTHROPIC_MODELS],
             ],
         ];
 
         foreach ($providers as $provider) {
-            AiProvider::query()->updateOrCreate(
-                ['key' => $provider['key']],
-                [
-                    'name' => $provider['name'],
-                    'is_enabled' => $provider['is_enabled'],
-                    'is_default' => $provider['is_default'],
-                    'config' => $provider['config'],
-                ],
-            );
+            AiProvider::query()->firstOrCreate(['key' => $provider['key']], $provider);
+        }
+
+        // Retira proveedores sin adaptador (p. ej. registros antiguos de Gemini).
+        AiProvider::query()->whereNotIn('key', array_column($providers, 'key'))->delete();
+
+        // Los modelos Claude 3.x ya están retirados: se sustituyen por los vigentes.
+        $anthropic = AiProvider::query()->where('key', 'anthropic')->first();
+        $config = $anthropic->config ?? [];
+        if ($anthropic !== null && str_starts_with((string) ($config['text_model'] ?? ''), 'claude-3')) {
+            $anthropic->config = [...$config, 'text_model' => AnthropicProvider::DEFAULT_MODEL, 'text_models' => self::ANTHROPIC_MODELS];
+            $anthropic->save();
         }
     }
 }

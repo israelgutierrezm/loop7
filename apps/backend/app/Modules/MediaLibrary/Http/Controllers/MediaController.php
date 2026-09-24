@@ -7,9 +7,6 @@ namespace App\Modules\MediaLibrary\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Audit\Enums\AuditAction;
 use App\Modules\Audit\Services\AuditLogger;
-use App\Modules\Billing\Entitlements\Entitlement;
-use App\Modules\Billing\Exceptions\PlanLimitExceededException;
-use App\Modules\Billing\Services\EntitlementsService;
 use App\Modules\Brands\Http\Concerns\ResolvesBrand;
 use App\Modules\MediaLibrary\Http\Requests\UploadMediaRequest;
 use App\Modules\MediaLibrary\Models\MediaAsset;
@@ -24,7 +21,6 @@ class MediaController extends Controller
 
     public function __construct(
         private readonly MediaService $media,
-        private readonly EntitlementsService $entitlements,
         private readonly AuditLogger $audit,
     ) {
     }
@@ -52,17 +48,7 @@ class MediaController extends Controller
         // Límite de almacenamiento del plan.
         $organization = $brandModel->organization;
         if ($organization !== null) {
-            $limitGb = $this->entitlements->limit($organization, Entitlement::STORAGE_GB);
-            if ($limitGb !== Entitlement::UNLIMITED) {
-                $used = $this->media->storageUsedBytes($brandModel->organization_id);
-                $limitBytes = $limitGb * 1024 ** 3;
-                if ($used + (int) $file->getSize() > $limitBytes) {
-                    throw new PlanLimitExceededException(
-                        'Has alcanzado el límite de almacenamiento de tu plan.',
-                        Entitlement::STORAGE_GB,
-                    );
-                }
-            }
+            $this->media->ensureStorageAvailable($organization, (int) $file->getSize());
         }
 
         $asset = $this->media->upload($brandModel, $file, null, $request->user());
@@ -100,6 +86,7 @@ class MediaController extends Controller
             'width' => $asset->width,
             'height' => $asset->height,
             'is_image' => $asset->isImage(),
+            'is_video' => $asset->isVideo(),
             'url' => $this->media->temporaryUrl($asset),
             'created_at' => $asset->created_at?->toIso8601String(),
         ];

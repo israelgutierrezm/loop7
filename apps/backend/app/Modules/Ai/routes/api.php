@@ -27,5 +27,6 @@ Route::prefix('platform')->middleware(['auth:sanctum', 'superadmin'])->group(fun
     Route::get('/ai-providers', [PlatformAiProvidersController::class, 'index']);
     Route::put('/ai-providers/{provider}', [PlatformAiProvidersController::class, 'update']);
     Route::put('/ai-providers/{provider}/credentials', [PlatformAiProvidersController::class, 'setCredentials']);
-    Route::post('/ai-providers/{provider}/test', [PlatformAiProvidersController::class, 'test']);
+    Route::post('/ai-providers/{provider}/test', [PlatformAiProvidersController::class, 'test'])->middleware('throttle:20,1');
+    Route::post('/ai-providers/{provider}/models', [PlatformAiProvidersController::class, 'refreshModels'])->middleware('throttle:20,1');
 });

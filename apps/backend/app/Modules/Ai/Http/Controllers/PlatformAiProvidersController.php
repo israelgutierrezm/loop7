@@ -51,10 +51,39 @@ class PlatformAiProvidersController extends Controller
         return ApiResponse::success(['ok' => true, 'message' => 'Conexión correcta.']);
     }
 
+    /**
+     * Actualiza desde el proveedor la lista de modelos disponibles para la cuenta
+     * (así el selector no depende de una lista fija que envejece).
+     */
+    public function refreshModels(string $provider): JsonResponse
+    {
+        $record = AiProvider::query()->where('key', $provider)->firstOrFail();
+        $adapter = $this->manager->textAdapter($provider);
+        abort_if($adapter === null, 404);
+
+        try {
+            $models = $adapter->listModels($record->credentialMap());
+        } catch (Throwable $e) {
+            return ApiResponse::error($e->getMessage(), 'ai_provider_error', status: 422);
+        }
+
+        $config = $record->config ?? [];
+        $config['text_models'] = $models['text'];
+        if ($this->manager->imageAdapter($provider) !== null) {
+            $config['image_models'] = $models['image'];
+        }
+        $record->config = $config;
+        $record->save();
+
+        return ApiResponse::success($this->present($record), 'Modelos actualizados: ' . count($models['text']) . ' de texto.');
+    }
+
     public function index(): JsonResponse
     {
         $providers = AiProvider::query()->orderByDesc('is_default')->orderBy('name')->get()
+            ->filter(fn (AiProvider $p) => $this->manager->textAdapter($p->key) !== null || $this->manager->imageAdapter($p->key) !== null)
             ->map(fn (AiProvider $p) => $this->present($p))
+            ->values()
             ->all();
 
         return ApiResponse::success($providers);
@@ -138,6 +167,7 @@ class PlatformAiProvidersController extends Controller
             'image_model' => $config['image_model'] ?? null,
             'text_models' => $config['text_models'] ?? [],
             'image_models' => $config['image_models'] ?? [],
+            'supports_images' => $this->manager->imageAdapter($provider->key) !== null,
             'requires_credentials' => $provider->key !== 'fake',
             'configured_credentials' => array_keys($provider->credentialMap()),
         ];

@@ -40,6 +40,11 @@ class FakeAiProvider implements ImageAIProviderInterface, TextAIProviderInterfac
         // El proveedor de prueba siempre está disponible.
     }
 
+    public function listModels(array $credentials): array
+    {
+        return ['text' => ['fake-text-1'], 'image' => ['fake-image-1']];
+    }
+
     public function generateImage(ImageGenerationRequest $request, array $credentials): ImageGenerationResult
     {
         if (str_contains($request->prompt, '[[FAIL]]')) {
@@ -72,19 +77,26 @@ class FakeAiProvider implements ImageAIProviderInterface, TextAIProviderInterfac
         return implode("\n", $lines);
     }
 
+    /**
+     * PNG de muestra (color de marca + texto del prompt) generado con GD, a un
+     * tamaño reducido proporcional al solicitado.
+     */
     private function placeholder(string $prompt, string $size): string
     {
         [$w, $h] = array_pad(array_map('intval', explode('x', $size)), 2, 1024);
-        $w = $w > 0 ? $w : 1024;
-        $h = $h > 0 ? $h : 1024;
-        $label = htmlspecialchars(mb_strimwidth($prompt, 0, 40, '…'), ENT_QUOTES);
-        $svg = <<<SVG
-<svg xmlns="http://www.w3.org/2000/svg" width="{$w}" height="{$h}" viewBox="0 0 {$w} {$h}">
-<rect width="100%" height="100%" fill="#6366f1"/>
-<text x="50%" y="50%" fill="#ffffff" font-family="sans-serif" font-size="28" text-anchor="middle" dominant-baseline="middle">{$label}</text>
-</svg>
-SVG;
+        $w = max(64, intdiv($w > 0 ? $w : 1024, 4));
+        $h = max(64, intdiv($h > 0 ? $h : 1024, 4));
 
-        return 'data:image/svg+xml;base64,' . base64_encode($svg);
+        $image = imagecreatetruecolor($w, $h);
+        imagefill($image, 0, 0, (int) imagecolorallocate($image, 99, 102, 241));
+        $white = (int) imagecolorallocate($image, 255, 255, 255);
+        $label = mb_strimwidth(preg_replace('/[^\x20-\x7E]/', '', $prompt) ?? '', 0, (int) floor($w / 8) - 2, '...');
+        imagestring($image, 3, 8, intdiv($h, 2) - 6, $label, $white);
+
+        ob_start();
+        imagepng($image);
+        $png = (string) ob_get_clean();
+
+        return 'data:image/png;base64,' . base64_encode($png);
     }
 }

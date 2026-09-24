@@ -6,7 +6,7 @@ namespace App\Modules\Ai\Contracts;
 
 /**
  * Contrato de proveedor de IA de texto. El dominio no se acopla a OpenAI,
- * Anthropic, Gemini, etc. (CLAUDE.md / docs/07).
+ * Anthropic, etc. (CLAUDE.md / docs/07).
  */
 interface TextAIProviderInterface
 {
@@ -22,4 +22,13 @@ interface TextAIProviderInterface
      * @param  array<string, string>  $credentials
      */
     public function verify(array $credentials): void;
+
+    /**
+     * Modelos disponibles para la cuenta (para elegirlos en SUPERADMIN sin
+     * depender de una lista fija que envejece).
+     *
+     * @param  array<string, string>  $credentials
+     * @return array{text: list<string>, image: list<string>}
+     */
+    public function listModels(array $credentials): array;
 }
