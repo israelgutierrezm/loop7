@@ -79,7 +79,7 @@ class ContentController extends Controller
         abort_unless(request()->user()->can('content.view'), 403);
 
         return ApiResponse::success($this->present($model->load([
-            'brand', 'variants.media', 'variants.targets.destination', 'comments.user',
+            'variants.media', 'variants.targets.destination', 'comments.user',
         ])));
     }
 
@@ -119,7 +119,10 @@ class ContentController extends Controller
 
     private function resolve(string $publicId): ContentItem
     {
-        return ContentItem::query()->where('public_id', $publicId)->firstOrFail();
+        $content = ContentItem::query()->with('brand')->where('public_id', $publicId)->firstOrFail();
+        $this->authorizeBrand($content->brand);
+
+        return $content;
     }
 
     /**

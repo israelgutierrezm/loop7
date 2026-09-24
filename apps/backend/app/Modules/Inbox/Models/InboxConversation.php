@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Inbox\Models;
 
 use App\Models\User;
+use App\Modules\Brands\Models\Brand;
 use App\Modules\Inbox\Enums\ConversationStatus;
 use App\Support\Concerns\BelongsToOrganization;
 use App\Support\Concerns\HasPublicId;
@@ -32,6 +33,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $preview
  * @property int $unread_count
  * @property list<string>|null $tags
+ * @property-read Brand|null $brand
  */
 class InboxConversation extends Model
 {
@@ -60,6 +62,14 @@ class InboxConversation extends Model
     public function messages(): HasMany
     {
         return $this->hasMany(InboxMessage::class, 'conversation_id');
+    }
+
+    /**
+     * @return BelongsTo<Brand, $this>
+     */
+    public function brand(): BelongsTo
+    {
+        return $this->belongsTo(Brand::class);
     }
 
     /**

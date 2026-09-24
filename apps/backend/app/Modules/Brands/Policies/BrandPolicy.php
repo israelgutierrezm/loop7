@@ -7,6 +7,7 @@ namespace App\Modules\Brands\Policies;
 use App\Models\User;
 use App\Modules\AccessControl\Permissions\Permission;
 use App\Modules\Brands\Models\Brand;
+use App\Modules\Brands\Services\BrandAccess;
 use App\Support\Tenancy\TenantContext;
 
 /**
@@ -51,26 +52,7 @@ class BrandPolicy
      */
     private function hasBrandAccess(User $user, Brand $brand): bool
     {
-        if (! $this->belongsToCurrentOrg($brand)) {
-            return false;
-        }
-
-        $organization = app(TenantContext::class)->organization();
-
-        if ($organization === null) {
-            return false;
-        }
-
-        $hasAllBrands = $organization->users()
-            ->where('users.id', $user->id)
-            ->wherePivot('all_brands_access', true)
-            ->exists();
-
-        if ($hasAllBrands) {
-            return true;
-        }
-
-        return $brand->usersWithAccess()->where('users.id', $user->id)->exists();
+        return app(BrandAccess::class)->canAccess($user, $brand);
     }
 
     private function belongsToCurrentOrg(Brand $brand): bool

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Content\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Brands\Http\Concerns\ResolvesBrand;
 use App\Modules\Content\Enums\ContentStatus;
 use App\Modules\Content\Models\ContentItem;
 use App\Modules\Content\Services\PublishingService;
@@ -17,6 +18,8 @@ use Illuminate\Validation\ValidationException;
 
 class ContentWorkflowController extends Controller
 {
+    use ResolvesBrand;
+
     public function __construct(
         private readonly WorkflowService $workflow,
         private readonly PublishingService $publishing,
@@ -102,6 +105,9 @@ class ContentWorkflowController extends Controller
 
     private function resolve(string $publicId): ContentItem
     {
-        return ContentItem::query()->where('public_id', $publicId)->firstOrFail();
+        $content = ContentItem::query()->with('brand')->where('public_id', $publicId)->firstOrFail();
+        $this->authorizeBrand($content->brand);
+
+        return $content;
     }
 }

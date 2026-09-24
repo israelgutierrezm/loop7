@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Organizations\Http\Middleware;
 
+use App\Modules\Brands\Services\BrandAccess;
 use App\Support\Http\ApiResponse;
 use App\Support\Tenancy\TenantContext;
 use Closure;
@@ -61,25 +62,10 @@ class ResolveTenant
             return;
         }
 
-        $organization = $context->organization();
-        $brand = $organization?->brands()->where('public_id', $brandPublicId)->first();
-
-        if ($brand === null) {
-            return;
-        }
+        $brand = $context->organization()?->brands()->where('public_id', $brandPublicId)->first();
 
         // El usuario debe tener acceso: a todas las Brands o a esta en concreto.
-        // Aquí $organization no es null (si lo fuera, $brand sería null y ya habríamos salido).
-        $hasAllBrands = (bool) $organization->users()
-            ->where('users.id', $user->id)
-            ->wherePivot('all_brands_access', true)
-            ->exists();
-
-        $hasExplicitAccess = $brand->usersWithAccess()
-            ->where('users.id', $user->id)
-            ->exists();
-
-        if ($hasAllBrands || $hasExplicitAccess) {
+        if ($brand !== null && app(BrandAccess::class)->canAccess($user, $brand)) {
             $context->setBrand($brand);
         }
     }

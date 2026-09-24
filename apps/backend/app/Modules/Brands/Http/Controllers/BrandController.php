@@ -12,6 +12,7 @@ use App\Modules\Billing\Exceptions\PlanLimitExceededException;
 use App\Modules\Billing\Services\EntitlementsService;
 use App\Modules\Brands\Http\Resources\BrandResource;
 use App\Modules\Brands\Models\Brand;
+use App\Modules\Brands\Services\BrandAccess;
 use App\Support\Http\ApiResponse;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
@@ -26,20 +27,14 @@ class BrandController extends Controller
     ) {
     }
 
-    public function index(Request $request): JsonResponse
+    public function index(Request $request, BrandAccess $access): JsonResponse
     {
         $this->authorize('viewAny', Brand::class);
 
         $user = $request->user();
-        $organization = $this->context->organization();
-
-        $hasAllBrands = $organization->users()
-            ->where('users.id', $user->id)
-            ->wherePivot('all_brands_access', true)
-            ->exists();
 
         // El OrganizationScope garantiza que sólo se vean Brands de la Org actual.
-        $query = $hasAllBrands
+        $query = $access->hasAllBrands($user)
             ? Brand::query()
             : Brand::query()->whereIn('id', $user->accessibleBrands()->select('brands.id'));
 

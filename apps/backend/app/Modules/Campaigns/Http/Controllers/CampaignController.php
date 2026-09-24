@@ -91,7 +91,10 @@ class CampaignController extends Controller
 
     private function resolve(string $publicId): Campaign
     {
-        return Campaign::query()->where('public_id', $publicId)->firstOrFail();
+        $campaign = Campaign::query()->with('brand')->where('public_id', $publicId)->firstOrFail();
+        $this->authorizeBrand($campaign->brand);
+
+        return $campaign;
     }
 
     /**

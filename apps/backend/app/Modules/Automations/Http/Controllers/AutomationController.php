@@ -14,6 +14,7 @@ use App\Modules\Billing\Entitlements\Entitlement;
 use App\Modules\Billing\Exceptions\PlanLimitExceededException;
 use App\Modules\Billing\Services\EntitlementsService;
 use App\Modules\Brands\Models\Brand;
+use App\Modules\Brands\Services\BrandAccess;
 use App\Support\Http\ApiResponse;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
@@ -53,12 +54,18 @@ class AutomationController extends Controller
         ]);
     }
 
-    public function index(Request $request): JsonResponse
+    public function index(Request $request, BrandAccess $access): JsonResponse
     {
         $this->ensureEnabled($request, 'automations.view');
 
+        // Las de toda la Organization y las de las Brands a las que tiene acceso.
+        $restricted = $access->restrictedBrandIds($request->user());
+
         $items = Automation::query()
             ->with('brand:id,public_id,name')
+            ->when($restricted !== null, fn ($q) => $q->where(
+                fn ($w) => $w->whereNull('brand_id')->orWhereIn('brand_id', $restricted ?? []),
+            ))
             ->latest()
             ->paginate((int) $request->integer('per_page', 30))
             ->through(fn (Automation $a) => $this->present($a));
@@ -137,6 +144,7 @@ class AutomationController extends Controller
         $brandId = null;
         if (! empty($data['brand'])) {
             $brand = Brand::query()->where('public_id', $data['brand'])->firstOrFail();
+            $this->authorize('view', $brand);
             $brandId = $brand->id;
         }
 
@@ -152,7 +160,15 @@ class AutomationController extends Controller
 
     private function resolve(string $publicId): Automation
     {
-        return Automation::query()->where('public_id', $publicId)->firstOrFail();
+        $automation = Automation::query()->with('brand')->where('public_id', $publicId)->firstOrFail();
+
+        // Una automatización de una Brand concreta sólo la gestiona quien tiene acceso a ella.
+        if ($automation->brand_id !== null) {
+            abort_if($automation->brand === null, 404);
+            $this->authorize('view', $automation->brand);
+        }
+
+        return $automation;
     }
 
     private function ensureEnabled(Request $request, string $permission): void

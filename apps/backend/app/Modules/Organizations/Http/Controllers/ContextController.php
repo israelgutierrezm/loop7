@@ -9,6 +9,7 @@ use App\Modules\Billing\Services\EntitlementsService;
 use App\Modules\Billing\Services\SubscriptionService;
 use App\Modules\Brands\Http\Resources\BrandResource;
 use App\Modules\Brands\Models\Brand;
+use App\Modules\Brands\Services\BrandAccess;
 use App\Modules\Organizations\Http\Resources\OrganizationResource;
 use App\Modules\Organizations\Services\MembershipService;
 use App\Support\Http\ApiResponse;
@@ -28,6 +29,7 @@ class ContextController extends Controller
         TenantContext $context,
         EntitlementsService $entitlements,
         SubscriptionService $subscriptions,
+        BrandAccess $access,
     ): JsonResponse {
         $organization = $context->organization();
         $user = $request->user();
@@ -37,13 +39,8 @@ class ContextController extends Controller
         // coherente con /me y el frontend pueda mostrarlos.
         $organization->current_roles = $memberships->rolesFor($user, $organization);
 
-        $hasAllBrands = $organization->users()
-            ->where('users.id', $user->id)
-            ->wherePivot('all_brands_access', true)
-            ->exists();
-
         // El OrganizationScope ya limita a la Organization actual.
-        $brands = $hasAllBrands
+        $brands = $access->hasAllBrands($user)
             ? Brand::query()->orderBy('name')->get()
             : $user->accessibleBrands()
                 ->where('brands.organization_id', $organization->id)

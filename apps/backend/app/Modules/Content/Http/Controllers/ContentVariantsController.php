@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Content\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Brands\Http\Concerns\ResolvesBrand;
 use App\Modules\Content\Http\Resources\VariantPresenter;
 use App\Modules\Content\Models\ContentItem;
 use App\Modules\Content\Models\PostVariant;
@@ -18,6 +19,8 @@ use Illuminate\Validation\ValidationException;
 
 class ContentVariantsController extends Controller
 {
+    use ResolvesBrand;
+
     public function __construct(
         private readonly ContentService $content,
         private readonly VariantPresenter $presenter,
@@ -27,7 +30,8 @@ class ContentVariantsController extends Controller
 
     public function store(Request $request, string $content): JsonResponse
     {
-        $model = ContentItem::query()->where('public_id', $content)->firstOrFail();
+        $model = ContentItem::query()->with('brand')->where('public_id', $content)->firstOrFail();
+        $this->authorizeBrand($model->brand);
         abort_unless($request->user()->can('content.update'), 403);
         $this->assertEditable($model);
 
@@ -94,7 +98,10 @@ class ContentVariantsController extends Controller
 
     private function resolveVariant(string $publicId): PostVariant
     {
-        return PostVariant::query()->with('contentItem')->where('public_id', $publicId)->firstOrFail();
+        $variant = PostVariant::query()->with('contentItem.brand')->where('public_id', $publicId)->firstOrFail();
+        $this->authorizeBrand($variant->contentItem?->brand);
+
+        return $variant;
     }
 
     /**

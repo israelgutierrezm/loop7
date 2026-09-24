@@ -171,7 +171,8 @@ class InboxController extends Controller
         abort_unless($request->user()->can('ai.generate_text'), 403);
 
         $lastInbound = $model->messages()->where('type', 'inbound')->orderByDesc('sent_at')->first();
-        $brand = Brand::query()->findOrFail($model->brand_id);
+        /** @var Brand $brand resuelta y autorizada en resolve() */
+        $brand = $model->brand;
 
         $prompt = 'Un usuario escribió en ' . $model->provider . ': "' . ($lastInbound->body ?? $model->preview ?? '') . '". '
             . 'Redacta una respuesta breve, cordial y útil como la marca. No incluyas comillas.';
@@ -187,7 +188,10 @@ class InboxController extends Controller
 
     private function resolve(string $publicId): InboxConversation
     {
-        return InboxConversation::query()->where('public_id', $publicId)->firstOrFail();
+        $conversation = InboxConversation::query()->with('brand')->where('public_id', $publicId)->firstOrFail();
+        $this->authorizeBrand($conversation->brand);
+
+        return $conversation;
     }
 
     private function authorizeInbox(Request $request): void

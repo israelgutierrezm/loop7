@@ -21,4 +21,18 @@ trait ResolvesBrand
 
         return $brand;
     }
+
+    /**
+     * Verifica el acceso a la Brand dueña de un recurso ya resuelto dentro de la
+     * Organization (contenido, campañas, conversaciones…). Sin esto, un miembro
+     * limitado a ciertas Brands podría operar recursos de otras conociendo su
+     * public_id.
+     */
+    protected function authorizeBrand(?Brand $brand): Brand
+    {
+        abort_if($brand === null, 404);
+        $this->authorize('view', $brand);
+
+        return $brand;
+    }
 }
