@@ -1,16 +1,14 @@
 <script setup lang="ts">
 import LegalShell from '@/components/legal/LegalShell.vue'
+import { useCompany } from '@/composables/useCompany'
+
+const { legalName, email, country } = useCompany()
 </script>
 
 <template>
   <LegalShell title="Términos de Servicio" updated="2026">
-    <p class="rounded-lg bg-amber-50 p-3 text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-      Plantilla base. Revísala con asesoría legal y completa <strong>[NOMBRE DE LA EMPRESA]</strong> y
-      <strong>[PAÍS/JURISDICCIÓN]</strong> antes de publicarla.
-    </p>
-
     <p>
-      Estos Términos regulan el uso de Loop7 (el "Servicio"), operado por <strong>[NOMBRE DE LA EMPRESA]</strong>. Al
+      Estos Términos regulan el uso de Loop7 (el "Servicio"), operado por <strong>{{ legalName }}</strong>. Al
       crear una cuenta o usar el Servicio, aceptas estos Términos.
     </p>
 
@@ -57,7 +55,7 @@ import LegalShell from '@/components/legal/LegalShell.vue'
 
     <h2>8. Limitación de responsabilidad</h2>
     <p>
-      En la máxima medida permitida por la ley, <strong>[NOMBRE DE LA EMPRESA]</strong> no será responsable de daños
+      En la máxima medida permitida por la ley, <strong>{{ legalName }}</strong> no será responsable de daños
       indirectos o pérdida de datos derivados del uso del Servicio.
     </p>
 
@@ -68,9 +66,9 @@ import LegalShell from '@/components/legal/LegalShell.vue'
     </p>
 
     <h2>10. Ley aplicable</h2>
-    <p>Estos Términos se rigen por las leyes de <strong>[PAÍS/JURISDICCIÓN]</strong>.</p>
+    <p>Estos Términos se rigen por las leyes de <strong>{{ country }}</strong>.</p>
 
     <h2>11. Contacto</h2>
-    <p><strong>[NOMBRE DE LA EMPRESA]</strong> — <strong>[CORREO DE CONTACTO]</strong>.</p>
+    <p><strong>{{ legalName }}</strong> — <a :href="`mailto:${email}`">{{ email }}</a>.</p>
   </LegalShell>
 </template>

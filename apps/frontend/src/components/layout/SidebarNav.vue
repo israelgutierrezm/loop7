@@ -33,21 +33,14 @@ const groups = computed<NavGroup[]>(() =>
           <RouterLink
             :to="item.to"
             :title="props.collapsed ? item.label : undefined"
+            :aria-label="props.collapsed ? item.label : undefined"
             class="group flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
             active-class="!bg-brand-50 !text-brand-700 dark:!bg-brand-950/60 dark:!text-brand-300"
             :class="props.collapsed ? 'justify-center' : ''"
             @click="emit('navigate')"
           >
             <AppIcon :name="item.icon" :size="20" class="shrink-0" />
-            <template v-if="!props.collapsed">
-              <span class="flex-1 truncate">{{ item.label }}</span>
-              <span
-                v-if="item.soon"
-                class="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-slate-400 dark:bg-slate-800"
-              >
-                Pronto
-              </span>
-            </template>
+            <span v-if="!props.collapsed" class="flex-1 truncate">{{ item.label }}</span>
           </RouterLink>
         </li>
       </ul>

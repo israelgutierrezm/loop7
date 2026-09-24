@@ -51,6 +51,7 @@ function handleReturn(): void {
   else if (status === 'denied') toasts.error('Autorización cancelada.')
   else if (status === 'invalid') toasts.error('El enlace de conexión expiró. Inténtalo de nuevo.')
   else if (status === 'error') toasts.error('No se pudo completar la conexión.')
+  else if (status === 'limit') toasts.error('Alcanzaste el número de cuentas sociales de tu plan. Amplía tu plan en Facturación.')
   router.replace({ query: {} })
 }
 

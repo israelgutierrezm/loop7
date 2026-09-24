@@ -1,13 +1,16 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { usePublicConfigStore } from '@/stores/publicConfig'
 import { apiErrorCode, apiErrorMessage, apiValidationErrors } from '@/utils/errors'
 import Spinner from '@/components/ui/Spinner.vue'
 
 const auth = useAuthStore()
 const router = useRouter()
 const route = useRoute()
+const publicConfig = usePublicConfigStore()
+onMounted(() => publicConfig.load())
 
 const form = reactive({ email: '', password: '', code: '', remember: false })
 const errors = ref<Record<string, string[]>>({})
@@ -83,7 +86,7 @@ async function submit(): Promise<void> {
       </button>
     </form>
 
-    <p class="mt-6 text-center text-sm text-slate-500">
+    <p v-if="publicConfig.registrationOpen" class="mt-6 text-center text-sm text-slate-500">
       ¿No tienes cuenta?
       <RouterLink to="/registro" class="font-semibold text-brand-600 hover:underline">Regístrate</RouterLink>
     </p>

@@ -48,10 +48,22 @@ export interface Brand {
   created_at: string | null
 }
 
+export interface SubscriptionSummary {
+  status: string
+  status_label: string
+  grants_access: boolean
+  plan_name: string | null
+  trial_ends_at: string | null
+  current_period_end: string | null
+  cancel_at_period_end: boolean
+}
+
 export interface OrganizationContext {
   organization: Organization
   permissions: string[]
   brands: Brand[]
+  entitlements: Record<string, number | boolean>
+  subscription: SubscriptionSummary | null
 }
 
 export interface MemberEntry {

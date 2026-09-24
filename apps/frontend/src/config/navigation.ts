@@ -4,8 +4,6 @@ export interface NavItem {
   icon: string
   /** Permiso requerido para mostrar (la UI oculta; el backend siempre valida). */
   permission?: string
-  /** Módulo aún no implementado: se muestra con badge "Pronto". */
-  soon?: boolean
 }
 
 export interface NavGroup {

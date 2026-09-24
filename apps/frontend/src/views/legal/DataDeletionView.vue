@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import LegalShell from '@/components/legal/LegalShell.vue'
+import { useCompany } from '@/composables/useCompany'
 
 interface Status {
   confirmation_code: string
@@ -12,6 +13,7 @@ interface Status {
 }
 
 const route = useRoute()
+const { email } = useCompany()
 const code = ref('')
 const result = ref<Status | null>(null)
 const notFound = ref(false)
@@ -60,7 +62,7 @@ onMounted(() => {
     <ul>
       <li>
         <strong>Desde tu cuenta:</strong> inicia sesión y, en cada marca, desconecta la red social; o escríbenos a
-        <strong>[CORREO DE CONTACTO]</strong> pidiendo la eliminación de tus datos.
+        <a :href="`mailto:${email}`">{{ email }}</a> pidiendo la eliminación de tus datos.
       </li>
       <li>
         <strong>Desde Facebook/Meta:</strong> en la configuración de tu cuenta de Facebook puedes eliminar el acceso
@@ -77,7 +79,9 @@ onMounted(() => {
     <p>Introduce tu código de confirmación para ver el estado de tu solicitud:</p>
 
     <div class="not-prose flex flex-wrap items-center gap-2">
+      <label for="dd-code" class="sr-only">Código de confirmación</label>
       <input
+        id="dd-code"
         v-model="code"
         class="input w-auto flex-1"
         placeholder="Código de confirmación"
@@ -103,6 +107,6 @@ onMounted(() => {
     <p v-else-if="notFound" class="text-sm text-rose-600">No encontramos ninguna solicitud con ese código.</p>
 
     <h2>Contacto</h2>
-    <p>Si tienes dudas, escríbenos a <strong>[CORREO DE CONTACTO]</strong>.</p>
+    <p>Si tienes dudas, escríbenos a <a :href="`mailto:${email}`">{{ email }}</a>.</p>
   </LegalShell>
 </template>

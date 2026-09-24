@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import http, { fetchCsrfCookie, setTenantHeaders } from '@/services/http'
-import type { Brand, Organization, User } from '@/types/models'
+import type { Brand, Organization, SubscriptionSummary, User } from '@/types/models'
 
 const ORG_STORAGE_KEY = 'loop7.currentOrganizationId'
 
@@ -27,6 +27,8 @@ export const useAuthStore = defineStore('auth', () => {
   const currentOrganization = ref<Organization | null>(null)
   const permissions = ref<string[]>([])
   const brands = ref<Brand[]>([])
+  const entitlements = ref<Record<string, number | boolean>>({})
+  const subscription = ref<SubscriptionSummary | null>(null)
   const impersonating = ref(false)
   const initialized = ref(false)
 
@@ -35,6 +37,11 @@ export const useAuthStore = defineStore('auth', () => {
 
   function can(permission: string): boolean {
     return permissions.value.includes(permission)
+  }
+
+  /** ¿El plan vigente incluye la función? (la UI adapta flujos; el backend valida). */
+  function hasFeature(key: string): boolean {
+    return entitlements.value[key] === true
   }
 
   function hasRole(role: string): boolean {
@@ -105,6 +112,8 @@ export const useAuthStore = defineStore('auth', () => {
     const { data } = await http.get('/context')
     permissions.value = data.data.permissions ?? []
     brands.value = data.data.brands ?? []
+    entitlements.value = data.data.entitlements ?? {}
+    subscription.value = data.data.subscription ?? null
     if (data.data.organization && currentOrganization.value) {
       const previousRoles = currentOrganization.value.roles
       const merged = { ...currentOrganization.value, ...data.data.organization }
@@ -141,6 +150,8 @@ export const useAuthStore = defineStore('auth', () => {
     currentOrganization.value = null
     permissions.value = []
     brands.value = []
+    entitlements.value = {}
+    subscription.value = null
     impersonating.value = false
     setTenantHeaders(null)
     persistOrg(null)
@@ -152,11 +163,14 @@ export const useAuthStore = defineStore('auth', () => {
     currentOrganization,
     permissions,
     brands,
+    entitlements,
+    subscription,
     impersonating,
     initialized,
     isAuthenticated,
     isPlatformAdmin,
     can,
+    hasFeature,
     hasRole,
     register,
     login,

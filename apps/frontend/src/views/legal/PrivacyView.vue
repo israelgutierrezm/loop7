@@ -1,16 +1,14 @@
 <script setup lang="ts">
 import LegalShell from '@/components/legal/LegalShell.vue'
+import { useCompany } from '@/composables/useCompany'
+
+const { legalName, email, country } = useCompany()
 </script>
 
 <template>
   <LegalShell title="Política de Privacidad" updated="2026">
-    <p class="rounded-lg bg-amber-50 p-3 text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-      Plantilla base. Antes de publicar, revísala con asesoría legal y completa los datos de
-      <strong>[NOMBRE DE LA EMPRESA]</strong>, <strong>[CORREO DE CONTACTO]</strong> y <strong>[PAÍS/JURISDICCIÓN]</strong>.
-    </p>
-
     <p>
-      En Loop7 (operado por <strong>[NOMBRE DE LA EMPRESA]</strong>) nos tomamos en serio tu privacidad. Esta
+      En Loop7 (operado por <strong>{{ legalName }}</strong>) nos tomamos en serio tu privacidad. Esta
       política explica qué datos tratamos, con qué fin y cuáles son tus derechos.
     </p>
 
@@ -38,8 +36,8 @@ import LegalShell from '@/components/legal/LegalShell.vue'
     <p>Solo lo necesario para operar, mediante proveedores que actúan por cuenta nuestra:</p>
     <ul>
       <li><strong>Plataformas sociales</strong> (p. ej. Meta/Facebook, Instagram) para publicar y leer interacciones.</li>
-      <li><strong>Proveedores de IA</strong> (p. ej. OpenAI, Anthropic, Google) para generar contenido.</li>
-      <li><strong>Pasarelas de pago</strong> (p. ej. Stripe, Mercado Pago) para procesar cobros. No almacenamos números de tarjeta.</li>
+      <li><strong>Proveedores de IA</strong> (p. ej. OpenAI, Anthropic) para generar contenido.</li>
+      <li><strong>Pasarelas de pago</strong> (p. ej. Stripe, Mercado Pago, Openpay) para procesar cobros. No almacenamos números de tarjeta.</li>
       <li><strong>Infraestructura</strong> de alojamiento y almacenamiento.</li>
     </ul>
     <p>No vendemos tus datos personales.</p>
@@ -60,7 +58,7 @@ import LegalShell from '@/components/legal/LegalShell.vue'
     <h2>6. Tus derechos</h2>
     <p>
       Según tu jurisdicción, puedes acceder, rectificar, exportar u oponerte al tratamiento de tus datos, y solicitar
-      su eliminación. Escríbenos a <strong>[CORREO DE CONTACTO]</strong>.
+      su eliminación. Escríbenos a <a :href="`mailto:${email}`">{{ email }}</a>.
     </p>
 
     <h2>7. Borrado de datos</h2>
@@ -74,6 +72,6 @@ import LegalShell from '@/components/legal/LegalShell.vue'
     <p>Podremos actualizar esta política; publicaremos la nueva versión aquí con su fecha.</p>
 
     <h2>9. Contacto</h2>
-    <p><strong>[NOMBRE DE LA EMPRESA]</strong> — <strong>[CORREO DE CONTACTO]</strong> — <strong>[PAÍS/JURISDICCIÓN]</strong>.</p>
+    <p><strong>{{ legalName }}</strong> — <a :href="`mailto:${email}`">{{ email }}</a> — <strong>{{ country }}</strong>.</p>
   </LegalShell>
 </template>

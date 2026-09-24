@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { usePublicConfigStore } from '@/stores/publicConfig'
 import { useToastStore } from '@/stores/toasts'
 import { apiErrorMessage, apiValidationErrors } from '@/utils/errors'
 import Spinner from '@/components/ui/Spinner.vue'
@@ -9,6 +10,8 @@ import Spinner from '@/components/ui/Spinner.vue'
 const auth = useAuthStore()
 const toasts = useToastStore()
 const router = useRouter()
+const publicConfig = usePublicConfigStore()
+onMounted(() => publicConfig.load())
 
 const form = reactive({
   name: '',
@@ -44,7 +47,16 @@ async function submit(): Promise<void> {
     <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Crea tu cuenta</h1>
     <p class="mt-1 text-sm text-slate-500">Empieza a gestionar tus redes en minutos.</p>
 
-    <form class="mt-8 space-y-4" @submit.prevent="submit">
+    <div
+      v-if="!publicConfig.registrationOpen"
+      class="mt-8 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300"
+      role="status"
+    >
+      El registro de nuevas cuentas está cerrado por el momento. Si te invitaron a un equipo, usa el enlace de tu
+      invitación{{ publicConfig.company?.support_email ? `, o escríbenos a ${publicConfig.company.support_email}` : '' }}.
+    </div>
+
+    <form v-else class="mt-8 space-y-4" @submit.prevent="submit">
       <div>
         <label class="label" for="name">Tu nombre</label>
         <input id="name" v-model="form.name" type="text" autocomplete="name" required class="input" />
@@ -76,7 +88,10 @@ async function submit(): Promise<void> {
 
       <label class="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-300">
         <input v-model="form.accept_terms" type="checkbox" class="mt-0.5 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
-        <span>Acepto los términos y condiciones y la política de privacidad.</span>
+        <span>
+          Acepto los <RouterLink to="/terminos" target="_blank" class="text-brand-600 hover:underline">términos del servicio</RouterLink>
+          y la <RouterLink to="/privacidad" target="_blank" class="text-brand-600 hover:underline">política de privacidad</RouterLink>.
+        </span>
       </label>
       <p v-if="errors.accept_terms" class="text-xs text-rose-600">{{ errors.accept_terms[0] }}</p>
 

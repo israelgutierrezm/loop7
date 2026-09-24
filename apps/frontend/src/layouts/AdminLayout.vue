@@ -9,6 +9,7 @@ import AppIcon from '@/components/AppIcon.vue'
 import OrgSwitcher from '@/components/layout/OrgSwitcher.vue'
 import SidebarNav from '@/components/layout/SidebarNav.vue'
 import TopBar from '@/components/layout/TopBar.vue'
+import AppBanners from '@/components/layout/AppBanners.vue'
 
 const auth = useAuthStore()
 const ui = useUiStore()
@@ -86,6 +87,7 @@ async function stopImpersonation(): Promise<void> {
         </button>
       </div>
 
+      <AppBanners />
       <TopBar />
 
       <main class="flex-1 overflow-y-auto">
