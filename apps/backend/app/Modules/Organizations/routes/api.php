@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Modules\Organizations\Http\Controllers\BrandingController;
 use App\Modules\Organizations\Http\Controllers\ContextController;
 use App\Modules\Organizations\Http\Controllers\DashboardController;
 use App\Modules\Organizations\Http\Controllers\InvitationsController;
@@ -30,5 +31,16 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('/organization/invitations', [InvitationsController::class, 'index']);
         Route::post('/organization/invitations', [InvitationsController::class, 'store']);
         Route::delete('/organization/invitations/{invitation}', [InvitationsController::class, 'destroy']);
+
+        // Marca blanca
+        Route::get('/organization/branding', [BrandingController::class, 'show']);
+        Route::put('/organization/branding', [BrandingController::class, 'update']);
+        Route::post('/organization/branding/logo', [BrandingController::class, 'uploadLogo'])->middleware('throttle:10,1');
+        Route::delete('/organization/branding/logo', [BrandingController::class, 'deleteLogo']);
     });
 });
+
+// Logo de marca blanca por URL firmada (sin sesión; valida la firma).
+Route::get('/branding/{organization}/logo', [BrandingController::class, 'logo'])
+    ->name('branding.logo')
+    ->middleware('signed');

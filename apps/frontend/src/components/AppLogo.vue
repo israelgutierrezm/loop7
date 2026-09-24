@@ -1,9 +1,39 @@
 <script setup lang="ts">
-withDefaults(defineProps<{ showText?: boolean }>(), { showText: true })
+import { ref, watch } from 'vue'
+import type { Branding } from '@/types/models'
+
+/** Logo de la plataforma o, con marca blanca, el de la organización. */
+const props = withDefaults(defineProps<{ showText?: boolean; branding?: Branding | null }>(), {
+  showText: true,
+  branding: null,
+})
+
+const logoFailed = ref(false)
+watch(() => props.branding?.logo_url, () => (logoFailed.value = false))
 </script>
 
 <template>
-  <div class="flex items-center gap-2.5">
+  <div v-if="branding" class="flex min-w-0 items-center gap-2.5">
+    <img
+      v-if="branding.logo_url && !logoFailed"
+      :src="branding.logo_url"
+      :alt="`Logo de ${branding.name}`"
+      class="h-9 w-9 shrink-0 rounded-xl bg-white object-contain"
+      @error="logoFailed = true"
+    />
+    <span
+      v-else
+      class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-600 text-sm font-bold text-white shadow-sm"
+      aria-hidden="true"
+    >
+      {{ branding.name.charAt(0).toUpperCase() }}
+    </span>
+    <span v-if="showText" class="truncate text-lg font-bold tracking-tight text-slate-900 dark:text-white">
+      {{ branding.name }}
+    </span>
+  </div>
+
+  <div v-else class="flex items-center gap-2.5">
     <span
       class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-sm"
       aria-hidden="true"

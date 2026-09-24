@@ -9,6 +9,7 @@ use App\Modules\Notifications\Channels\OrganizationDatabaseChannel;
 use App\Modules\Notifications\Enums\NotificationCategory;
 use App\Modules\Notifications\Services\NotificationPreferences;
 use App\Modules\Organizations\Models\Organization;
+use App\Modules\Organizations\Services\OrganizationBranding;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -87,18 +88,24 @@ class OrganizationNotice extends Notification implements ShouldQueue
     {
         $organization = Organization::query()->find($this->organizationId);
         $firstName = Str::before(trim((string) ($notifiable->name ?? '')), ' ');
+        // Con marca blanca, el correo se presenta con el nombre de la organización.
+        $product = $organization !== null
+            ? app(OrganizationBranding::class)->productName($organization)
+            : (string) config('app.name');
 
         $mail = (new MailMessage())
+            ->from((string) config('mail.from.address'), $product)
             ->subject($this->title)
             ->greeting($firstName !== '' ? "Hola, {$firstName}:" : 'Hola:')
-            ->line($this->body);
+            ->line($this->body)
+            ->salutation("— {$product}");
 
         if ($this->level === 'danger') {
             $mail->error();
         }
 
         if ($this->path !== null) {
-            $mail->action('Abrir en ' . config('app.name'), $this->url($organization));
+            $mail->action("Abrir en {$product}", $this->url($organization));
         }
 
         if ($organization !== null) {

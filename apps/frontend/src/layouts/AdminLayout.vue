@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
 import { useToastStore } from '@/stores/toasts'
 import { useNotificationsStore } from '@/stores/notifications'
+import { useBrandingTheme } from '@/composables/useBrandingTheme'
 import http from '@/services/http'
 import AppLogo from '@/components/AppLogo.vue'
 import AppIcon from '@/components/AppIcon.vue'
@@ -18,6 +19,9 @@ const ui = useUiStore()
 const toasts = useToastStore()
 const notifications = useNotificationsStore()
 const router = useRouter()
+
+// Marca blanca: paleta de la organización mientras se usa su panel.
+useBrandingTheme()
 
 // Los avisos son por organización: se reinicia el sondeo al cambiar de organización.
 watch(
@@ -47,7 +51,7 @@ async function stopImpersonation(): Promise<void> {
       :class="ui.sidebarCollapsed ? 'w-20' : 'w-64'"
     >
       <div class="flex h-16 items-center border-b border-slate-200 px-4 dark:border-slate-800">
-        <AppLogo :show-text="!ui.sidebarCollapsed" />
+        <AppLogo :show-text="!ui.sidebarCollapsed" :branding="auth.branding" />
       </div>
       <div v-if="!ui.sidebarCollapsed" class="px-3 py-3">
         <OrgSwitcher />
@@ -66,7 +70,7 @@ async function stopImpersonation(): Promise<void> {
         <div class="absolute inset-0 bg-slate-900/50" @click="ui.closeMobileDrawer()" />
         <aside class="absolute inset-y-0 left-0 flex w-72 flex-col bg-white shadow-xl dark:bg-slate-900">
           <div class="flex h-16 items-center justify-between border-b border-slate-200 px-4 dark:border-slate-800">
-            <AppLogo />
+            <AppLogo :branding="auth.branding" />
             <button
               class="grid h-9 w-9 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
               aria-label="Cerrar menú"

@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import http, { fetchCsrfCookie, setTenantHeaders } from '@/services/http'
-import type { Brand, Organization, SubscriptionSummary, User } from '@/types/models'
+import type { Brand, Branding, Organization, SubscriptionSummary, User } from '@/types/models'
 
 const ORG_STORAGE_KEY = 'loop7.currentOrganizationId'
 
@@ -29,6 +29,7 @@ export const useAuthStore = defineStore('auth', () => {
   const brands = ref<Brand[]>([])
   const entitlements = ref<Record<string, number | boolean>>({})
   const subscription = ref<SubscriptionSummary | null>(null)
+  const branding = ref<Branding | null>(null)
   const impersonating = ref(false)
   const initialized = ref(false)
 
@@ -114,6 +115,7 @@ export const useAuthStore = defineStore('auth', () => {
     brands.value = data.data.brands ?? []
     entitlements.value = data.data.entitlements ?? {}
     subscription.value = data.data.subscription ?? null
+    branding.value = data.data.branding ?? null
     if (data.data.organization && currentOrganization.value) {
       const previousRoles = currentOrganization.value.roles
       const merged = { ...currentOrganization.value, ...data.data.organization }
@@ -152,6 +154,7 @@ export const useAuthStore = defineStore('auth', () => {
     brands.value = []
     entitlements.value = {}
     subscription.value = null
+    branding.value = null
     impersonating.value = false
     setTenantHeaders(null)
     persistOrg(null)
@@ -165,6 +168,7 @@ export const useAuthStore = defineStore('auth', () => {
     brands,
     entitlements,
     subscription,
+    branding,
     impersonating,
     initialized,
     isAuthenticated,

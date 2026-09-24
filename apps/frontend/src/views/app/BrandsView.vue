@@ -10,6 +10,7 @@ import EmptyState from '@/components/ui/EmptyState.vue'
 import ErrorState from '@/components/ui/ErrorState.vue'
 import ModalDialog from '@/components/ui/ModalDialog.vue'
 import AppIcon from '@/components/AppIcon.vue'
+import BrandAvatar from '@/components/BrandAvatar.vue'
 import Spinner from '@/components/ui/Spinner.vue'
 
 const auth = useAuthStore()
@@ -102,12 +103,7 @@ onMounted(load)
         class="card p-5 transition hover:shadow-md hover:ring-1 hover:ring-brand-200"
       >
         <div class="flex items-center gap-3">
-          <span
-            class="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-sm font-bold text-white"
-            :style="{ backgroundColor: brand.primary_color ?? '#6366f1' }"
-          >
-            {{ brand.name.charAt(0).toUpperCase() }}
-          </span>
+          <BrandAvatar :name="brand.name" :logo-url="brand.logo?.url" :color="brand.primary_color" />
           <div class="min-w-0">
             <p class="truncate font-semibold text-slate-900 dark:text-white">{{ brand.name }}</p>
             <p class="truncate text-xs text-slate-400">{{ brand.website ?? 'Sin sitio web' }}</p>

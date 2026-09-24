@@ -7,11 +7,13 @@ namespace App\Modules\Brands\Models;
 use App\Models\User;
 use App\Modules\Brands\Database\Factories\BrandFactory;
 use App\Modules\Brands\Enums\BrandStatus;
+use App\Modules\MediaLibrary\Models\MediaAsset;
 use App\Support\Concerns\BelongsToOrganization;
 use App\Support\Concerns\HasPublicId;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -21,8 +23,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int $organization_id
  * @property string $name
  * @property string $slug
+ * @property int|null $logo_media_id
  * @property BrandStatus $status
  * @property \Illuminate\Support\Carbon|null $created_at
+ * @property-read MediaAsset|null $logo
  */
 class Brand extends Model
 {
@@ -38,7 +42,6 @@ class Brand extends Model
         'slug',
         'website',
         'description',
-        'logo_path',
         'primary_color',
         'secondary_color',
         'timezone',
@@ -63,6 +66,16 @@ class Brand extends Model
             'status' => BrandStatus::class,
             'settings' => 'array',
         ];
+    }
+
+    /**
+     * Logo: una imagen de la biblioteca de la propia Brand.
+     *
+     * @return BelongsTo<MediaAsset, $this>
+     */
+    public function logo(): BelongsTo
+    {
+        return $this->belongsTo(MediaAsset::class, 'logo_media_id');
     }
 
     /**

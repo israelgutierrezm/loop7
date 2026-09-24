@@ -13,14 +13,19 @@ use App\Modules\Billing\Services\EntitlementsService;
 use App\Modules\Brands\Http\Resources\BrandResource;
 use App\Modules\Brands\Models\Brand;
 use App\Modules\Brands\Services\BrandAccess;
+use App\Modules\MediaLibrary\Models\MediaAsset;
 use App\Support\Http\ApiResponse;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class BrandController extends Controller
 {
+    /** Colores de marca: #rrggbb (se aplican como estilos en la UI). */
+    private const HEX_COLOR = '/^#[0-9a-fA-F]{6}$/';
+
     public function __construct(
         private readonly AuditLogger $audit,
         private readonly TenantContext $context,
@@ -38,7 +43,7 @@ class BrandController extends Controller
             ? Brand::query()
             : Brand::query()->whereIn('id', $user->accessibleBrands()->select('brands.id'));
 
-        $brands = $query->orderBy('name')
+        $brands = $query->with('logo')->orderBy('name')
             ->paginate((int) $request->integer('per_page', 20))
             ->through(fn (Brand $b) => new BrandResource($b));
 
@@ -63,8 +68,8 @@ class BrandController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'website' => ['nullable', 'url', 'max:255'],
             'description' => ['nullable', 'string', 'max:2000'],
-            'primary_color' => ['nullable', 'string', 'max:9'],
-            'secondary_color' => ['nullable', 'string', 'max:9'],
+            'primary_color' => ['nullable', 'regex:' . self::HEX_COLOR],
+            'secondary_color' => ['nullable', 'regex:' . self::HEX_COLOR],
             'timezone' => ['nullable', 'string', 'timezone'],
         ]);
 
@@ -98,8 +103,8 @@ class BrandController extends Controller
             'name' => ['sometimes', 'required', 'string', 'max:255'],
             'website' => ['sometimes', 'nullable', 'url', 'max:255'],
             'description' => ['sometimes', 'nullable', 'string', 'max:2000'],
-            'primary_color' => ['sometimes', 'nullable', 'string', 'max:9'],
-            'secondary_color' => ['sometimes', 'nullable', 'string', 'max:9'],
+            'primary_color' => ['sometimes', 'nullable', 'regex:' . self::HEX_COLOR],
+            'secondary_color' => ['sometimes', 'nullable', 'regex:' . self::HEX_COLOR],
             'timezone' => ['sometimes', 'required', 'string', 'timezone'],
         ]);
 
@@ -107,6 +112,37 @@ class BrandController extends Controller
         $this->audit->log(AuditAction::BRAND_UPDATED, $model, ['changes' => array_keys($data)]);
 
         return ApiResponse::success(new BrandResource($model), 'Marca actualizada.');
+    }
+
+    /**
+     * Logo de la marca: una imagen de su propia biblioteca (null lo quita).
+     */
+    public function logo(Request $request, string $brand): JsonResponse
+    {
+        $model = $this->resolve($brand);
+        $this->authorize('update', $model);
+
+        $data = $request->validate(['media' => ['present', 'nullable', 'string']]);
+
+        $asset = null;
+        if ($data['media'] !== null) {
+            $asset = MediaAsset::query()
+                ->where('brand_id', $model->id)
+                ->where('public_id', $data['media'])
+                ->first();
+
+            if ($asset === null || ! $asset->isImage()) {
+                throw ValidationException::withMessages(['media' => 'Elige una imagen de la biblioteca de esta marca.']);
+            }
+        }
+
+        $model->forceFill(['logo_media_id' => $asset?->id])->save();
+        $this->audit->log(AuditAction::BRAND_UPDATED, $model, ['changes' => ['logo']]);
+
+        return ApiResponse::success(
+            new BrandResource($model->load('logo')),
+            $asset !== null ? 'Logo actualizado.' : 'Logo quitado.',
+        );
     }
 
     public function destroy(string $brand): JsonResponse

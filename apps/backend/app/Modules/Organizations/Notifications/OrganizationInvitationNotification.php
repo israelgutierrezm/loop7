@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Organizations\Notifications;
 
 use App\Modules\Organizations\Models\OrganizationInvitation;
+use App\Modules\Organizations\Services\OrganizationBranding;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -31,9 +32,13 @@ class OrganizationInvitationNotification extends Notification
     {
         $frontend = rtrim((string) config('app.frontend_url'), '/');
         $url = $frontend . '/aceptar-invitacion?token=' . $this->plainToken;
-        $organizationName = $this->invitation->organization->name;
+        $organization = $this->invitation->organization;
+        $organizationName = $organization->name;
+        // Con marca blanca, el remitente es el nombre de la organización.
+        $product = app(OrganizationBranding::class)->productName($organization);
 
         return (new MailMessage())
+            ->from((string) config('mail.from.address'), $product)
             ->subject('Te invitaron a ' . $organizationName)
             ->greeting('¡Hola!')
             ->line('Has sido invitado a colaborar en "' . $organizationName . '".')

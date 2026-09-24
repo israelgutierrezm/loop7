@@ -12,6 +12,7 @@ use App\Modules\Brands\Models\Brand;
 use App\Modules\Brands\Services\BrandAccess;
 use App\Modules\Organizations\Http\Resources\OrganizationResource;
 use App\Modules\Organizations\Services\MembershipService;
+use App\Modules\Organizations\Services\OrganizationBranding;
 use App\Support\Http\ApiResponse;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
@@ -30,6 +31,7 @@ class ContextController extends Controller
         EntitlementsService $entitlements,
         SubscriptionService $subscriptions,
         BrandAccess $access,
+        OrganizationBranding $branding,
     ): JsonResponse {
         $organization = $context->organization();
         $user = $request->user();
@@ -41,8 +43,9 @@ class ContextController extends Controller
 
         // El OrganizationScope ya limita a la Organization actual.
         $brands = $access->hasAllBrands($user)
-            ? Brand::query()->orderBy('name')->get()
+            ? Brand::query()->with('logo')->orderBy('name')->get()
             : $user->accessibleBrands()
+                ->with('logo')
                 ->where('brands.organization_id', $organization->id)
                 ->orderBy('name')
                 ->get();
@@ -64,6 +67,8 @@ class ContextController extends Controller
                 'current_period_end' => $subscription->current_period_end?->toIso8601String(),
                 'cancel_at_period_end' => $subscription->cancel_at_period_end,
             ],
+            // Marca blanca vigente (null = marca de la plataforma).
+            'branding' => $branding->active($organization),
         ]);
     }
 }

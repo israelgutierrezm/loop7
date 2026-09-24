@@ -39,7 +39,7 @@ export interface Brand {
   slug: string
   website: string | null
   description: string | null
-  logo_path: string | null
+  logo: { id: string; url: string } | null
   primary_color: string | null
   secondary_color: string | null
   timezone: string
@@ -57,12 +57,20 @@ export interface SubscriptionSummary {
   cancel_at_period_end: boolean
 }
 
+/** Marca blanca vigente de la organización (null = marca de la plataforma). */
+export interface Branding {
+  name: string
+  color: string | null
+  logo_url: string | null
+}
+
 export interface OrganizationContext {
   organization: Organization
   permissions: string[]
   brands: Brand[]
   entitlements: Record<string, number | boolean>
   subscription: SubscriptionSummary | null
+  branding: Branding | null
 }
 
 export interface MemberEntry {

@@ -25,6 +25,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int|null $owner_user_id
  * @property OrganizationStatus $status
  * @property string|null $billing_email
+ * @property string $timezone
+ * @property array{display_name?: string|null, primary_color?: string|null, logo_path?: string|null}|null $branding
  * @property \Illuminate\Support\Carbon|null $trial_ends_at
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property list<string>|null $current_roles
@@ -65,6 +67,7 @@ class Organization extends Model
         return [
             'status' => OrganizationStatus::class,
             'settings' => 'array',
+            'branding' => 'array',
             'trial_ends_at' => 'datetime',
         ];
     }

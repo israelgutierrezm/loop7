@@ -4,14 +4,18 @@ import { useRoute, useRouter } from 'vue-router'
 import http from '@/services/http'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toasts'
-import { apiErrorMessage } from '@/utils/errors'
+import { useConfirmStore } from '@/stores/confirm'
+import { apiErrorMessage, apiValidationErrors } from '@/utils/errors'
+import { bytes } from '@/utils/format'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import ErrorState from '@/components/ui/ErrorState.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import Spinner from '@/components/ui/Spinner.vue'
 import AppIcon from '@/components/AppIcon.vue'
+import BrandAvatar from '@/components/BrandAvatar.vue'
+import MediaPicker, { type PickedMedia } from '@/components/media/MediaPicker.vue'
 import BrandSocialPanel from '@/components/social/BrandSocialPanel.vue'
-import type { SocialProviderOption } from '@/types/models'
+import type { Brand, SocialProviderOption } from '@/types/models'
 
 interface Audience { id: string; name: string; description: string | null }
 interface Product { id: string; name: string; description: string | null; price: string | null; url: string | null }
@@ -23,15 +27,23 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const toasts = useToastStore()
+const confirmDialog = useConfirmStore()
 const brandId = route.params.brand as string
 
 const loading = ref(true)
 const failed = ref(false)
-const brandName = ref('')
+const brand = ref<Brand | null>(null)
 const activeTab = ref<'identidad' | 'audiencias' | 'oferta' | 'conocimiento' | 'medios' | 'redes'>('identidad')
 
 const canEdit = computed(() => auth.can('brands.update'))
 
+// --- Datos de la marca ---
+const details = reactive({ name: '', website: '', description: '', primary_color: '#6366f1', secondary_color: '#e0e7ff' })
+const detailErrors = ref<Record<string, string[]>>({})
+const savingDetails = ref(false)
+const pickingLogo = ref(false)
+
+// --- Voz y mensajes (Brand Brain) ---
 const guidelines = reactive({
   voice_tone: '',
   cta: '',
@@ -62,23 +74,28 @@ function linesToArray(text: string): string[] {
 function csvToArray(text: string): string[] {
   return text.split(/[,\n]/).map((l) => l.trim()).filter(Boolean)
 }
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+
+function hydrateDetails(b: Brand): void {
+  details.name = b.name
+  details.website = b.website ?? ''
+  details.description = b.description ?? ''
+  details.primary_color = b.primary_color ?? '#6366f1'
+  details.secondary_color = b.secondary_color ?? '#e0e7ff'
 }
 
 async function load(): Promise<void> {
   loading.value = true
   failed.value = false
   try {
-    const [brain, mediaResp, providersResp] = await Promise.all([
+    const [brandResp, brain, mediaResp, providersResp] = await Promise.all([
+      http.get(`/brands/${brandId}`),
       http.get(`/brands/${brandId}/brain`),
       http.get(`/brands/${brandId}/media`),
       http.get(`/brands/${brandId}/social/providers`),
     ])
+    brand.value = brandResp.data.data
+    hydrateDetails(brandResp.data.data)
     const d = brain.data.data
-    brandName.value = d.brand.name
     if (d.guidelines) {
       guidelines.voice_tone = d.guidelines.voice_tone ?? ''
       guidelines.cta = d.guidelines.cta ?? ''
@@ -101,6 +118,63 @@ async function load(): Promise<void> {
   }
 }
 
+async function saveDetails(): Promise<void> {
+  savingDetails.value = true
+  detailErrors.value = {}
+  try {
+    const { data } = await http.patch(`/brands/${brandId}`, {
+      name: details.name,
+      website: details.website || null,
+      description: details.description || null,
+      primary_color: details.primary_color,
+      secondary_color: details.secondary_color,
+    })
+    brand.value = data.data
+    toasts.success('Datos de la marca guardados.')
+    await auth.loadContext()
+  } catch (e) {
+    detailErrors.value = apiValidationErrors(e)
+    if (!Object.keys(detailErrors.value).length) toasts.error(apiErrorMessage(e))
+  } finally {
+    savingDetails.value = false
+  }
+}
+
+async function setLogo(mediaId: string | null): Promise<void> {
+  try {
+    const { data } = await http.put(`/brands/${brandId}/logo`, { media: mediaId })
+    brand.value = data.data
+    toasts.success(mediaId ? 'Logo actualizado.' : 'Logo quitado.')
+    await auth.loadContext()
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  }
+}
+
+function onLogoPicked(picked: PickedMedia[]): void {
+  pickingLogo.value = false
+  if (picked[0]) void setLogo(picked[0].id)
+}
+
+async function removeBrand(): Promise<void> {
+  if (!brand.value) return
+  const ok = await confirmDialog.ask({
+    title: 'Eliminar marca',
+    message: `Se eliminará «${brand.value.name}»: se cancelan sus publicaciones programadas, se desconectan sus cuentas sociales y se pausan sus automatizaciones. Esta acción no se puede deshacer.`,
+    confirmText: 'Eliminar marca',
+    danger: true,
+  })
+  if (!ok) return
+  try {
+    await http.delete(`/brands/${brandId}`)
+    toasts.success('Marca eliminada.')
+    await auth.loadContext()
+    router.push('/app/brands')
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  }
+}
+
 async function saveGuidelines(): Promise<void> {
   savingGuidelines.value = true
   try {
@@ -113,7 +187,7 @@ async function saveGuidelines(): Promise<void> {
       prohibited_terms: csvToArray(guidelines.prohibited_terms),
       notes: guidelines.notes || null,
     })
-    toasts.success('Identidad de marca guardada.')
+    toasts.success('Voz y mensajes guardados.')
   } catch (e) {
     toasts.error(apiErrorMessage(e))
   } finally {
@@ -162,10 +236,19 @@ async function uploadMedia(event: Event): Promise<void> {
   }
 }
 
-async function deleteMedia(id: string): Promise<void> {
+async function deleteMedia(item: MediaItem): Promise<void> {
+  const isLogo = brand.value?.logo?.id === item.id
+  const ok = await confirmDialog.ask({
+    title: 'Eliminar archivo',
+    message: `Se eliminará «${item.original_name}»${isLogo ? ', que es el logo de la marca' : ''}. Las publicaciones que lo usan dejarán de mostrarlo.`,
+    confirmText: 'Eliminar',
+    danger: true,
+  })
+  if (!ok) return
   try {
-    await http.delete(`/media/${id}`)
-    media.value = media.value.filter((m) => m.id !== id)
+    await http.delete(`/media/${item.id}`)
+    media.value = media.value.filter((m) => m.id !== item.id)
+    if (isLogo && brand.value) brand.value = { ...brand.value, logo: null }
   } catch (e) {
     toasts.error(apiErrorMessage(e))
   }
@@ -178,6 +261,7 @@ function handleSocialReturn(): void {
   if (status === 'connected') toasts.success('Cuenta conectada.')
   else if (status === 'denied') toasts.error('Autorización cancelada.')
   else if (status === 'invalid') toasts.error('El enlace de conexión expiró. Inténtalo de nuevo.')
+  else if (status === 'limit') toasts.error('Alcanzaste el número de cuentas sociales de tu plan.')
   else if (status === 'error') toasts.error('No se pudo completar la conexión.')
   router.replace({ query: {} })
 }
@@ -199,7 +283,7 @@ onMounted(async () => {
 
 <template>
   <div>
-    <PageHeader :title="brandName || 'Marca'" description="Brand Brain: el contexto que alimenta la IA y el contenido.">
+    <PageHeader :title="brand?.name ?? 'Marca'" description="Brand Brain: el contexto que alimenta la IA y el contenido.">
       <template #actions>
         <RouterLink to="/app/brands" class="btn-secondary text-sm">
           <AppIcon name="chevron-left" :size="16" /> Marcas
@@ -208,13 +292,15 @@ onMounted(async () => {
     </PageHeader>
 
     <div v-if="loading" class="card p-6"><div class="skeleton h-64 w-full" /></div>
-    <ErrorState v-else-if="failed" @retry="load" />
+    <ErrorState v-else-if="failed || !brand" @retry="load" />
 
     <template v-else>
-      <div class="mb-5 flex gap-1 overflow-x-auto border-b border-slate-200 dark:border-slate-800">
+      <div class="mb-5 flex gap-1 overflow-x-auto border-b border-slate-200 dark:border-slate-800" role="tablist">
         <button
           v-for="tab in tabs"
           :key="tab.key"
+          role="tab"
+          :aria-selected="activeTab === tab.key"
           class="whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition-colors"
           :class="activeTab === tab.key
             ? 'border-brand-600 text-brand-700 dark:text-brand-300'
@@ -226,53 +312,129 @@ onMounted(async () => {
       </div>
 
       <!-- Identidad -->
-      <div v-show="activeTab === 'identidad'" class="card max-w-3xl p-6">
-        <fieldset :disabled="!canEdit" class="space-y-4">
-          <div>
-            <label class="label">Voz y tono</label>
-            <textarea v-model="guidelines.voice_tone" rows="2" class="input" placeholder="Cercano, profesional, con humor…" />
+      <div v-show="activeTab === 'identidad'" class="max-w-3xl space-y-6">
+        <!-- Datos de la marca -->
+        <form class="card p-6" @submit.prevent="saveDetails">
+          <h2 class="mb-4 font-semibold text-slate-900 dark:text-white">Datos de la marca</h2>
+          <div class="mb-5 flex flex-wrap items-center gap-4">
+            <BrandAvatar :name="details.name || brand.name" :logo-url="brand.logo?.url" :color="details.primary_color" :size="64" />
+            <div v-if="canEdit" class="flex flex-wrap gap-2">
+              <button type="button" class="btn-secondary text-sm" @click="pickingLogo = true">
+                <AppIcon name="brands" :size="16" /> {{ brand.logo ? 'Cambiar logo' : 'Elegir logo' }}
+              </button>
+              <button v-if="brand.logo" type="button" class="btn-ghost text-sm text-rose-600" @click="setLogo(null)">Quitar logo</button>
+            </div>
+            <p class="basis-full text-xs text-slate-500">El logo es una imagen de la biblioteca de esta marca.</p>
           </div>
-          <div>
-            <label class="label">Llamada a la acción (CTA)</label>
-            <input v-model="guidelines.cta" class="input" placeholder="Empieza gratis hoy" />
-          </div>
-          <div>
-            <label class="label">Propuestas de valor <span class="text-slate-400">(una por línea)</span></label>
-            <textarea v-model="guidelines.value_propositions" rows="3" class="input" />
-          </div>
-          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+
+          <fieldset :disabled="!canEdit" class="space-y-4">
             <div>
-              <label class="label">Hashtags <span class="text-slate-400">(separados por coma)</span></label>
-              <input v-model="guidelines.hashtags" class="input" placeholder="#marketing, #pymes" />
+              <label class="label" for="brand-name">Nombre</label>
+              <input id="brand-name" v-model="details.name" required maxlength="255" class="input" />
+              <p v-if="detailErrors.name" class="mt-1 text-xs text-rose-600">{{ detailErrors.name[0] }}</p>
             </div>
             <div>
-              <label class="label">Términos prohibidos</label>
-              <input v-model="guidelines.prohibited_terms" class="input" placeholder="barato, gratis total" />
+              <label class="label" for="brand-web">Sitio web</label>
+              <input id="brand-web" v-model="details.website" type="url" class="input" placeholder="https://" />
+              <p v-if="detailErrors.website" class="mt-1 text-xs text-rose-600">{{ detailErrors.website[0] }}</p>
             </div>
+            <div>
+              <label class="label" for="brand-desc">Descripción</label>
+              <textarea id="brand-desc" v-model="details.description" rows="3" maxlength="2000" class="input" placeholder="Qué hace la marca, a quién sirve…" />
+            </div>
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label class="label" for="brand-c1">Color principal</label>
+                <div class="flex items-center gap-2">
+                  <input id="brand-c1" v-model="details.primary_color" type="color" class="h-10 w-14 cursor-pointer rounded border border-slate-300 bg-white p-1 dark:border-slate-700" />
+                  <input v-model="details.primary_color" class="input font-mono" maxlength="7" aria-label="Color principal (hexadecimal)" />
+                </div>
+              </div>
+              <div>
+                <label class="label" for="brand-c2">Color secundario</label>
+                <div class="flex items-center gap-2">
+                  <input id="brand-c2" v-model="details.secondary_color" type="color" class="h-10 w-14 cursor-pointer rounded border border-slate-300 bg-white p-1 dark:border-slate-700" />
+                  <input v-model="details.secondary_color" class="input font-mono" maxlength="7" aria-label="Color secundario (hexadecimal)" />
+                </div>
+              </div>
+            </div>
+          </fieldset>
+          <div v-if="canEdit" class="mt-6 flex justify-end">
+            <button type="submit" class="btn-primary" :disabled="savingDetails">
+              <Spinner v-if="savingDetails" :size="18" /> Guardar datos
+            </button>
           </div>
-          <div>
-            <label class="label">Vocabulario preferido</label>
-            <input v-model="guidelines.preferred_vocabulary" class="input" />
+        </form>
+
+        <!-- Voz y mensajes -->
+        <form class="card p-6" @submit.prevent="saveGuidelines">
+          <h2 class="mb-1 font-semibold text-slate-900 dark:text-white">Voz y mensajes</h2>
+          <p class="mb-4 text-sm text-slate-500">La IA usa estas pautas en cada texto que genera para la marca.</p>
+          <fieldset :disabled="!canEdit" class="space-y-4">
+            <div>
+              <label class="label" for="g-voice">Voz y tono</label>
+              <textarea id="g-voice" v-model="guidelines.voice_tone" rows="2" class="input" placeholder="Cercano, profesional, con humor…" />
+            </div>
+            <div>
+              <label class="label" for="g-cta">Llamada a la acción (CTA)</label>
+              <input id="g-cta" v-model="guidelines.cta" class="input" placeholder="Empieza gratis hoy" />
+            </div>
+            <div>
+              <label class="label" for="g-value">Propuestas de valor <span class="text-slate-400">(una por línea)</span></label>
+              <textarea id="g-value" v-model="guidelines.value_propositions" rows="3" class="input" />
+            </div>
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label class="label" for="g-tags">Hashtags <span class="text-slate-400">(separados por coma)</span></label>
+                <input id="g-tags" v-model="guidelines.hashtags" class="input" placeholder="#marketing, #pymes" />
+              </div>
+              <div>
+                <label class="label" for="g-banned">Términos prohibidos</label>
+                <input id="g-banned" v-model="guidelines.prohibited_terms" class="input" placeholder="barato, gratis total" />
+              </div>
+            </div>
+            <div>
+              <label class="label" for="g-vocab">Vocabulario preferido</label>
+              <input id="g-vocab" v-model="guidelines.preferred_vocabulary" class="input" />
+            </div>
+            <div>
+              <label class="label" for="g-notes">Notas para la IA</label>
+              <textarea id="g-notes" v-model="guidelines.notes" rows="3" class="input" placeholder="Temas a evitar, estacionalidad, estilo de emojis…" />
+            </div>
+          </fieldset>
+          <div v-if="canEdit" class="mt-6 flex justify-end">
+            <button type="submit" class="btn-primary" :disabled="savingGuidelines">
+              <Spinner v-if="savingGuidelines" :size="18" /> Guardar voz y mensajes
+            </button>
           </div>
-        </fieldset>
-        <div v-if="canEdit" class="mt-6 flex justify-end">
-          <button class="btn-primary" :disabled="savingGuidelines" @click="saveGuidelines">
-            <Spinner v-if="savingGuidelines" :size="18" /> Guardar identidad
-          </button>
-        </div>
+        </form>
+
+        <!-- Zona de peligro -->
+        <section v-if="auth.can('brands.delete')" class="card border-rose-200 p-6 dark:border-rose-900/60" aria-labelledby="danger-title">
+          <h2 id="danger-title" class="font-semibold text-rose-700 dark:text-rose-400">Eliminar marca</h2>
+          <p class="mt-1 text-sm text-slate-500">
+            Se cancelan sus publicaciones programadas, se desconectan sus cuentas sociales y se pausan sus
+            automatizaciones. Su contenido y su biblioteca dejan de estar disponibles.
+          </p>
+          <button type="button" class="btn-secondary mt-4 text-sm text-rose-600" @click="removeBrand">Eliminar marca</button>
+        </section>
       </div>
 
       <!-- Audiencias -->
       <div v-show="activeTab === 'audiencias'" class="space-y-4">
-        <div v-if="canEdit" class="card flex flex-wrap items-end gap-3 p-4">
-          <div class="flex-1"><label class="label">Nombre</label><input v-model="newAudience.name" class="input" placeholder="PyMEs tecnológicas" /></div>
-          <div class="flex-1"><label class="label">Descripción</label><input v-model="newAudience.description" class="input" /></div>
-          <button class="btn-primary" @click="addChild('audiences', { ...newAudience }, () => { newAudience.name = ''; newAudience.description = '' })">Añadir</button>
-        </div>
+        <form
+          v-if="canEdit"
+          class="card flex flex-wrap items-end gap-3 p-4"
+          @submit.prevent="addChild('audiences', { ...newAudience }, () => { newAudience.name = ''; newAudience.description = '' })"
+        >
+          <div class="flex-1"><label class="label" for="aud-name">Nombre</label><input id="aud-name" v-model="newAudience.name" required class="input" placeholder="PyMEs tecnológicas" /></div>
+          <div class="flex-1"><label class="label" for="aud-desc">Descripción</label><input id="aud-desc" v-model="newAudience.description" class="input" /></div>
+          <button type="submit" class="btn-primary">Añadir</button>
+        </form>
         <EmptyState v-if="audiences.length === 0" icon="team" title="Sin audiencias" description="Define a quién te diriges." />
         <div v-for="a in audiences" :key="a.id" class="card flex items-center justify-between p-4">
           <div><p class="font-medium text-slate-800 dark:text-slate-100">{{ a.name }}</p><p class="text-sm text-slate-500">{{ a.description }}</p></div>
-          <button v-if="canEdit" class="btn-ghost text-rose-600" @click="deleteChild('audiences', a.id)"><AppIcon name="close" :size="18" /></button>
+          <button v-if="canEdit" class="btn-ghost text-rose-600" :aria-label="`Quitar ${a.name}`" @click="deleteChild('audiences', a.id)"><AppIcon name="close" :size="18" /></button>
         </div>
       </div>
 
@@ -280,81 +442,107 @@ onMounted(async () => {
       <div v-show="activeTab === 'oferta'" class="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div class="space-y-3">
           <h3 class="font-semibold text-slate-900 dark:text-white">Productos</h3>
-          <div v-if="canEdit" class="card flex flex-wrap items-end gap-2 p-4">
-            <div class="flex-1"><input v-model="newProduct.name" class="input" placeholder="Nombre" /></div>
-            <div class="w-20"><input v-model="newProduct.price" class="input" placeholder="Precio" /></div>
-            <button class="btn-primary" @click="addChild('products', { ...newProduct }, () => { newProduct.name = ''; newProduct.price = ''; newProduct.url = '' })">+</button>
-          </div>
+          <form
+            v-if="canEdit"
+            class="card flex flex-wrap items-end gap-2 p-4"
+            @submit.prevent="addChild('products', { ...newProduct }, () => { newProduct.name = ''; newProduct.price = ''; newProduct.url = '' })"
+          >
+            <div class="flex-1"><label class="sr-only" for="prod-name">Nombre del producto</label><input id="prod-name" v-model="newProduct.name" required class="input" placeholder="Nombre" /></div>
+            <div class="w-24"><label class="sr-only" for="prod-price">Precio</label><input id="prod-price" v-model="newProduct.price" class="input" placeholder="Precio" /></div>
+            <button type="submit" class="btn-primary" aria-label="Añadir producto"><AppIcon name="plus" :size="16" /></button>
+          </form>
           <div v-for="p in products" :key="p.id" class="card flex items-center justify-between p-3">
             <span class="text-sm">{{ p.name }} <span v-if="p.price" class="text-slate-400">· {{ p.price }}</span></span>
-            <button v-if="canEdit" class="btn-ghost text-rose-600" @click="deleteChild('products', p.id)"><AppIcon name="close" :size="16" /></button>
+            <button v-if="canEdit" class="btn-ghost text-rose-600" :aria-label="`Quitar ${p.name}`" @click="deleteChild('products', p.id)"><AppIcon name="close" :size="16" /></button>
           </div>
         </div>
         <div class="space-y-3">
           <h3 class="font-semibold text-slate-900 dark:text-white">Servicios</h3>
-          <div v-if="canEdit" class="card flex flex-wrap items-end gap-2 p-4">
-            <div class="flex-1"><input v-model="newService.name" class="input" placeholder="Nombre" /></div>
-            <button class="btn-primary" @click="addChild('services', { ...newService }, () => { newService.name = ''; newService.url = '' })">+</button>
-          </div>
+          <form
+            v-if="canEdit"
+            class="card flex flex-wrap items-end gap-2 p-4"
+            @submit.prevent="addChild('services', { ...newService }, () => { newService.name = ''; newService.url = '' })"
+          >
+            <div class="flex-1"><label class="sr-only" for="serv-name">Nombre del servicio</label><input id="serv-name" v-model="newService.name" required class="input" placeholder="Nombre" /></div>
+            <button type="submit" class="btn-primary" aria-label="Añadir servicio"><AppIcon name="plus" :size="16" /></button>
+          </form>
           <div v-for="s in services" :key="s.id" class="card flex items-center justify-between p-3">
             <span class="text-sm">{{ s.name }}</span>
-            <button v-if="canEdit" class="btn-ghost text-rose-600" @click="deleteChild('services', s.id)"><AppIcon name="close" :size="16" /></button>
+            <button v-if="canEdit" class="btn-ghost text-rose-600" :aria-label="`Quitar ${s.name}`" @click="deleteChild('services', s.id)"><AppIcon name="close" :size="16" /></button>
           </div>
         </div>
       </div>
 
       <!-- Conocimiento -->
       <div v-show="activeTab === 'conocimiento'" class="space-y-4">
-        <div v-if="canEdit" class="card space-y-3 p-4">
+        <form
+          v-if="canEdit"
+          class="card space-y-3 p-4"
+          @submit.prevent="addChild('knowledge', { ...newKnowledge }, () => { newKnowledge.title = ''; newKnowledge.body = ''; newKnowledge.url = '' })"
+        >
           <div class="flex flex-wrap gap-2">
-            <select v-model="newKnowledge.type" class="input w-auto">
+            <label class="sr-only" for="kn-type">Tipo</label>
+            <select id="kn-type" v-model="newKnowledge.type" class="input w-auto">
               <option value="faq">FAQ</option>
               <option value="note">Nota</option>
               <option value="url">URL</option>
             </select>
-            <input v-model="newKnowledge.title" class="input flex-1" placeholder="Título / pregunta" />
+            <label class="sr-only" for="kn-title">Título o pregunta</label>
+            <input id="kn-title" v-model="newKnowledge.title" required class="input flex-1" placeholder="Título / pregunta" />
           </div>
-          <textarea v-if="newKnowledge.type !== 'url'" v-model="newKnowledge.body" rows="2" class="input" placeholder="Contenido / respuesta" />
-          <input v-else v-model="newKnowledge.url" class="input" placeholder="https://" />
+          <template v-if="newKnowledge.type !== 'url'">
+            <label class="sr-only" for="kn-body">Contenido o respuesta</label>
+            <textarea id="kn-body" v-model="newKnowledge.body" rows="2" class="input" placeholder="Contenido / respuesta" />
+          </template>
+          <template v-else>
+            <label class="sr-only" for="kn-url">URL</label>
+            <input id="kn-url" v-model="newKnowledge.url" type="url" class="input" placeholder="https://" />
+          </template>
           <div class="flex justify-end">
-            <button class="btn-primary" @click="addChild('knowledge', { ...newKnowledge }, () => { newKnowledge.title = ''; newKnowledge.body = ''; newKnowledge.url = '' })">Añadir</button>
+            <button type="submit" class="btn-primary">Añadir</button>
           </div>
-        </div>
+        </form>
         <EmptyState v-if="knowledge.length === 0" icon="sparkles" title="Base de conocimiento vacía" description="Añade FAQs, notas o URLs de referencia." />
         <div v-for="k in knowledge" :key="k.id" class="card p-4">
           <div class="flex items-center justify-between">
             <span class="rounded bg-slate-100 px-2 py-0.5 text-xs uppercase text-slate-500 dark:bg-slate-800">{{ k.type }}</span>
-            <button v-if="canEdit" class="btn-ghost text-rose-600" @click="deleteChild('knowledge', k.id)"><AppIcon name="close" :size="16" /></button>
+            <button v-if="canEdit" class="btn-ghost text-rose-600" :aria-label="`Quitar ${k.title}`" @click="deleteChild('knowledge', k.id)"><AppIcon name="close" :size="16" /></button>
           </div>
           <p class="mt-1 font-medium text-slate-800 dark:text-slate-100">{{ k.title }}</p>
           <p v-if="k.body" class="text-sm text-slate-500">{{ k.body }}</p>
-          <a v-if="k.url" :href="k.url" target="_blank" class="text-sm text-brand-600 hover:underline">{{ k.url }}</a>
+          <a v-if="k.url" :href="k.url" target="_blank" rel="noopener noreferrer" class="text-sm text-brand-600 hover:underline">{{ k.url }}</a>
         </div>
       </div>
 
       <!-- Medios -->
       <div v-show="activeTab === 'medios'" class="space-y-4">
-        <div v-if="auth.can('content.create')" class="card flex items-center gap-3 p-4">
+        <div v-if="auth.can('content.create')" class="card flex flex-wrap items-center gap-3 p-4">
           <label class="btn-primary cursor-pointer">
             <Spinner v-if="uploading" :size="18" />
             <AppIcon v-else name="plus" :size="18" /> Subir archivo
-            <input type="file" class="hidden" accept="image/*,video/mp4,application/pdf" :disabled="uploading" @change="uploadMedia" />
+            <input type="file" class="hidden" accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,application/pdf" :disabled="uploading" @change="uploadMedia" />
           </label>
           <span class="text-sm text-slate-400">Imágenes, vídeo MP4 o PDF (máx. 50 MB)</span>
         </div>
         <EmptyState v-if="media.length === 0" icon="brands" title="Sin archivos" description="Sube imágenes y documentos de tu marca." />
         <div v-else class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           <div v-for="m in media" :key="m.id" class="card overflow-hidden">
-            <div class="flex aspect-video items-center justify-center bg-slate-100 dark:bg-slate-800">
-              <img v-if="m.is_image" :src="m.url" :alt="m.original_name" class="h-full w-full object-cover" />
+            <div class="relative flex aspect-video items-center justify-center bg-slate-100 dark:bg-slate-800">
+              <img v-if="m.is_image" :src="m.url" :alt="m.original_name" loading="lazy" class="h-full w-full object-cover" />
               <AppIcon v-else name="content" :size="32" class="text-slate-400" />
+              <span v-if="brand.logo?.id === m.id" class="absolute left-2 top-2 rounded bg-slate-900/70 px-1.5 py-0.5 text-[10px] font-semibold text-white">Logo</span>
             </div>
             <div class="flex items-center justify-between gap-2 p-2">
               <div class="min-w-0">
                 <p class="truncate text-xs font-medium text-slate-700 dark:text-slate-200">{{ m.original_name }}</p>
-                <p class="text-[10px] text-slate-400">{{ formatSize(m.size_bytes) }}</p>
+                <p class="text-[10px] text-slate-400">{{ bytes(m.size_bytes) }}</p>
               </div>
-              <button v-if="auth.can('content.delete')" class="shrink-0 text-rose-500 hover:text-rose-700" @click="deleteMedia(m.id)">
+              <button
+                v-if="auth.can('content.delete')"
+                class="shrink-0 text-rose-500 hover:text-rose-700"
+                :aria-label="`Eliminar ${m.original_name}`"
+                @click="deleteMedia(m)"
+              >
                 <AppIcon name="close" :size="16" />
               </button>
             </div>
@@ -368,6 +556,16 @@ onMounted(async () => {
         <p class="mb-4 text-sm text-slate-500">Las publicaciones de esta marca salen por estas cuentas.</p>
         <BrandSocialPanel :brand-id="brandId" :providers="socialProviders" />
       </div>
+
+      <MediaPicker
+        :open="pickingLogo"
+        :brand-id="brandId"
+        :selected="brand.logo ? [brand.logo.id] : []"
+        :max="1"
+        :accept-video="false"
+        @close="pickingLogo = false"
+        @confirm="onLogoPicked"
+      />
     </template>
   </div>
 </template>

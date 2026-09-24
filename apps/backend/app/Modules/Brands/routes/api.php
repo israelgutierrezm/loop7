@@ -16,6 +16,7 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function (): void {
     Route::post('/brands', [BrandController::class, 'store']);
     Route::get('/brands/{brand}', [BrandController::class, 'show']);
     Route::patch('/brands/{brand}', [BrandController::class, 'update']);
+    Route::put('/brands/{brand}/logo', [BrandController::class, 'logo']);
     Route::delete('/brands/{brand}', [BrandController::class, 'destroy']);
 
     Route::get('/brands/{brand}/access', [BrandAccessController::class, 'index']);

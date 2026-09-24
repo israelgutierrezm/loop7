@@ -131,7 +131,9 @@ router.beforeEach(async (to) => {
 })
 
 router.afterEach((to) => {
-  document.title = to.meta.title ? `${to.meta.title} · Loop7` : 'Loop7 · Gestión de redes sociales'
+  // Con marca blanca, el panel de la organización se titula con su nombre.
+  const product = to.path.startsWith('/app') ? (useAuthStore().branding?.name ?? 'Loop7') : 'Loop7'
+  document.title = to.meta.title ? `${to.meta.title} · ${product}` : `${product} · Gestión de redes sociales`
 })
 
 export default router
