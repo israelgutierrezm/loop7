@@ -10,6 +10,7 @@ use App\Modules\Audit\Services\AuditLogger;
 use App\Modules\Billing\Entitlements\Entitlement;
 use App\Modules\Billing\Exceptions\PlanLimitExceededException;
 use App\Modules\Billing\Services\EntitlementsService;
+use App\Modules\Brands\Events\BrandDeleted;
 use App\Modules\Brands\Http\Resources\BrandResource;
 use App\Modules\Brands\Models\Brand;
 use App\Modules\Brands\Services\BrandAccess;
@@ -18,6 +19,7 @@ use App\Support\Http\ApiResponse;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -150,8 +152,13 @@ class BrandController extends Controller
         $model = $this->resolve($brand);
         $this->authorize('delete', $model);
 
-        $this->audit->log(AuditAction::BRAND_DELETED, $model, ['name' => $model->name]);
-        $model->delete();
+        // Atómico: los módulos cancelan publicaciones, desconectan cuentas y
+        // pausan automatizaciones de la marca en la misma transacción.
+        DB::transaction(function () use ($model): void {
+            $this->audit->log(AuditAction::BRAND_DELETED, $model, ['name' => $model->name]);
+            $model->delete();
+            BrandDeleted::dispatch($model);
+        });
 
         return ApiResponse::message('Marca eliminada.');
     }
