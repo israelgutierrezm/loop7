@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Modules\Organizations\Http\Controllers\ContextController;
+use App\Modules\Organizations\Http\Controllers\DashboardController;
 use App\Modules\Organizations\Http\Controllers\InvitationsController;
 use App\Modules\Organizations\Http\Controllers\MembersController;
 use App\Modules\Organizations\Http\Controllers\OrganizationController;
@@ -20,6 +21,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::patch('/organization', [OrganizationController::class, 'update']);
         Route::delete('/organization', [OrganizationController::class, 'destroy']);
         Route::get('/context', [ContextController::class, 'show']);
+        Route::get('/dashboard', DashboardController::class);
 
         Route::get('/organization/members', [MembersController::class, 'index']);
         Route::patch('/organization/members/{user}', [MembersController::class, 'update']);
