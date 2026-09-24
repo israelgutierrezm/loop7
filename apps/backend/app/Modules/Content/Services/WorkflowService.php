@@ -11,6 +11,8 @@ use App\Modules\Billing\Entitlements\Entitlement;
 use App\Modules\Billing\Exceptions\PlanLimitExceededException;
 use App\Modules\Billing\Services\EntitlementsService;
 use App\Modules\Content\Enums\ContentStatus;
+use App\Modules\Content\Events\ContentReviewed;
+use App\Modules\Content\Events\ContentSubmittedForReview;
 use App\Modules\Content\Models\ApprovalRequest;
 use App\Modules\Content\Models\ContentComment;
 use App\Modules\Content\Models\ContentItem;
@@ -51,6 +53,8 @@ class WorkflowService
             ]);
             $this->audit->log(AuditAction::CONTENT_SUBMITTED, $content);
         });
+
+        ContentSubmittedForReview::dispatch($content, $user);
     }
 
     public function approve(ContentItem $content, User $user): void
@@ -64,27 +68,35 @@ class WorkflowService
             'El contenido no está en revisión.',
         );
 
-        DB::transaction(function () use ($content, $user): void {
+        $request = DB::transaction(function () use ($content, $user): ?ApprovalRequest {
             $content->update([
                 'status' => ContentStatus::APPROVED->value,
                 'approved_by_user_id' => $user->id,
                 'approved_at' => now(),
             ]);
-            $this->resolvePendingRequest($content, $user, 'approved');
+            $request = $this->resolvePendingRequest($content, $user, 'approved');
             $this->audit->log(AuditAction::CONTENT_APPROVED, $content);
+
+            return $request;
         });
+
+        ContentReviewed::dispatch($content, $user, true, null, $request?->requested_by_user_id);
     }
 
     public function requestChanges(ContentItem $content, User $user, string $note): void
     {
         $this->assertStatusIn($content, [ContentStatus::IN_REVIEW], 'El contenido no está en revisión.');
 
-        DB::transaction(function () use ($content, $user, $note): void {
+        $request = DB::transaction(function () use ($content, $user, $note): ?ApprovalRequest {
             $content->update(['status' => ContentStatus::CHANGES_REQUESTED->value]);
-            $this->resolvePendingRequest($content, $user, 'changes_requested', $note);
+            $request = $this->resolvePendingRequest($content, $user, 'changes_requested', $note);
             $this->comment($content, $user, $note);
             $this->audit->log(AuditAction::CONTENT_CHANGES_REQUESTED, $content, ['note' => $note]);
+
+            return $request;
         });
+
+        ContentReviewed::dispatch($content, $user, false, $note, $request?->requested_by_user_id);
     }
 
     public function comment(ContentItem $content, User $user, string $body): ContentComment
@@ -125,19 +137,22 @@ class WorkflowService
         return $organization !== null && $this->entitlements->allows($organization, Entitlement::FEATURE_APPROVALS);
     }
 
-    private function resolvePendingRequest(ContentItem $content, User $user, string $status, ?string $note = null): void
+    private function resolvePendingRequest(ContentItem $content, User $user, string $status, ?string $note = null): ?ApprovalRequest
     {
-        ApprovalRequest::query()
+        $request = ApprovalRequest::query()
             ->where('content_item_id', $content->id)
             ->where('status', 'pending')
             ->latest()
-            ->first()
-            ?->update([
-                'status' => $status,
-                'resolved_by_user_id' => $user->id,
-                'resolved_at' => now(),
-                'note' => $note,
-            ]);
+            ->first();
+
+        $request?->update([
+            'status' => $status,
+            'resolved_by_user_id' => $user->id,
+            'resolved_at' => now(),
+            'note' => $note,
+        ]);
+
+        return $request;
     }
 
     /**

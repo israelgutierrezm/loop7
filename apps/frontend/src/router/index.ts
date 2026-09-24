@@ -46,6 +46,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'audit', name: 'audit', component: () => import('@/views/app/AuditView.vue'), meta: { title: 'Auditoría', permission: 'organization.update' } },
       { path: 'settings', name: 'settings', component: () => import('@/views/app/SettingsView.vue'), meta: { title: 'Configuración', permission: 'organization.view' } },
       { path: 'profile', name: 'profile', component: () => import('@/views/app/ProfileView.vue'), meta: { title: 'Mi perfil' } },
+      { path: 'notifications', name: 'notifications', component: () => import('@/views/app/NotificationsView.vue'), meta: { title: 'Notificaciones' } },
 
       { path: 'content', name: 'content', component: () => import('@/views/app/ContentView.vue'), meta: { title: 'Contenido', permission: 'content.view' } },
       { path: 'content/:content', name: 'content-detail', component: () => import('@/views/app/ContentDetailView.vue'), meta: { title: 'Contenido', permission: 'content.view' } },
@@ -108,6 +109,17 @@ router.beforeEach(async (to) => {
 
   if (to.meta.requiresPlatformAdmin && !auth.isPlatformAdmin) {
     return { name: 'dashboard' }
+  }
+
+  // Enlaces de correos y avisos (?org=…): cambia a esa organización si el usuario pertenece a ella.
+  if (typeof to.query.org === 'string' && auth.isAuthenticated) {
+    const orgId = to.query.org
+    if (orgId !== auth.currentOrganization?.id && auth.organizations.some((o) => o.id === orgId)) {
+      await auth.selectOrganization(orgId)
+    }
+    const query = { ...to.query }
+    delete query.org
+    return { path: to.path, query, hash: to.hash, replace: true }
   }
 
   if (to.meta.permission && auth.currentOrganization && !auth.can(to.meta.permission)) {

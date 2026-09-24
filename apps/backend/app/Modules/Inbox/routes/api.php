@@ -9,6 +9,7 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function (): void {
     // Acotado por Brand
     Route::get('/brands/{brand}/inbox', [InboxController::class, 'index']);
     Route::post('/brands/{brand}/inbox/sync', [InboxController::class, 'sync']);
+    Route::get('/brands/{brand}/inbox/assignees', [InboxController::class, 'assignees']);
 
     // Acotado por conversación
     Route::get('/inbox/{conversation}', [InboxController::class, 'show']);

@@ -15,6 +15,7 @@ use App\Modules\SocialConnections\Contracts\OAuthTokens;
 use App\Modules\SocialConnections\Contracts\RemoteDestination;
 use App\Modules\SocialConnections\Contracts\SocialProviderInterface;
 use App\Modules\SocialConnections\Enums\ConnectionStatus;
+use App\Modules\SocialConnections\Events\SocialConnectionExpired;
 use App\Modules\SocialConnections\Exceptions\InvalidOAuthStateException;
 use App\Modules\SocialConnections\Models\SocialConnection;
 use App\Modules\SocialConnections\Models\SocialConnectionDestination;
@@ -260,6 +261,8 @@ class SocialConnectionService
             ['provider' => $connection->provider, 'reason' => Str::limit($reason, 300)],
             organizationId: $connection->organization_id,
         );
+
+        SocialConnectionExpired::dispatch($connection);
     }
 
     public function redirectUri(string $providerKey): string

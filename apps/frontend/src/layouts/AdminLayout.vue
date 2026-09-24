@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import { onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
 import { useToastStore } from '@/stores/toasts'
+import { useNotificationsStore } from '@/stores/notifications'
 import http from '@/services/http'
 import AppLogo from '@/components/AppLogo.vue'
 import AppIcon from '@/components/AppIcon.vue'
@@ -14,7 +16,16 @@ import AppBanners from '@/components/layout/AppBanners.vue'
 const auth = useAuthStore()
 const ui = useUiStore()
 const toasts = useToastStore()
+const notifications = useNotificationsStore()
 const router = useRouter()
+
+// Los avisos son por organización: se reinicia el sondeo al cambiar de organización.
+watch(
+  () => auth.currentOrganization?.id,
+  (id) => (id ? notifications.start() : notifications.stop()),
+  { immediate: true },
+)
+onBeforeUnmount(() => notifications.stop())
 
 async function stopImpersonation(): Promise<void> {
   try {

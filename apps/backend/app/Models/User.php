@@ -29,6 +29,7 @@ use Spatie\Permission\Traits\HasRoles;
  * @property \Illuminate\Support\Carbon|null $two_factor_confirmed_at
  * @property \Illuminate\Support\Carbon|null $last_login_at
  * @property \Illuminate\Support\Carbon|null $email_verified_at
+ * @property array{mail?: array<string, bool>}|null $notification_preferences
  * @property \Illuminate\Support\Carbon|null $created_at
  */
 class User extends Authenticatable implements MustVerifyEmail
@@ -50,7 +51,6 @@ class User extends Authenticatable implements MustVerifyEmail
         'password',
         'locale',
         'timezone',
-        'avatar_path',
     ];
 
     /**
@@ -76,6 +76,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'two_factor_recovery_codes' => 'encrypted:array',
             'two_factor_confirmed_at' => 'datetime',
             'last_login_at' => 'datetime',
+            'notification_preferences' => 'array',
         ];
     }
 

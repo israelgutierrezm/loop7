@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\Inbox\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
+use App\Modules\AccessControl\Permissions\Permission;
 use App\Modules\Ai\Enums\AiOperation;
 use App\Modules\Ai\Services\AiGenerationService;
 use App\Modules\Audit\Enums\AuditAction;
@@ -15,13 +17,16 @@ use App\Modules\Billing\Services\EntitlementsService;
 use App\Modules\Brands\Http\Concerns\ResolvesBrand;
 use App\Modules\Brands\Models\Brand;
 use App\Modules\Inbox\Enums\ConversationStatus;
+use App\Modules\Inbox\Events\ConversationAssigned;
 use App\Modules\Inbox\Models\InboxConversation;
 use App\Modules\Inbox\Models\InboxMessage;
 use App\Modules\Inbox\Services\InboxService;
+use App\Modules\Organizations\Services\MembershipService;
 use App\Support\Http\ApiResponse;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 
 /**
@@ -37,6 +42,7 @@ class InboxController extends Controller
         private readonly EntitlementsService $entitlements,
         private readonly TenantContext $tenant,
         private readonly AuditLogger $audit,
+        private readonly MembershipService $memberships,
     ) {
     }
 
@@ -47,7 +53,7 @@ class InboxController extends Controller
 
         $query = InboxConversation::query()
             ->where('brand_id', $brandModel->id)
-            ->with('assignee:id,name')
+            ->with('assignee:id,public_id,name')
             ->orderByDesc('last_message_at');
 
         if ($request->filled('status')) {
@@ -73,12 +79,26 @@ class InboxController extends Controller
         return ApiResponse::success($counts, 'Inbox actualizado.');
     }
 
+    /**
+     * Miembros a los que se puede asignar una conversación de la marca.
+     */
+    public function assignees(Request $request, string $brand): JsonResponse
+    {
+        $brandModel = $this->resolveBrand($brand);
+        $this->authorizeInbox($request);
+
+        return ApiResponse::success($this->assignableMembers($brandModel->id)
+            ->map(fn (User $u) => ['id' => $u->public_id, 'name' => $u->name])
+            ->values()
+            ->all());
+    }
+
     public function show(Request $request, string $conversation): JsonResponse
     {
         $model = $this->resolve($conversation);
         $this->authorizeInbox($request);
 
-        $model->loadMissing('assignee:id,name');
+        $model->loadMissing('assignee:id,public_id,name');
         $messages = $model->messages()->orderBy('sent_at')->get()
             ->map(fn (InboxMessage $m) => $this->presentMessage($m))->all();
 
@@ -124,18 +144,22 @@ class InboxController extends Controller
 
         $data = $request->validate(['assignee' => ['nullable', 'string']]);
 
-        $userId = null;
+        $member = null;
         if (! empty($data['assignee'])) {
-            $organization = $this->tenant->organization();
-            $member = $organization?->users()->where('users.public_id', $data['assignee'])->first();
-            abort_if($member === null, 422, 'El usuario no pertenece a la organización.');
-            $userId = $member->id;
+            // Sólo a quien puede trabajar el inbox de esta marca.
+            $member = $this->assignableMembers($model->brand_id)->firstWhere('public_id', $data['assignee']);
+            abort_if($member === null, 422, 'Ese miembro no tiene acceso al inbox de esta marca.');
         }
 
-        $model->update(['assigned_to_user_id' => $userId]);
+        $previous = $model->assigned_to_user_id;
+        $model->update(['assigned_to_user_id' => $member?->id]);
         $this->audit->log(AuditAction::INBOX_ASSIGNED, $model, ['assignee' => $data['assignee'] ?? null]);
 
-        return ApiResponse::success($this->presentConversation($model->fresh()->load('assignee:id,name')), 'Asignación actualizada.');
+        if ($member !== null && $member->id !== $previous) {
+            ConversationAssigned::dispatch($model, $member, $request->user());
+        }
+
+        return ApiResponse::success($this->presentConversation($model->fresh()->load('assignee:id,public_id,name')), 'Asignación actualizada.');
     }
 
     public function updateStatus(Request $request, string $conversation): JsonResponse
@@ -194,6 +218,18 @@ class InboxController extends Controller
         return $conversation;
     }
 
+    /**
+     * @return Collection<int, User>
+     */
+    private function assignableMembers(int $brandId): Collection
+    {
+        $organization = $this->tenant->organization();
+
+        return $organization === null
+            ? new Collection()
+            : $this->memberships->membersWithPermission($organization, Permission::SOCIAL_ACCOUNTS_INBOX, $brandId);
+    }
+
     private function authorizeInbox(Request $request): void
     {
         abort_unless($request->user()->can('social_accounts.inbox'), 403);
@@ -209,6 +245,8 @@ class InboxController extends Controller
      */
     private function presentConversation(InboxConversation $c): array
     {
+        $c->loadMissing('assignee:id,public_id,name'); // en listados ya viene precargado
+
         return [
             'id' => $c->public_id,
             'type' => $c->type,
@@ -217,7 +255,8 @@ class InboxController extends Controller
             'preview' => $c->preview,
             'status' => $c->status->value,
             'status_label' => $c->status->label(),
-            'assignee' => $c->relationLoaded('assignee') ? $c->assignee?->name : null,
+            'assignee' => $c->assignee?->name,
+            'assignee_id' => $c->assignee?->public_id,
             'unread' => $c->unread_count,
             'tags' => $c->tags ?? [],
             'last_message_at' => $c->last_message_at?->toIso8601String(),

@@ -24,6 +24,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property \Illuminate\Support\Carbon|null $cancelled_at
  * @property string|null $gateway
  * @property string|null $gateway_subscription_id
+ * @property \Illuminate\Support\Carbon|null $trial_reminder_sent_at
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property-read Plan|null $plan
  */
@@ -47,6 +48,7 @@ class Subscription extends Model
             'current_period_end' => 'datetime',
             'cancelled_at' => 'datetime',
             'cancel_at_period_end' => 'boolean',
+            'trial_reminder_sent_at' => 'datetime',
         ];
     }
 

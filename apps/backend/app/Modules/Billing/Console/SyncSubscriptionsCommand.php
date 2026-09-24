@@ -11,13 +11,14 @@ class SyncSubscriptionsCommand extends Command
 {
     protected $signature = 'billing:sync-subscriptions';
 
-    protected $description = 'Aplica las transiciones por tiempo de las suscripciones (trial vencido, fin de periodo, gracia, suspensión).';
+    protected $description = 'Aplica las transiciones por tiempo de las suscripciones (aviso de fin de prueba, trial vencido, fin de periodo, gracia, suspensión).';
 
     public function handle(SubscriptionService $subscriptions): int
     {
         $counts = $subscriptions->syncDue();
         $this->info(sprintf(
-            'Expiradas: %d · Canceladas: %d · En gracia: %d · Suspendidas: %d',
+            'Avisos de fin de prueba: %d · Expiradas: %d · Canceladas: %d · En gracia: %d · Suspendidas: %d',
+            $counts['trial_reminders'],
             $counts['expired'],
             $counts['cancelled'],
             $counts['grace'],

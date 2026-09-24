@@ -6,7 +6,9 @@ namespace App\Modules\Organizations\Services;
 
 use App\Models\User;
 use App\Modules\Organizations\Models\Organization;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Spatie\Permission\PermissionRegistrar;
 
 class MembershipService
@@ -62,5 +64,65 @@ class MembershipService
         $user->unsetRelation('permissions');
 
         return $user->getAllPermissions()->pluck('name')->values()->all();
+    }
+
+    /**
+     * Miembros activos que tienen un permiso en la Organization y, si se indica
+     * una Brand, acceso a ella (Brand Access). En una sola consulta: sirve para
+     * destinatarios de avisos o para elegir a quién asignar trabajo.
+     *
+     * @return Collection<int, User>
+     */
+    public function membersWithPermission(Organization $organization, string $permission, ?int $brandId = null): Collection
+    {
+        $previousTeam = $this->registrar->getPermissionsTeamId();
+        $this->registrar->setPermissionsTeamId($organization->id);
+
+        try {
+            return $this->activeMembersQuery($organization, $brandId)
+                ->permission($permission)
+                ->orderBy('name')
+                ->get();
+        } finally {
+            $this->registrar->setPermissionsTeamId($previousTeam);
+        }
+    }
+
+    /**
+     * De los usuarios indicados, los que siguen siendo miembros activos (y con
+     * acceso a la Brand, si se indica).
+     *
+     * @param  list<int>  $userIds
+     * @return Collection<int, User>
+     */
+    public function activeMembers(Organization $organization, array $userIds, ?int $brandId = null): Collection
+    {
+        if ($userIds === []) {
+            return new Collection();
+        }
+
+        return $this->activeMembersQuery($organization, $brandId)
+            ->whereIn('users.id', $userIds)
+            ->get();
+    }
+
+    /**
+     * @return Builder<User>
+     */
+    private function activeMembersQuery(Organization $organization, ?int $brandId): Builder
+    {
+        return User::query()
+            ->whereIn('users.id', DB::table('organization_user')
+                ->where('organization_id', $organization->id)
+                ->where('status', 'active')
+                ->select('user_id'))
+            ->when($brandId !== null, fn (Builder $query) => $query->where(fn (Builder $access) => $access
+                ->whereIn('users.id', DB::table('organization_user')
+                    ->where('organization_id', $organization->id)
+                    ->where('all_brands_access', true)
+                    ->select('user_id'))
+                ->orWhereIn('users.id', DB::table('brand_user_access')
+                    ->where('brand_id', $brandId)
+                    ->select('user_id'))));
     }
 }

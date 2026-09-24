@@ -27,6 +27,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property ContentType $type
  * @property ContentStatus $status
  * @property \Illuminate\Support\Carbon|null $scheduled_at
+ * @property int|null $created_by_user_id
+ * @property int|null $approved_by_user_id
  * @property \Illuminate\Support\Carbon|null $approved_at
  */
 class ContentItem extends Model

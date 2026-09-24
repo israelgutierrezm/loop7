@@ -7,6 +7,8 @@ namespace App\Modules\Billing\Services;
 use App\Modules\Audit\Enums\AuditAction;
 use App\Modules\Audit\Services\AuditLogger;
 use App\Modules\Billing\Enums\SubscriptionStatus;
+use App\Modules\Billing\Events\SubscriptionChanged;
+use App\Modules\Billing\Events\TrialEndingSoon;
 use App\Modules\Billing\Models\Plan;
 use App\Modules\Billing\Models\Subscription;
 use App\Modules\Organizations\Models\Organization;
@@ -19,6 +21,9 @@ use Illuminate\Support\Carbon;
  */
 class SubscriptionService
 {
+    /** Días de antelación del aviso de fin de prueba. */
+    public const TRIAL_REMINDER_DAYS = 3;
+
     public function __construct(
         private readonly AuditLogger $audit,
         private readonly EntitlementsService $entitlements,
@@ -196,6 +201,7 @@ class SubscriptionService
             'current_period_end' => $ends,
             'cancelled_at' => null,
             'cancel_at_period_end' => false,
+            'trial_reminder_sent_at' => null, // se volverá a avisar antes del nuevo fin
         ])->save();
 
         $this->changed($subscription, AuditAction::SUBSCRIPTION_CHANGED, ['trial_extended_days' => $days]);
@@ -213,7 +219,20 @@ class SubscriptionService
     public function syncDue(): array
     {
         $grace = max(0, $this->settings->int('billing.grace_days'));
-        $counts = ['expired' => 0, 'cancelled' => 0, 'grace' => 0, 'suspended' => 0];
+        $counts = ['trial_reminders' => 0, 'expired' => 0, 'cancelled' => 0, 'grace' => 0, 'suspended' => 0];
+
+        // Aviso único de que la prueba termina pronto.
+        Subscription::query()->withoutGlobalScopes()
+            ->where('status', SubscriptionStatus::TRIALING->value)
+            ->whereNull('trial_reminder_sent_at')
+            ->whereNotNull('trial_ends_at')
+            ->where('trial_ends_at', '>', now())
+            ->where('trial_ends_at', '<=', now()->addDays(self::TRIAL_REMINDER_DAYS))
+            ->each(function (Subscription $s) use (&$counts): void {
+                $s->forceFill(['trial_reminder_sent_at' => now()])->save();
+                TrialEndingSoon::dispatch($s);
+                $counts['trial_reminders']++;
+            });
 
         Subscription::query()->withoutGlobalScopes()
             ->where('status', SubscriptionStatus::TRIALING->value)
@@ -292,5 +311,7 @@ class SubscriptionService
     {
         $this->entitlements->flush();
         $this->audit->log($action, $subscription, $properties, organizationId: $subscription->organization_id);
+
+        SubscriptionChanged::dispatch($subscription, $action, $properties);
     }
 }
