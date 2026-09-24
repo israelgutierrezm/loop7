@@ -23,7 +23,6 @@ class UserResource extends JsonResource
             'email' => $this->email,
             'locale' => $this->locale,
             'timezone' => $this->timezone,
-            'avatar_path' => $this->avatar_path,
             'is_platform_admin' => (bool) $this->is_platform_admin,
             'two_factor_enabled' => $this->hasTwoFactorEnabled(),
             'email_verified' => $this->email_verified_at !== null,

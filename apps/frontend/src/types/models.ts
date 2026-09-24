@@ -4,7 +4,6 @@ export interface User {
   email: string
   locale: string
   timezone: string
-  avatar_path: string | null
   is_platform_admin: boolean
   two_factor_enabled: boolean
   email_verified: boolean

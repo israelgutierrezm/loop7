@@ -6,11 +6,12 @@ import { useToastStore } from '@/stores/toasts'
 import { apiErrorMessage, apiValidationErrors } from '@/utils/errors'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import Spinner from '@/components/ui/Spinner.vue'
+import TimezoneSelect from '@/components/ui/TimezoneSelect.vue'
 
 const auth = useAuthStore()
 const toasts = useToastStore()
 
-const form = reactive({ name: '', billing_email: '', timezone: 'UTC', locale: 'es' })
+const form = reactive({ name: '', billing_email: '', timezone: 'UTC' })
 const errors = ref<Record<string, string[]>>({})
 const saving = ref(false)
 const canEdit = auth.can('organization.update')
@@ -21,7 +22,6 @@ function hydrate(): void {
   form.name = org.name
   form.billing_email = org.billing_email ?? ''
   form.timezone = org.timezone
-  form.locale = org.locale
 }
 
 async function save(): Promise<void> {
@@ -60,18 +60,11 @@ onMounted(hydrate)
           <input id="o-email" v-model="form.billing_email" type="email" class="input" />
           <p v-if="errors.billing_email" class="mt-1 text-xs text-rose-600">{{ errors.billing_email[0] }}</p>
         </div>
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <label class="label" for="o-tz">Zona horaria</label>
-            <input id="o-tz" v-model="form.timezone" type="text" class="input" />
-          </div>
-          <div>
-            <label class="label" for="o-locale">Idioma</label>
-            <select id="o-locale" v-model="form.locale" class="input">
-              <option value="es">Español</option>
-              <option value="en">English</option>
-            </select>
-          </div>
+        <div>
+          <label class="label" for="o-tz">Zona horaria de la organización</label>
+          <TimezoneSelect id="o-tz" v-model="form.timezone" />
+          <p class="mt-1 text-xs text-slate-500">Se usa en las fechas de los avisos y correos de facturación.</p>
+          <p v-if="errors.timezone" class="mt-1 text-xs text-rose-600">{{ errors.timezone[0] }}</p>
         </div>
       </fieldset>
 

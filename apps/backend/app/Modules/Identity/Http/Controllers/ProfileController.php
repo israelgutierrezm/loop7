@@ -44,7 +44,6 @@ class ProfileController extends Controller
             'name' => ['sometimes', 'required', 'string', 'max:255'],
             'locale' => ['sometimes', 'required', 'string', 'in:es,en'],
             'timezone' => ['sometimes', 'required', 'string', 'timezone'],
-            'avatar_path' => ['sometimes', 'nullable', 'string', 'max:2048'],
         ]);
 
         $user = $request->user();
