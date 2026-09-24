@@ -9,6 +9,7 @@ use App\Modules\Audit\Services\AuditLogger;
 use App\Modules\Billing\Services\EntitlementsService;
 use App\Modules\Content\Enums\ContentStatus;
 use App\Modules\Content\Enums\TargetStatus;
+use App\Modules\Content\Events\ContentPublicationFailed;
 use App\Modules\Content\Events\ContentPublished;
 use App\Modules\Content\Jobs\PublishSocialPost;
 use App\Modules\Content\Models\ContentItem;
@@ -45,8 +46,11 @@ class PublishingService
 
     /**
      * Publica un target concreto. Idempotente: si ya está publicado, no hace nada.
+     *
+     * Con `$finalAttempt = false` (quedan reintentos del job) un error transitorio
+     * no consolida el fallo: el target sigue "publicando" y el reintento decide.
      */
-    public function publishTarget(PublicationTarget $target): void
+    public function publishTarget(PublicationTarget $target, bool $finalAttempt = true): void
     {
         if ($target->status === TargetStatus::PUBLISHED || $target->remote_id !== null) {
             return;
@@ -121,8 +125,13 @@ class PublishingService
             $this->markFailed($target, 'La conexión con la red social expiró. Reconecta la cuenta y vuelve a publicar.', $attemptNumber);
             $this->rollup($target);
         } catch (Throwable $e) {
-            $this->markFailed($target, $e->getMessage(), $attemptNumber);
-            $this->rollup($target);
+            if ($finalAttempt) {
+                $this->markFailed($target, $e->getMessage(), $attemptNumber);
+                $this->rollup($target);
+            } else {
+                $target->update(['error' => Str::limit($e->getMessage(), 1000)]);
+                $this->recordAttempt($target, $attemptNumber, 'failed', ['error' => Str::limit($e->getMessage(), 500)]);
+            }
 
             throw $e; // permite el reintento del job
         }
@@ -213,6 +222,12 @@ class PublishingService
             default => ContentStatus::PARTIAL,
         };
 
+        // Idempotente: el job puede consolidar dos veces el mismo resultado
+        // (último intento + failed()); sólo el primero audita y emite eventos.
+        if ($content->status === $status) {
+            return;
+        }
+
         $content->update(['status' => $status->value]);
         $this->audit->log(
             $status === ContentStatus::PUBLISHED ? AuditAction::CONTENT_PUBLISHED : AuditAction::CONTENT_PUBLISH_FAILED,
@@ -221,8 +236,10 @@ class PublishingService
             organizationId: $content->organization_id,
         );
 
-        // Notifica a otros módulos (Automations) sin acoplarlos.
-        if ($status === ContentStatus::PUBLISHED || $status === ContentStatus::PARTIAL) {
+        // Notifica a otros módulos (Automations, Notifications) sin acoplarlos.
+        if ($status === ContentStatus::FAILED) {
+            ContentPublicationFailed::dispatch($content);
+        } else {
             event(new ContentPublished($content, $status->value));
         }
     }

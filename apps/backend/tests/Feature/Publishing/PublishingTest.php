@@ -7,6 +7,7 @@ namespace Tests\Feature\Publishing;
 use App\Modules\AccessControl\Enums\OrganizationRole;
 use App\Modules\Brands\Models\Brand;
 use App\Modules\Content\Enums\TargetStatus;
+use App\Modules\Content\Events\ContentPublicationFailed;
 use App\Modules\Content\Models\ContentItem;
 use App\Modules\Content\Models\PostVariant;
 use App\Modules\Content\Models\PublicationTarget;
@@ -16,6 +17,7 @@ use App\Modules\SocialConnections\Models\SocialConnection;
 use App\Modules\SocialConnections\Models\SocialConnectionDestination;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 use Throwable;
@@ -131,6 +133,52 @@ class PublishingTest extends TestCase
         }
 
         $this->assertDatabaseHas('content_items', ['id' => $content->id, 'status' => 'partial']);
+    }
+
+    public function test_fallo_transitorio_con_reintentos_pendientes_no_consolida_el_fallo(): void
+    {
+        [$org, $brand, $destination] = $this->connectedBrand();
+        $content = $this->contentWithVariant($org, $brand, 'Esto va a fallar [[FAIL]]');
+        $content->update(['status' => 'publishing']);
+        $variant = PostVariant::query()->withoutGlobalScopes()->where('content_item_id', $content->id)->firstOrFail();
+        $target = PublicationTarget::query()->create([
+            'organization_id' => $org->id, 'post_variant_id' => $variant->id,
+            'social_connection_destination_id' => $destination->id, 'status' => TargetStatus::SCHEDULED->value,
+        ]);
+
+        try {
+            app(PublishingService::class)->publishTarget($target, finalAttempt: false);
+            $this->fail('Debía lanzar la excepción para que el job reintente.');
+        } catch (Throwable $e) {
+            $this->assertStringContainsString('Fallo simulado', $e->getMessage());
+        }
+
+        // Sigue "publicando": el reintento decide; el contenido no se da por fallido.
+        $this->assertSame(TargetStatus::PUBLISHING, $target->fresh()->status);
+        $this->assertNotNull($target->fresh()->error);
+        $this->assertDatabaseHas('content_items', ['id' => $content->id, 'status' => 'publishing']);
+        $this->assertSame(1, DB::table('publication_attempts')->where('publication_target_id', $target->id)->count());
+    }
+
+    public function test_consolidar_dos_veces_no_duplica_auditoria_ni_eventos(): void
+    {
+        Event::fake([ContentPublicationFailed::class]);
+        [$org, $brand, $destination] = $this->connectedBrand();
+        $content = $this->contentWithVariant($org, $brand);
+        $content->update(['status' => 'publishing']);
+        $variant = PostVariant::query()->withoutGlobalScopes()->where('content_item_id', $content->id)->firstOrFail();
+        $target = PublicationTarget::query()->create([
+            'organization_id' => $org->id, 'post_variant_id' => $variant->id,
+            'social_connection_destination_id' => $destination->id, 'status' => TargetStatus::FAILED->value,
+        ]);
+
+        // Último intento fallido + failed() del job: dos consolidaciones del mismo resultado.
+        app(PublishingService::class)->rollup($target);
+        app(PublishingService::class)->rollup($target);
+
+        $this->assertDatabaseHas('content_items', ['id' => $content->id, 'status' => 'failed']);
+        Event::assertDispatchedTimes(ContentPublicationFailed::class, 1);
+        $this->assertSame(1, DB::table('audit_logs')->where('action', 'content.publish_failed')->count());
     }
 
     public function test_publicar_es_idempotente(): void

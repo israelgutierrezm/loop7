@@ -65,7 +65,7 @@ class PublishSocialPost implements ShouldQueue
             return;
         }
 
-        $publishing->publishTarget($target);
+        $publishing->publishTarget($target, finalAttempt: $this->attempts() >= $this->tries);
     }
 
     public function failed(Throwable $exception): void
