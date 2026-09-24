@@ -13,8 +13,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $public_id
  * @property string $key
  * @property string $name
+ * @property string|null $description
  * @property bool $is_active
  * @property bool $is_public
+ * @property int $sort_order
  * @property int $trial_days
  */
 class Plan extends Model

@@ -6,6 +6,7 @@ namespace App\Modules\Content\Services;
 
 use App\Modules\Audit\Enums\AuditAction;
 use App\Modules\Audit\Services\AuditLogger;
+use App\Modules\Billing\Services\EntitlementsService;
 use App\Modules\Content\Enums\ContentStatus;
 use App\Modules\Content\Enums\TargetStatus;
 use App\Modules\Content\Events\ContentPublished;
@@ -14,6 +15,7 @@ use App\Modules\Content\Models\ContentItem;
 use App\Modules\Content\Models\PostVariant;
 use App\Modules\Content\Models\PublicationTarget;
 use App\Modules\MediaLibrary\Services\MediaService;
+use App\Modules\Organizations\Models\Organization;
 use App\Modules\SocialConnections\Contracts\PublishPayload;
 use App\Modules\SocialConnections\Enums\ConnectionStatus;
 use App\Modules\SocialConnections\Exceptions\SocialTokenExpiredException;
@@ -37,6 +39,7 @@ class PublishingService
         private readonly PublicationPlanner $planner,
         private readonly MediaService $media,
         private readonly AuditLogger $audit,
+        private readonly EntitlementsService $entitlements,
     ) {
     }
 
@@ -70,6 +73,14 @@ class PublishingService
 
         if ($connection->status !== ConnectionStatus::CONNECTED) {
             $this->markFailed($target, 'La conexión con la red social no está activa. Reconecta la cuenta.');
+            $this->rollup($target);
+
+            return;
+        }
+
+        $organization = Organization::query()->find($target->organization_id);
+        if ($organization === null || ! $this->entitlements->hasAccess($organization)) {
+            $this->markFailed($target, 'La suscripción de la organización no está activa.');
             $this->rollup($target);
 
             return;

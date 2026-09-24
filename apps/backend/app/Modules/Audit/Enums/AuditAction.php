@@ -51,10 +51,22 @@ final class AuditAction
     // Billing / Payments
     public const SUBSCRIPTION_TRIAL_STARTED = 'subscription.trial_started';
     public const SUBSCRIPTION_CHANGED = 'subscription.changed';
+    public const SUBSCRIPTION_RENEWED = 'subscription.renewed';
+    public const SUBSCRIPTION_PAYMENT_FAILED = 'subscription.payment_failed';
     public const SUBSCRIPTION_CANCELLED = 'subscription.cancelled';
+    public const SUBSCRIPTION_RESUMED = 'subscription.resumed';
+    public const SUBSCRIPTION_EXPIRED = 'subscription.expired';
+    public const SUBSCRIPTION_SUSPENDED = 'subscription.suspended';
+    public const CHECKOUT_STARTED = 'billing.checkout_started';
+    public const INVOICE_VOIDED = 'billing.invoice_voided';
+    public const PLAN_SAVED = 'billing.plan_saved';
+    public const PLAN_DELETED = 'billing.plan_deleted';
+    public const ENTITLEMENT_OVERRIDE_SAVED = 'billing.entitlement_override_saved';
+    public const ADD_ON_ASSIGNED = 'billing.add_on_assigned';
     public const PAYMENT_GATEWAY_UPDATED = 'payment.gateway_updated';
     public const PAYMENT_WEBHOOK_PROCESSED = 'payment.webhook_processed';
     public const PAYMENT_RECORDED = 'payment.recorded';
+    public const PLATFORM_SETTINGS_UPDATED = 'platform.settings_updated';
 
     // Content / Campaigns
     public const CONTENT_CREATED = 'content.created';

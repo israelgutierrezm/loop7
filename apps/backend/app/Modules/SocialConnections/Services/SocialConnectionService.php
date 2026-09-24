@@ -7,7 +7,10 @@ namespace App\Modules\SocialConnections\Services;
 use App\Models\User;
 use App\Modules\Audit\Enums\AuditAction;
 use App\Modules\Audit\Services\AuditLogger;
+use App\Modules\Billing\Entitlements\Entitlement;
+use App\Modules\Billing\Services\UsageService;
 use App\Modules\Brands\Models\Brand;
+use App\Modules\Organizations\Models\Organization;
 use App\Modules\SocialConnections\Contracts\OAuthTokens;
 use App\Modules\SocialConnections\Contracts\RemoteDestination;
 use App\Modules\SocialConnections\Contracts\SocialProviderInterface;
@@ -30,6 +33,7 @@ class SocialConnectionService
     public function __construct(
         private readonly SocialProviderManager $manager,
         private readonly AuditLogger $audit,
+        private readonly UsageService $usage,
     ) {
     }
 
@@ -284,6 +288,18 @@ class SocialConnectionService
             ->where('provider', $providerKey)
             ->where('external_account_id', $accountId)
             ->first();
+
+        if ($existing === null) {
+            // Límite de plan: cuentas sociales conectadas (una reconexión no cuenta).
+            $organization = Organization::query()->findOrFail($organizationId);
+            $this->usage->ensureWithin(
+                $organization,
+                Entitlement::SOCIAL_ACCOUNTS_MAX,
+                $this->usage->socialAccounts($organization),
+                1,
+                'Has alcanzado el número de cuentas sociales incluidas en tu plan.',
+            );
+        }
 
         $attributes = [
             'status' => ConnectionStatus::CONNECTED->value,

@@ -4,10 +4,15 @@ declare(strict_types=1);
 
 namespace App\Modules\Content\Services;
 
+use App\Modules\Billing\Entitlements\Entitlement;
+use App\Modules\Billing\Exceptions\PlanLimitExceededException;
+use App\Modules\Billing\Services\EntitlementsService;
+use App\Modules\Billing\Services\UsageService;
 use App\Modules\Content\Enums\TargetStatus;
 use App\Modules\Content\Models\ContentItem;
 use App\Modules\Content\Models\PostVariant;
 use App\Modules\Content\Models\PublicationTarget;
+use App\Modules\Organizations\Models\Organization;
 use App\Modules\SocialConnections\Enums\Capability;
 use App\Modules\SocialConnections\Enums\ConnectionStatus;
 use App\Modules\SocialConnections\Models\SocialConnectionDestination;
@@ -23,8 +28,11 @@ use Illuminate\Validation\ValidationException;
  */
 class PublicationPlanner
 {
-    public function __construct(private readonly SocialProviderManager $manager)
-    {
+    public function __construct(
+        private readonly SocialProviderManager $manager,
+        private readonly EntitlementsService $entitlements,
+        private readonly UsageService $usage,
+    ) {
     }
 
     /**
@@ -33,6 +41,14 @@ class PublicationPlanner
     public function assertPublishable(ContentItem $content): void
     {
         $content->loadMissing('variants.media');
+
+        $organization = Organization::query()->findOrFail($content->organization_id);
+        if (! $this->entitlements->hasAccess($organization)) {
+            throw new PlanLimitExceededException(
+                'Tu suscripción no está activa. Elige un plan en Facturación para seguir publicando.',
+                'subscription',
+            );
+        }
 
         if ($content->variants->isEmpty()) {
             throw ValidationException::withMessages([
@@ -76,8 +92,8 @@ class PublicationPlanner
     public function createTargets(ContentItem $content, Carbon $when): int
     {
         $content->loadMissing('variants');
-        $created = 0;
 
+        $pending = [];
         foreach ($content->variants as $variant) {
             foreach ($this->destinationsFor($content, $variant) as $destination) {
                 $target = PublicationTarget::query()->firstOrNew([
@@ -87,17 +103,30 @@ class PublicationPlanner
                 if ($target->exists && $target->status === TargetStatus::PUBLISHED) {
                     continue; // ya publicado: no se vuelve a publicar
                 }
-                $target->forceFill([
-                    'organization_id' => $content->organization_id,
-                    'status' => TargetStatus::SCHEDULED->value,
-                    'scheduled_at' => $when,
-                    'error' => null,
-                ])->save();
-                $created++;
+                $pending[] = $target;
             }
         }
 
-        return $created;
+        // Límite de plan: publicaciones por mes (sólo cuentan las nuevas; reprogramar no suma).
+        $organization = Organization::query()->findOrFail($content->organization_id);
+        $this->usage->ensureWithin(
+            $organization,
+            Entitlement::SCHEDULED_POSTS_MONTH,
+            $this->usage->scheduledPostsThisMonth($organization),
+            count(array_filter($pending, fn (PublicationTarget $t) => ! $t->exists)),
+            'Has alcanzado las publicaciones mensuales incluidas en tu plan.',
+        );
+
+        foreach ($pending as $target) {
+            $target->forceFill([
+                'organization_id' => $content->organization_id,
+                'status' => TargetStatus::SCHEDULED->value,
+                'scheduled_at' => $when,
+                'error' => null,
+            ])->save();
+        }
+
+        return count($pending);
     }
 
     /**

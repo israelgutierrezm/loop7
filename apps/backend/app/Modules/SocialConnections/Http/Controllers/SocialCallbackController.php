@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\SocialConnections\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Billing\Exceptions\PlanLimitExceededException;
 use App\Modules\SocialConnections\Exceptions\InvalidOAuthStateException;
 use App\Modules\SocialConnections\Services\SocialConnectionService;
 use Illuminate\Http\RedirectResponse;
@@ -39,6 +40,8 @@ class SocialCallbackController extends Controller
             return redirect()->away($frontend . '/app/brands/' . $connection->brand->public_id . '?social=connected');
         } catch (InvalidOAuthStateException) {
             return redirect()->away($frontend . '/app?social=invalid');
+        } catch (PlanLimitExceededException) {
+            return redirect()->away($frontend . '/app/social?social=limit');
         } catch (Throwable $e) {
             report($e);
 

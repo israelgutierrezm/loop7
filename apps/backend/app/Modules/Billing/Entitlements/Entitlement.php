@@ -20,7 +20,6 @@ final class Entitlement
     public const SCHEDULED_POSTS_MONTH = 'scheduled_posts.month';
     public const STORAGE_GB = 'storage.gb';
     public const AI_CREDITS_MONTH = 'ai_credits.month';
-    public const COMPETITORS_MAX = 'competitors.max';
 
     // Features
     public const FEATURE_APPROVALS = 'feature.approvals';
@@ -50,7 +49,6 @@ final class Entitlement
             self::SCHEDULED_POSTS_MONTH => ['type' => self::TYPE_LIMIT, 'label' => 'Publicaciones/mes'],
             self::STORAGE_GB => ['type' => self::TYPE_LIMIT, 'label' => 'Almacenamiento (GB)'],
             self::AI_CREDITS_MONTH => ['type' => self::TYPE_LIMIT, 'label' => 'Créditos IA/mes'],
-            self::COMPETITORS_MAX => ['type' => self::TYPE_LIMIT, 'label' => 'Competidores'],
             self::FEATURE_APPROVALS => ['type' => self::TYPE_BOOL, 'label' => 'Flujos de aprobación'],
             self::FEATURE_ANALYTICS_ADVANCED => ['type' => self::TYPE_BOOL, 'label' => 'Analítica avanzada'],
             self::FEATURE_INBOX => ['type' => self::TYPE_BOOL, 'label' => 'Inbox'],

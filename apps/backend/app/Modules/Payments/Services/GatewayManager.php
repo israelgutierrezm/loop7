@@ -57,6 +57,38 @@ class GatewayManager
     }
 
     /**
+     * Credenciales (descifradas) del entorno activo + entorno + ajustes no
+     * secretos de la pasarela (moneda, país, instrucciones de pago manual).
+     *
+     * @return array<string, string>
+     */
+    public function credentials(PaymentGateway $gateway, ?string $environment = null): array
+    {
+        $environment ??= $gateway->environment;
+        $credentials = $gateway->credentialMap($environment);
+
+        foreach (['currency', 'country', 'instructions'] as $setting) {
+            $value = $gateway->config[$setting] ?? null;
+            if (is_string($value) && $value !== '') {
+                $credentials[$setting] = $value;
+            }
+        }
+        $credentials['environment'] = $environment;
+
+        return $credentials;
+    }
+
+    /**
+     * Moneda en la que cobra la pasarela (los planes deben tener precio en ella).
+     */
+    public function currency(PaymentGateway $gateway): string
+    {
+        $currency = $gateway->config['currency'] ?? null;
+
+        return is_string($currency) && $currency !== '' ? mb_strtoupper($currency) : 'USD';
+    }
+
+    /**
      * Registros de pasarelas habilitadas (para el cliente).
      *
      * @return Collection<int, PaymentGateway>

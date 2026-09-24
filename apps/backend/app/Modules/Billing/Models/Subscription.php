@@ -18,9 +18,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property SubscriptionStatus $status
  * @property string|null $interval
  * @property \Illuminate\Support\Carbon|null $trial_ends_at
+ * @property \Illuminate\Support\Carbon|null $current_period_start
  * @property \Illuminate\Support\Carbon|null $current_period_end
  * @property bool $cancel_at_period_end
+ * @property \Illuminate\Support\Carbon|null $cancelled_at
  * @property string|null $gateway
+ * @property string|null $gateway_subscription_id
+ * @property \Illuminate\Support\Carbon|null $created_at
  * @property-read Plan|null $plan
  */
 class Subscription extends Model

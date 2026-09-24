@@ -37,7 +37,6 @@ final class PlanCatalog
                     Entitlement::SCHEDULED_POSTS_MONTH => 30,
                     Entitlement::STORAGE_GB => 2,
                     Entitlement::AI_CREDITS_MONTH => 100,
-                    Entitlement::COMPETITORS_MAX => 0,
                     Entitlement::FEATURE_APPROVALS => false,
                     Entitlement::FEATURE_ANALYTICS_ADVANCED => false,
                     Entitlement::FEATURE_INBOX => false,
@@ -60,7 +59,6 @@ final class PlanCatalog
                     Entitlement::SCHEDULED_POSTS_MONTH => 200,
                     Entitlement::STORAGE_GB => 10,
                     Entitlement::AI_CREDITS_MONTH => 500,
-                    Entitlement::COMPETITORS_MAX => 3,
                     Entitlement::FEATURE_APPROVALS => true,
                     Entitlement::FEATURE_ANALYTICS_ADVANCED => true,
                     Entitlement::FEATURE_INBOX => true,
@@ -83,7 +81,6 @@ final class PlanCatalog
                     Entitlement::SCHEDULED_POSTS_MONTH => 1000,
                     Entitlement::STORAGE_GB => 50,
                     Entitlement::AI_CREDITS_MONTH => 2000,
-                    Entitlement::COMPETITORS_MAX => 10,
                     Entitlement::FEATURE_APPROVALS => true,
                     Entitlement::FEATURE_ANALYTICS_ADVANCED => true,
                     Entitlement::FEATURE_INBOX => true,
@@ -106,7 +103,6 @@ final class PlanCatalog
                     Entitlement::SCHEDULED_POSTS_MONTH => 5000,
                     Entitlement::STORAGE_GB => 200,
                     Entitlement::AI_CREDITS_MONTH => 8000,
-                    Entitlement::COMPETITORS_MAX => 30,
                     Entitlement::FEATURE_APPROVALS => true,
                     Entitlement::FEATURE_ANALYTICS_ADVANCED => true,
                     Entitlement::FEATURE_INBOX => true,
@@ -129,7 +125,6 @@ final class PlanCatalog
                     Entitlement::SCHEDULED_POSTS_MONTH => Entitlement::UNLIMITED,
                     Entitlement::STORAGE_GB => Entitlement::UNLIMITED,
                     Entitlement::AI_CREDITS_MONTH => Entitlement::UNLIMITED,
-                    Entitlement::COMPETITORS_MAX => Entitlement::UNLIMITED,
                     Entitlement::FEATURE_APPROVALS => true,
                     Entitlement::FEATURE_ANALYTICS_ADVANCED => true,
                     Entitlement::FEATURE_INBOX => true,
@@ -140,13 +135,5 @@ final class PlanCatalog
                 ],
             ],
         ];
-    }
-
-    /**
-     * Plan por defecto para el trial de nuevas organizaciones.
-     */
-    public static function defaultTrialPlan(): string
-    {
-        return 'growth';
     }
 }

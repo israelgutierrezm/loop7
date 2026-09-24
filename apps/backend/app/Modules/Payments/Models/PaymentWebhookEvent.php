@@ -7,6 +7,9 @@ namespace App\Modules\Payments\Models;
 use Illuminate\Database\Eloquent\Model;
 
 /**
+ * Registro idempotente de webhooks de pago (unique gateway + provider_event_id).
+ * Estados: received → processed | ignored | failed.
+ *
  * @property int $id
  * @property string $gateway
  * @property string $environment
@@ -15,12 +18,15 @@ use Illuminate\Database\Eloquent\Model;
  * @property array<string, mixed>|null $payload
  * @property string $status
  * @property \Illuminate\Support\Carbon|null $processed_at
+ * @property string|null $error
+ * @property string|null $result
+ * @property \Illuminate\Support\Carbon|null $created_at
  */
 class PaymentWebhookEvent extends Model
 {
     protected $fillable = [
         'gateway', 'environment', 'provider_event_id', 'event_type',
-        'payload', 'status', 'processed_at', 'error',
+        'payload', 'status', 'processed_at', 'error', 'result',
     ];
 
     protected function casts(): array

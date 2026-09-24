@@ -4,17 +4,16 @@ declare(strict_types=1);
 
 namespace App\Modules\Payments\Gateways;
 
-use App\Modules\Billing\Models\Plan;
-use App\Modules\Organizations\Models\Organization;
+use App\Modules\Payments\Contracts\CheckoutRequest;
 use App\Modules\Payments\Contracts\CheckoutResult;
 use App\Modules\Payments\Contracts\PaymentGatewayInterface;
 use App\Modules\Payments\Contracts\WebhookEvent;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 
 /**
- * Pasarela manual (sin proveedor externo). Útil para desarrollo, planes cortesía
- * y cobros gestionados fuera de línea. Activa la suscripción de inmediato.
+ * Pago fuera de línea (transferencia, depósito, efectivo). El cliente recibe las
+ * instrucciones configuradas por SUPERADMIN y la factura queda pendiente; el
+ * plan se activa sólo cuando SUPERADMIN confirma el pago. No acepta webhooks.
  */
 class ManualGateway implements PaymentGatewayInterface
 {
@@ -25,40 +24,42 @@ class ManualGateway implements PaymentGatewayInterface
 
     public function verifyWebhook(Request $request, array $credentials): bool
     {
-        $secret = $credentials['webhook_secret'] ?? null;
-
-        if ($secret === null || $secret === '') {
-            return true;
-        }
-
-        return hash_equals($secret, (string) $request->header('X-Webhook-Secret'));
+        return false; // no hay proveedor externo que notifique pagos
     }
 
     public function verifyCredentials(array $credentials): void
     {
-        // Pasarela manual: no hay API externa que validar.
+        // Sin API externa que validar.
     }
 
     public function parseWebhook(Request $request): WebhookEvent
     {
-        $payload = $request->json()->all();
+        return new WebhookEvent('', '');
+    }
 
-        return new WebhookEvent(
-            id: (string) ($payload['id'] ?? Str::uuid()->toString()),
-            type: (string) ($payload['type'] ?? 'manual.event'),
-            data: $payload,
+    public function startCheckout(CheckoutRequest $checkout, array $credentials): CheckoutResult
+    {
+        $instructions = trim($credentials['instructions'] ?? '');
+
+        return CheckoutResult::pending(
+            $instructions !== ''
+                ? $instructions
+                : 'Tu solicitud quedó registrada. Te contactaremos con los datos de pago; el plan se activa al confirmar el pago.',
         );
     }
 
-    public function startSubscription(
-        Organization $organization,
-        Plan $plan,
-        string $interval,
-        array $credentials,
-    ): CheckoutResult {
-        return new CheckoutResult(
-            activated: true,
-            gatewaySubscriptionId: 'manual_' . Str::ulid()->toString(),
-        );
+    public function interpretWebhook(WebhookEvent $event, array $credentials): array
+    {
+        return [];
+    }
+
+    public function cancelSubscription(string $gatewaySubscriptionId, array $credentials, bool $atPeriodEnd = false): void
+    {
+        // Sin cobro recurrente en la pasarela.
+    }
+
+    public function resumeSubscription(string $gatewaySubscriptionId, array $credentials): void
+    {
+        // Sin cobro recurrente en la pasarela.
     }
 }

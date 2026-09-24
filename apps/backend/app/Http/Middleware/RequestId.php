@@ -20,11 +20,14 @@ class RequestId
     public function handle(Request $request, Closure $next): Response
     {
         $incoming = (string) $request->headers->get('X-Request-Id', '');
-        $requestId = preg_match('/^[A-Za-z0-9._-]{1,64}$/', $incoming) === 1
-            ? $incoming
-            : (string) Str::uuid();
+        $valid = preg_match('/^[A-Za-z0-9._-]{1,64}$/', $incoming) === 1;
+        $requestId = $valid ? $incoming : (string) Str::uuid();
 
-        $request->headers->set('X-Request-Id', $requestId);
+        // La cabecera entrante sólo se conserva si es válida (algunas pasarelas la
+        // firman, p. ej. Mercado Pago); el id generado va en el atributo y la respuesta.
+        if (! $valid) {
+            $request->headers->remove('X-Request-Id');
+        }
         $request->attributes->set('request_id', $requestId);
         Log::withContext(['request_id' => $requestId]);
 

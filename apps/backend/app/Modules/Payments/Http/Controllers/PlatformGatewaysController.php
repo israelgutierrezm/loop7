@@ -41,13 +41,8 @@ class PlatformGatewaysController extends Controller
             return ApiResponse::success(['ok' => false, 'message' => 'Pasarela no disponible.']);
         }
 
-        $credentials = $record->credentials
-            ->where('environment', $record->environment)
-            ->mapWithKeys(fn (PaymentGatewayCredential $c) => [$c->key => (string) $c->value])
-            ->all();
-
         try {
-            $adapter->verifyCredentials($credentials);
+            $adapter->verifyCredentials($this->manager->credentials($record));
         } catch (Throwable $e) {
             return ApiResponse::success([
                 'ok' => false, 'environment' => $record->environment, 'message' => $e->getMessage(),
@@ -75,14 +70,26 @@ class PlatformGatewaysController extends Controller
         $data = $request->validate([
             'is_enabled' => ['sometimes', 'boolean'],
             'environment' => ['sometimes', Rule::in(['test', 'production'])],
+            'currency' => ['sometimes', 'string', 'size:3', 'alpha'],
+            'country' => ['sometimes', Rule::in(['mx', 'co', 'pe'])],
+            'instructions' => ['sometimes', 'nullable', 'string', 'max:2000'],
         ]);
 
-        $record->fill($data)->save();
+        $record->fill(array_intersect_key($data, array_flip(['is_enabled', 'environment'])));
+        $config = $record->config ?? [];
+        foreach (['currency', 'country', 'instructions'] as $setting) {
+            if (array_key_exists($setting, $data)) {
+                $config[$setting] = $setting === 'currency' ? mb_strtoupper((string) $data[$setting]) : $data[$setting];
+            }
+        }
+        $record->config = $config;
+        $record->save();
 
         $this->audit->log(AuditAction::PAYMENT_GATEWAY_UPDATED, $record, [
             'gateway' => $record->key,
             'is_enabled' => $record->is_enabled,
             'environment' => $record->environment,
+            'changes' => array_keys($data),
         ]);
 
         return ApiResponse::success($this->present($record->load('credentials')), 'Pasarela actualizada.');
@@ -128,6 +135,11 @@ class PlatformGatewaysController extends Controller
             'name' => $gateway->name,
             'is_enabled' => $gateway->is_enabled,
             'environment' => $gateway->environment,
+            'currency' => $this->manager->currency($gateway),
+            'country' => $gateway->config['country'] ?? null,
+            'instructions' => $gateway->config['instructions'] ?? null,
+            'is_offline' => $gateway->key === 'manual',
+            'webhook_url' => $gateway->key === 'manual' ? null : url('/api/v1/webhooks/payments/' . $gateway->key),
             'credentials' => $gateway->credentials
                 ->map(fn (PaymentGatewayCredential $c) => [
                     'key' => $c->key,

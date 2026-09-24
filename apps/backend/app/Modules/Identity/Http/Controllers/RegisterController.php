@@ -11,6 +11,7 @@ use App\Modules\Audit\Services\AuditLogger;
 use App\Modules\Identity\Http\Requests\RegisterRequest;
 use App\Modules\Identity\Http\Resources\UserResource;
 use App\Modules\Organizations\Actions\CreateOrganizationForUser;
+use App\Modules\PlatformAdmin\Services\PlatformSettings;
 use App\Support\Http\ApiResponse;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\JsonResponse;
@@ -22,11 +23,21 @@ class RegisterController extends Controller
     public function __construct(
         private readonly CreateOrganizationForUser $createOrganization,
         private readonly AuditLogger $audit,
+        private readonly PlatformSettings $settings,
     ) {
     }
 
     public function store(RegisterRequest $request): JsonResponse
     {
+        // SUPERADMIN puede cerrar el alta pública (p. ej. beta privada o sólo por invitación).
+        if (! $this->settings->bool('registration.open')) {
+            return ApiResponse::error(
+                'El registro de nuevas cuentas está cerrado por el momento.',
+                'registration_closed',
+                status: 403,
+            );
+        }
+
         $user = DB::transaction(function () use ($request): User {
             $user = User::create([
                 'name' => $request->string('name')->toString(),

@@ -6,6 +6,7 @@ namespace App\Modules\Billing\Services;
 
 use App\Modules\Billing\Entitlements\Entitlement;
 use App\Modules\Billing\Models\OrganizationAddOn;
+use App\Modules\Billing\Models\OrganizationEntitlementOverride;
 use App\Modules\Billing\Models\Plan;
 use App\Modules\Billing\Models\Subscription;
 use App\Modules\Billing\Models\UsageCounter;
@@ -41,7 +42,12 @@ class EntitlementsService
             ->where('organization_id', $organization->id)
             ->first();
 
-        if ($subscription !== null && $subscription->grantsAccess() && $subscription->plan_id !== null) {
+        // Sin suscripción vigente (trial vencido, suspendida…): todo a 0 / false.
+        if ($subscription === null || ! $subscription->grantsAccess()) {
+            return $this->cache[$organization->id] = $values;
+        }
+
+        if ($subscription->plan_id !== null) {
             $plan = Plan::query()->with('entitlements')->find($subscription->plan_id);
             if ($plan !== null) {
                 foreach ($plan->entitlements as $planEntitlement) {
@@ -68,7 +74,29 @@ class EntitlementsService
             }
         }
 
+        // Excepciones de SUPERADMIN: reemplazan el valor resultante.
+        $overrides = OrganizationEntitlementOverride::query()
+            ->where('organization_id', $organization->id)
+            ->pluck('value', 'entitlement_key');
+        foreach ($overrides as $key => $value) {
+            if (in_array($key, Entitlement::all(), true)) {
+                $values[$key] = $this->castValue($key, (string) $value);
+            }
+        }
+
         return $this->cache[$organization->id] = $values;
+    }
+
+    /**
+     * ¿La suscripción de la Organization da acceso operativo (trial, activa o en gracia)?
+     */
+    public function hasAccess(Organization $organization): bool
+    {
+        $subscription = Subscription::query()->withoutGlobalScopes()
+            ->where('organization_id', $organization->id)
+            ->first();
+
+        return $subscription !== null && $subscription->grantsAccess();
     }
 
     public function limit(Organization $organization, string $key): int

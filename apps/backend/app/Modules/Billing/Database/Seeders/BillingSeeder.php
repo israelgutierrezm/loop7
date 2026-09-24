@@ -13,21 +13,28 @@ use App\Modules\Billing\Models\PlanPrice;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Catálogo inicial de billing. Es idempotente y NO destructivo: sólo crea lo que
+ * falta, para que re-ejecutarlo en producción no pise los planes, precios y
+ * add-ons que SUPERADMIN haya editado desde el panel.
+ */
 class BillingSeeder extends Seeder
 {
     public function run(): void
     {
-        // Catálogo de entitlements.
+        // Catálogo de entitlements (definido en código) y retirada de claves obsoletas.
         foreach (Entitlement::definitions() as $key => $def) {
             DB::table('entitlements')->updateOrInsert(
                 ['key' => $key],
                 ['type' => $def['type'], 'label' => $def['label'], 'updated_at' => now(), 'created_at' => now()],
             );
         }
+        DB::table('entitlements')->whereNotIn('key', Entitlement::all())->delete();
+        PlanEntitlement::query()->whereNotIn('entitlement_key', Entitlement::all())->delete();
 
-        // Planes, precios y entitlements por plan.
+        // Planes por defecto (sólo si no existen).
         foreach (PlanCatalog::plans() as $key => $data) {
-            $plan = Plan::query()->updateOrCreate(
+            $plan = Plan::query()->firstOrCreate(
                 ['key' => $key],
                 [
                     'name' => $data['name'],
@@ -40,30 +47,30 @@ class BillingSeeder extends Seeder
             );
 
             foreach ($data['prices'] as $interval => $amount) {
-                PlanPrice::query()->updateOrCreate(
+                PlanPrice::query()->firstOrCreate(
                     ['plan_id' => $plan->id, 'interval' => $interval, 'currency' => PlanCatalog::CURRENCY],
                     ['amount_cents' => $amount, 'is_active' => true],
                 );
             }
 
             foreach ($data['entitlements'] as $entKey => $value) {
-                PlanEntitlement::query()->updateOrCreate(
+                PlanEntitlement::query()->firstOrCreate(
                     ['plan_id' => $plan->id, 'entitlement_key' => $entKey],
                     ['value' => is_bool($value) ? ($value ? '1' : '0') : (string) $value],
                 );
             }
         }
 
-        // Add-ons de ejemplo.
+        // Add-ons de ejemplo (sólo si no existen).
         $addOns = [
             ['key' => 'extra-brand', 'name' => 'Marca adicional', 'entitlement_key' => Entitlement::BRANDS_MAX, 'quantity_per_unit' => 1, 'price_cents' => 900],
             ['key' => 'extra-member', 'name' => 'Miembro adicional', 'entitlement_key' => Entitlement::TEAM_MEMBERS_MAX, 'quantity_per_unit' => 1, 'price_cents' => 600],
             ['key' => 'ai-credits-1000', 'name' => '1.000 créditos IA', 'entitlement_key' => Entitlement::AI_CREDITS_MONTH, 'quantity_per_unit' => 1000, 'price_cents' => 1500],
         ];
         foreach ($addOns as $addOn) {
-            AddOn::query()->updateOrCreate(
+            AddOn::query()->firstOrCreate(
                 ['key' => $addOn['key']],
-                array_merge($addOn, ['currency' => PlanCatalog::CURRENCY, 'is_active' => true]),
+                [...$addOn, 'currency' => PlanCatalog::CURRENCY, 'is_active' => true],
             );
         }
     }
