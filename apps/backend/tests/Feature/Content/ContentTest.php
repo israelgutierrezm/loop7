@@ -7,6 +7,7 @@ namespace Tests\Feature\Content;
 use App\Modules\AccessControl\Enums\OrganizationRole;
 use App\Modules\Brands\Models\Brand;
 use App\Modules\Content\Models\ContentItem;
+use App\Modules\MediaLibrary\Models\MediaAsset;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -81,6 +82,43 @@ class ContentTest extends TestCase
 
         $this->actingInOrganization($owner, $org)
             ->patchJson("/api/v1/content/{$content->public_id}", ['title' => 'Nuevo'])
+            ->assertStatus(422);
+    }
+
+    public function test_multimedia_de_variantes_acotada_a_la_marca_y_bloqueada_tras_aprobar(): void
+    {
+        [$owner, $org] = $this->createOwnerWithOrganization();
+        $brand = Brand::factory()->create(['organization_id' => $org->id]);
+        $otherBrand = Brand::factory()->create(['organization_id' => $org->id]);
+        $asset = fn (Brand $b) => MediaAsset::query()->create([
+            'organization_id' => $org->id, 'brand_id' => $b->id, 'disk' => 'local', 'path' => 'x/' . uniqid() . '.png',
+            'original_name' => 'foto.png', 'mime_type' => 'image/png', 'extension' => 'png', 'size_bytes' => 100,
+        ]);
+        $own = $asset($brand);
+        $foreign = $asset($otherBrand);
+
+        $content = ContentItem::query()->create(['organization_id' => $org->id, 'brand_id' => $brand->id, 'title' => 'Post']);
+        $variantId = $this->actingInOrganization($owner, $org)
+            ->postJson("/api/v1/content/{$content->public_id}/variants", ['provider' => 'instagram', 'body' => 'Hola'])
+            ->assertCreated()
+            ->json('data.id');
+
+        // Sólo se adjunta la imagen de la propia marca (la de otra marca se ignora).
+        $this->actingInOrganization($owner, $org)
+            ->putJson("/api/v1/variants/{$variantId}/media", ['media' => [$own->public_id, $foreign->public_id]])
+            ->assertOk()
+            ->assertJsonCount(1, 'data.media')
+            ->assertJsonPath('data.media.0.is_image', true);
+
+        // Redes sin adaptador no se aceptan.
+        $this->actingInOrganization($owner, $org)
+            ->postJson("/api/v1/content/{$content->public_id}/variants", ['provider' => 'linkedin'])
+            ->assertStatus(422);
+
+        // Aprobado: ya no se modifican variantes ni multimedia.
+        $content->update(['status' => 'approved']);
+        $this->actingInOrganization($owner, $org)
+            ->putJson("/api/v1/variants/{$variantId}/media", ['media' => []])
             ->assertStatus(422);
     }
 }

@@ -73,8 +73,12 @@ class ContentService
      */
     public function syncMedia(PostVariant $variant, array $mediaPublicIds): void
     {
-        // Sólo media de la misma Organization (OrganizationScope activo).
-        $assets = MediaAsset::query()->whereIn('public_id', $mediaPublicIds)->get();
+        // Sólo media de la misma marca del contenido (y de la Organization por el scope).
+        $brandId = ContentItem::query()->withoutGlobalScopes()->whereKey($variant->content_item_id)->value('brand_id');
+        $assets = MediaAsset::query()
+            ->where('brand_id', $brandId)
+            ->whereIn('public_id', $mediaPublicIds)
+            ->get();
 
         $sync = [];
         $position = 0;

@@ -9,9 +9,11 @@ use App\Modules\Audit\Enums\AuditAction;
 use App\Modules\Audit\Services\AuditLogger;
 use App\Modules\Brands\Http\Concerns\ResolvesBrand;
 use App\Modules\Content\Enums\ContentType;
+use App\Modules\Content\Http\Resources\VariantPresenter;
 use App\Modules\Content\Models\ContentItem;
 use App\Modules\Content\Models\PostVariant;
 use App\Modules\Content\Services\ContentService;
+use App\Modules\SocialConnections\Services\SocialProviderManager;
 use App\Support\Http\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,6 +27,7 @@ class ContentController extends Controller
     public function __construct(
         private readonly ContentService $content,
         private readonly AuditLogger $audit,
+        private readonly VariantPresenter $variants,
     ) {
     }
 
@@ -59,7 +62,7 @@ class ContentController extends Controller
             'type' => ['nullable', Rule::in(ContentType::values())],
             'campaign' => ['nullable', 'string'],
             'variants' => ['nullable', 'array'],
-            'variants.*.provider' => ['required_with:variants', 'string', 'max:32'],
+            'variants.*.provider' => ['required_with:variants', 'string', Rule::in(array_keys(app(SocialProviderManager::class)->all()))],
             'variants.*.body' => ['nullable', 'string', 'max:20000'],
             'variants.*.format' => ['nullable', 'string', 'max:24'],
             'variants.*.media' => ['nullable', 'array'],
@@ -152,24 +155,6 @@ class ContentController extends Controller
      */
     private function presentVariant(PostVariant $variant): array
     {
-        return [
-            'id' => $variant->public_id,
-            'provider' => $variant->provider,
-            'body' => $variant->body,
-            'format' => $variant->format,
-            'media' => $variant->relationLoaded('media')
-                ? $variant->media->map(fn ($m) => ['id' => $m->public_id, 'original_name' => $m->original_name])->all()
-                : [],
-            'targets' => $variant->relationLoaded('targets')
-                ? $variant->targets->map(fn ($t) => [
-                    'id' => $t->public_id,
-                    'status' => $t->status->value,
-                    'status_label' => $t->status->label(),
-                    'destination' => $t->destination?->name,
-                    'remote_url' => $t->remote_url,
-                    'error' => $t->error,
-                ])->all()
-                : [],
-        ];
+        return $this->variants->present($variant);
     }
 }

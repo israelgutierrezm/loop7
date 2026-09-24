@@ -19,7 +19,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int|null $social_connection_destination_id
  * @property TargetStatus $status
  * @property string|null $remote_id
+ * @property string|null $remote_url
+ * @property string|null $error
  * @property \Illuminate\Support\Carbon|null $scheduled_at
+ * @property \Illuminate\Support\Carbon|null $published_at
+ * @property-read SocialConnectionDestination|null $destination
  */
 class PublicationTarget extends Model
 {
