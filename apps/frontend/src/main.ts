@@ -13,12 +13,17 @@ const pinia = createPinia()
 app.use(pinia)
 app.use(router)
 
-// Sesión expirada (401): limpiar estado y volver al login.
+// Sesión expirada (401) a mitad de uso: limpiar estado y volver al login recordando
+// la página. Un visitante anónimo (el 401 de /me al arrancar) se queda donde está: las
+// páginas públicas (legales, registro, restablecer contraseña…) no redirigen, y las
+// protegidas ya las lleva al login la guarda del router.
 setUnauthorizedHandler(() => {
   const auth = useAuthStore(pinia)
+  const hadSession = auth.isAuthenticated
   auth.reset()
-  if (router.currentRoute.value.name !== 'login') {
-    router.push({ name: 'login' })
+  const current = router.currentRoute.value
+  if (hadSession && current.meta.requiresAuth) {
+    router.push({ name: 'login', query: { redirect: current.fullPath } })
   }
 })
 
