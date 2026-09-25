@@ -92,9 +92,22 @@ Los roles agrupan permisos. Las Policies verifican permisos + Organization + Bra
 ## Brand Access
 Un miembro puede tener acceso a todas las Brands o a un subconjunto. Un permiso no concede acceso a una Brand fuera de su asignación.
 
+Se gestiona desde **Equipo** (`PATCH /organization/members/{user}` con `all_brands_access` y
+`brands`), con `brands.manage_access`. Quien está limitado a ciertas marcas sólo gestiona
+esas: no puede conceder "todas" ni tocar asignaciones de marcas a las que no accede. Al
+quitar a un miembro se borran sus asignaciones. Aplicación en el backend: ver docs/03.
+
+## Asignación de roles
+- `OWNER` nunca se asigna ni se invita: se transfiere.
+- `ADMIN` sólo lo asignan (o invitan) quienes administran miembros (`members.update`:
+  OWNER y ADMIN). Un `MANAGER` con `roles.assign`/`members.invite` asigna de MANAGER hacia
+  abajo y no puede cambiar el rol de un ADMIN.
+- Nadie cambia su propio rol ni su acceso a marcas.
+- `GET /roles` devuelve `assignable`: los roles que el usuario actual puede asignar.
+
 ## Reglas críticas
 - Solo OWNER puede transferir propiedad.
 - OWNER no puede eliminarse sin transferir propiedad.
 - Un usuario no puede conceder permisos superiores a los que puede administrar.
 - Roles de Organization nunca pueden recibir permisos `platform.*`.
-- Impersonación no concede acceso a secretos ni acciones reservadas.
+- Impersonación no concede acceso a secretos ni acciones reservadas (docs/09).

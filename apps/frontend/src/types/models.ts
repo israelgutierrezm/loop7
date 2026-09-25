@@ -75,7 +75,8 @@ export interface OrganizationContext {
 
 export interface MemberEntry {
   user: User
-  membership: Membership & { is_owner: boolean }
+  /** brands: marcas con acceso explícito (sólo cuenta si all_brands_access es false). */
+  membership: Membership & { is_owner: boolean; brands: string[] }
   roles: string[]
 }
 

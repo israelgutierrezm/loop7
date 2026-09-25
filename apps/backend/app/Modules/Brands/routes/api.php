@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Modules\Brands\Http\Controllers\BrandAccessController;
 use App\Modules\Brands\Http\Controllers\BrandAudiencesController;
 use App\Modules\Brands\Http\Controllers\BrandBrainController;
 use App\Modules\Brands\Http\Controllers\BrandController;
@@ -19,9 +18,8 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function (): void {
     Route::put('/brands/{brand}/logo', [BrandController::class, 'logo']);
     Route::delete('/brands/{brand}', [BrandController::class, 'destroy']);
 
-    Route::get('/brands/{brand}/access', [BrandAccessController::class, 'index']);
-    Route::post('/brands/{brand}/access', [BrandAccessController::class, 'grant']);
-    Route::delete('/brands/{brand}/access/{user}', [BrandAccessController::class, 'revoke']);
+    // El acceso de cada miembro a las marcas se gestiona desde Equipo
+    // (PATCH /organization/members/{user}: all_brands_access + brands).
 
     // Brand Brain
     Route::get('/brands/{brand}/brain', [BrandBrainController::class, 'show']);

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Modules\Organizations\Services;
 
 use App\Models\User;
+use App\Modules\AccessControl\Enums\OrganizationRole;
+use App\Modules\AccessControl\Permissions\Permission;
 use App\Modules\Organizations\Models\Organization;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -64,6 +66,25 @@ class MembershipService
         $user->unsetRelation('permissions');
 
         return $user->getAllPermissions()->pluck('name')->values()->all();
+    }
+
+    /**
+     * Roles que el usuario puede asignar (al invitar o cambiar un rol) en la
+     * Organization. OWNER nunca se asigna (se transfiere); ADMIN sólo lo asigna
+     * quien administra miembros (OWNER/ADMIN), para que un rol inferior con
+     * permiso de invitar o asignar roles no pueda crear administradores.
+     *
+     * @return list<string>
+     */
+    public function assignableRoles(User $actor, Organization $organization): array
+    {
+        $canManageMembers = in_array(Permission::MEMBERS_UPDATE, $this->permissionsFor($actor, $organization), true);
+
+        return array_values(array_filter(
+            OrganizationRole::values(),
+            fn (string $role): bool => $role !== OrganizationRole::OWNER->value
+                && ($canManageMembers || $role !== OrganizationRole::ADMIN->value),
+        ));
     }
 
     /**

@@ -15,6 +15,7 @@ use App\Modules\Organizations\Enums\InvitationStatus;
 use App\Modules\Organizations\Models\Organization;
 use App\Modules\Organizations\Models\OrganizationInvitation;
 use App\Modules\Organizations\Notifications\OrganizationInvitationNotification;
+use App\Modules\Organizations\Services\MembershipService;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -24,12 +25,20 @@ class InviteMember
     public function __construct(
         private readonly AuditLogger $audit,
         private readonly EntitlementsService $entitlements,
+        private readonly MembershipService $memberships,
     ) {
     }
 
     public function handle(Organization $organization, string $email, string $role, User $invitedBy): OrganizationInvitation
     {
         $this->assertValidRole($role);
+
+        // Nadie puede invitar con un rol que no podría asignar (p. ej. un MANAGER, ADMIN).
+        if (! in_array($role, $this->memberships->assignableRoles($invitedBy, $organization), true)) {
+            throw ValidationException::withMessages([
+                'role' => 'No puedes invitar con ese rol.',
+            ]);
+        }
 
         $email = mb_strtolower(trim($email));
 

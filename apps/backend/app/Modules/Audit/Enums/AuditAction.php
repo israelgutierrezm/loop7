@@ -36,13 +36,12 @@ final class AuditAction
     public const MEMBER_REMOVED = 'member.removed';
     public const MEMBER_ROLE_ASSIGNED = 'member.role_assigned';
     public const MEMBER_ROLE_REVOKED = 'member.role_revoked';
+    public const MEMBER_BRAND_ACCESS_UPDATED = 'member.brand_access_updated';
 
     // Brands
     public const BRAND_CREATED = 'brand.created';
     public const BRAND_UPDATED = 'brand.updated';
     public const BRAND_DELETED = 'brand.deleted';
-    public const BRAND_ACCESS_GRANTED = 'brand.access_granted';
-    public const BRAND_ACCESS_REVOKED = 'brand.access_revoked';
 
     // Biblioteca de medios
     public const MEDIA_UPLOADED = 'media.uploaded';
