@@ -111,8 +111,7 @@ class ContentController extends Controller
         $model = $this->resolve($content);
         abort_unless(request()->user()->can('content.delete'), 403);
 
-        $this->audit->log(AuditAction::CONTENT_DELETED, $model, ['title' => $model->title]);
-        $model->delete();
+        $this->content->delete($model);
 
         return ApiResponse::message('Contenido eliminado.');
     }

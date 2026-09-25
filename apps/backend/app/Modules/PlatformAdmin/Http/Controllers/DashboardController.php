@@ -21,6 +21,7 @@ use App\Modules\Payments\Models\PaymentWebhookEvent;
 use App\Modules\SocialConnections\Enums\ConnectionStatus;
 use App\Modules\SocialConnections\Models\SocialConnection;
 use App\Support\Http\ApiResponse;
+use App\Support\Tenancy\OrganizationScope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -59,7 +60,8 @@ class DashboardController extends Controller
                 'platform_admins' => User::query()->where('is_platform_admin', true)->count(),
                 'new_last_7_days' => User::query()->where('created_at', '>=', $since7)->count(),
             ],
-            'brands' => ['total' => Brand::query()->withoutGlobalScopes()->count()],
+            // Sin el scope de tenant pero sin contar las eliminadas.
+            'brands' => ['total' => Brand::query()->withoutGlobalScope(OrganizationScope::class)->count()],
             'subscriptions' => [
                 'by_status' => $byStatus,
                 'by_plan' => $byPlan,
@@ -106,7 +108,7 @@ class DashboardController extends Controller
                 'queued_jobs' => Schema::hasTable('jobs') ? DB::table('jobs')->count() : null,
                 'failed_jobs' => Schema::hasTable('failed_jobs') ? DB::table('failed_jobs')->count() : 0,
                 'failed_webhooks' => PaymentWebhookEvent::query()->where('status', 'failed')->count(),
-                'social_needing_attention' => SocialConnection::query()->withoutGlobalScopes()
+                'social_needing_attention' => SocialConnection::query()->withoutGlobalScope(OrganizationScope::class)
                     ->whereIn('status', [ConnectionStatus::EXPIRED->value, ConnectionStatus::ERROR->value])->count(),
             ],
             'audit' => [

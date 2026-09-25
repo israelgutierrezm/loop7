@@ -11,6 +11,7 @@ use App\Modules\Content\Models\PublicationTarget;
 use App\Modules\MediaLibrary\Models\MediaAsset;
 use App\Modules\Organizations\Models\Organization;
 use App\Modules\SocialConnections\Models\SocialConnection;
+use App\Support\Tenancy\OrganizationScope;
 use Illuminate\Support\Carbon;
 
 /**
@@ -28,10 +29,16 @@ class UsageService
      */
     public function current(Organization $organization): array
     {
-        $bytes = (int) MediaAsset::query()->withoutGlobalScopes()->where('organization_id', $organization->id)->sum('size_bytes');
+        // Sólo se quita el scope de tenant: los registros eliminados (soft delete)
+        // no cuentan para los límites.
+        $bytes = (int) MediaAsset::query()->withoutGlobalScope(OrganizationScope::class)
+            ->where('organization_id', $organization->id)
+            ->sum('size_bytes');
 
         return [
-            Entitlement::BRANDS_MAX => Brand::query()->withoutGlobalScopes()->where('organization_id', $organization->id)->count(),
+            Entitlement::BRANDS_MAX => Brand::query()->withoutGlobalScope(OrganizationScope::class)
+                ->where('organization_id', $organization->id)
+                ->count(),
             Entitlement::SOCIAL_ACCOUNTS_MAX => $this->socialAccounts($organization),
             Entitlement::TEAM_MEMBERS_MAX => $organization->users()->count(),
             Entitlement::SCHEDULED_POSTS_MONTH => $this->scheduledPostsThisMonth($organization),
@@ -40,9 +47,14 @@ class UsageService
         ];
     }
 
+    /**
+     * Cuentas sociales conectadas (las desconectadas no ocupan cupo).
+     */
     public function socialAccounts(Organization $organization): int
     {
-        return SocialConnection::query()->withoutGlobalScopes()->where('organization_id', $organization->id)->count();
+        return SocialConnection::query()->withoutGlobalScope(OrganizationScope::class)
+            ->where('organization_id', $organization->id)
+            ->count();
     }
 
     /**

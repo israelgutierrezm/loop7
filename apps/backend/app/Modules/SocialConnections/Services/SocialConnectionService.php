@@ -285,6 +285,8 @@ class SocialConnectionService
         array $destinations,
         array $meta,
     ): SocialConnection {
+        // Incluye las desconectadas (soft delete): reconectar la misma cuenta la
+        // restaura en lugar de duplicarla.
         $existing = $accountId === null || $accountId === '' ? null : SocialConnection::query()->withoutGlobalScopes()
             ->where('organization_id', $organizationId)
             ->where('brand_id', $brandId)
@@ -292,8 +294,8 @@ class SocialConnectionService
             ->where('external_account_id', $accountId)
             ->first();
 
-        if ($existing === null) {
-            // Límite de plan: cuentas sociales conectadas (una reconexión no cuenta).
+        if ($existing === null || $existing->trashed()) {
+            // Límite de plan: cuentas sociales conectadas (reconectar una activa no cuenta).
             $organization = Organization::query()->findOrFail($organizationId);
             $this->usage->ensureWithin(
                 $organization,
@@ -317,6 +319,9 @@ class SocialConnectionService
         ];
 
         if ($existing !== null) {
+            if ($existing->trashed()) {
+                $existing->restore();
+            }
             $existing->forceFill($attributes)->save();
             $connection = $existing;
         } else {

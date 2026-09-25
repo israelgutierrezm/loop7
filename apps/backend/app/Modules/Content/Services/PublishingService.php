@@ -57,6 +57,17 @@ class PublishingService
         }
 
         $variant = PostVariant::query()->withoutGlobalScopes()->with('media')->find($target->post_variant_id);
+
+        // El contenido se eliminó con el job ya en cola: no se publica.
+        if ($variant !== null) {
+            $content = ContentItem::query()->withoutGlobalScopes()->find($variant->content_item_id);
+            if ($content === null || $content->trashed()) {
+                $target->update(['status' => TargetStatus::CANCELLED->value, 'error' => 'El contenido se eliminó.']);
+
+                return;
+            }
+        }
+
         $destination = SocialConnectionDestination::query()->withoutGlobalScopes()
             ->with('connection')->find($target->social_connection_destination_id);
 

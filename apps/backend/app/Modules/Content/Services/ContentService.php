@@ -9,8 +9,10 @@ use App\Modules\Audit\Enums\AuditAction;
 use App\Modules\Audit\Services\AuditLogger;
 use App\Modules\Brands\Models\Brand;
 use App\Modules\Content\Enums\ContentStatus;
+use App\Modules\Content\Enums\TargetStatus;
 use App\Modules\Content\Models\ContentItem;
 use App\Modules\Content\Models\PostVariant;
+use App\Modules\Content\Models\PublicationTarget;
 use App\Modules\MediaLibrary\Models\MediaAsset;
 use Illuminate\Support\Facades\DB;
 
@@ -66,6 +68,23 @@ class ContentService
         }
 
         return $variant;
+    }
+
+    /**
+     * Elimina un contenido: antes cancela lo que tenga pendiente de publicar
+     * (si no, el scheduler lo seguiría publicando).
+     */
+    public function delete(ContentItem $content): void
+    {
+        DB::transaction(function () use ($content): void {
+            PublicationTarget::query()
+                ->whereIn('post_variant_id', $content->variants()->select('id'))
+                ->whereIn('status', [TargetStatus::PENDING->value, TargetStatus::SCHEDULED->value])
+                ->update(['status' => TargetStatus::CANCELLED->value, 'error' => 'El contenido se eliminó.']);
+
+            $this->audit->log(AuditAction::CONTENT_DELETED, $content, ['title' => $content->title]);
+            $content->delete();
+        });
     }
 
     /**
