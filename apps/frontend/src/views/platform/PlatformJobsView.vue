@@ -4,6 +4,7 @@ import http from '@/services/http'
 import { useToastStore } from '@/stores/toasts'
 import { useConfirmStore } from '@/stores/confirm'
 import { apiErrorMessage } from '@/utils/errors'
+import PageHeader from '@/components/ui/PageHeader.vue'
 import ErrorState from '@/components/ui/ErrorState.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import StatCard from '@/components/StatCard.vue'
@@ -17,10 +18,17 @@ interface FailedJob {
   exception: string
   failed_at: string
 }
+interface QueueSize {
+  name: string
+  size: number | null
+}
 interface JobsHealth {
+  connection: string
+  queues: QueueSize[]
   queued: number
   failed_count: number
   failed: FailedJob[]
+  list_limit: number
 }
 
 const toasts = useToastStore()
@@ -29,6 +37,15 @@ const health = ref<JobsHealth | null>(null)
 const loading = ref(true)
 const failed = ref(false)
 const busyId = ref<string | null>(null)
+const bulkBusy = ref(false)
+
+const queueLabels: Record<string, string> = {
+  publishing: 'Publicación',
+  default: 'General (pagos, avisos)',
+  inbox: 'Inbox',
+  analytics: 'Analítica',
+  automations: 'Automatizaciones',
+}
 
 async function load(silent = false): Promise<void> {
   if (!silent) {
@@ -50,26 +67,72 @@ async function retry(job: FailedJob): Promise<void> {
   try {
     await http.post(`/platform/jobs/${job.id}/retry`)
     toasts.success('Trabajo reencolado.')
-    await load(true)
   } catch (e) {
     toasts.error(apiErrorMessage(e))
   } finally {
     busyId.value = null
+    await load(true)
   }
 }
 
 async function forget(job: FailedJob): Promise<void> {
-  const ok = await confirmDialog.ask({ title: 'Descartar trabajo', message: 'El trabajo fallido se eliminará y ya no podrá reintentarse.', confirmText: 'Descartar', danger: true })
+  const ok = await confirmDialog.ask({
+    title: 'Descartar trabajo',
+    message: 'El trabajo fallido se eliminará y ya no podrá reintentarse.',
+    confirmText: 'Descartar',
+    danger: true,
+  })
   if (!ok) return
   busyId.value = job.id
   try {
     await http.delete(`/platform/jobs/${job.id}`)
     toasts.success('Trabajo descartado.')
-    await load(true)
   } catch (e) {
     toasts.error(apiErrorMessage(e))
   } finally {
     busyId.value = null
+    await load(true)
+  }
+}
+
+async function retryAll(): Promise<void> {
+  const count = health.value?.failed_count ?? 0
+  const ok = await confirmDialog.ask({
+    title: 'Reintentar todos los fallidos',
+    message: `Se reencolarán ${count} trabajos. Hazlo cuando la causa del fallo (credenciales, red, proveedor) ya esté resuelta.`,
+    confirmText: 'Reintentar todos',
+  })
+  if (!ok) return
+  bulkBusy.value = true
+  try {
+    const { data } = await http.post('/platform/jobs/retry-all')
+    toasts.success(data.message)
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    bulkBusy.value = false
+    await load(true)
+  }
+}
+
+async function flush(): Promise<void> {
+  const count = health.value?.failed_count ?? 0
+  const ok = await confirmDialog.ask({
+    title: 'Vaciar trabajos fallidos',
+    message: `Se eliminarán ${count} trabajos fallidos y ya no podrán reintentarse. Queda auditado.`,
+    confirmText: 'Vaciar',
+    danger: true,
+  })
+  if (!ok) return
+  bulkBusy.value = true
+  try {
+    const { data } = await http.delete('/platform/jobs')
+    toasts.success(data.message)
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    bulkBusy.value = false
+    await load(true)
   }
 }
 
@@ -93,28 +156,50 @@ onUnmounted(() => {
 
 <template>
   <div>
-    <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Colas y trabajos</h1>
-        <p class="text-sm text-slate-500">Salud de las colas de publicación, webhooks y sincronizaciones.</p>
-      </div>
-      <button class="btn-secondary text-sm" :disabled="loading" @click="load()">
-        <AppIcon name="refresh" :size="16" /> Actualizar
-      </button>
-    </div>
+    <PageHeader title="Colas y trabajos" description="Salud de las colas de publicación, pagos, inbox, analítica y automatizaciones. Se actualiza cada 10 segundos.">
+      <template #actions>
+        <button class="btn-secondary text-sm" :disabled="loading" @click="load()">
+          <AppIcon name="refresh" :size="16" /> Actualizar
+        </button>
+      </template>
+    </PageHeader>
 
     <div v-if="loading" class="card p-6"><div class="skeleton h-32 w-full" /></div>
     <ErrorState v-else-if="failed" @retry="load" />
 
     <template v-else-if="health">
       <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <StatCard label="En cola" :value="health.queued" icon="queue" hint="Trabajos pendientes de procesar" />
+        <StatCard label="En cola" :value="health.queued" icon="queue" :hint="`Pendientes de procesar (conexión ${health.connection})`" />
         <StatCard label="Fallidos" :value="health.failed_count" icon="alert" hint="Requieren reintento o descarte" />
       </div>
 
+      <div class="card mb-6 overflow-hidden">
+        <h2 class="border-b border-slate-100 px-6 py-4 font-semibold text-slate-900 dark:border-slate-800 dark:text-white">Pendientes por cola</h2>
+        <ul class="grid grid-cols-1 divide-y divide-slate-100 sm:grid-cols-5 sm:divide-x sm:divide-y-0 dark:divide-slate-800">
+          <li v-for="q in health.queues" :key="q.name" class="px-5 py-4">
+            <p class="text-xs text-slate-500">{{ queueLabels[q.name] ?? q.name }}</p>
+            <p class="mt-1 text-xl font-semibold text-slate-900 dark:text-white">{{ q.size ?? '—' }}</p>
+            <p class="font-mono text-[10px] text-slate-400">{{ q.name }}</p>
+          </li>
+        </ul>
+      </div>
+
       <div class="card overflow-hidden">
-        <div class="border-b border-slate-100 px-6 py-4 dark:border-slate-800">
-          <h2 class="font-semibold text-slate-900 dark:text-white">Trabajos fallidos</h2>
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-6 py-4 dark:border-slate-800">
+          <div>
+            <h2 class="font-semibold text-slate-900 dark:text-white">Trabajos fallidos</h2>
+            <p v-if="health.failed_count > health.failed.length" class="text-xs text-slate-400">
+              Se muestran los {{ health.failed.length }} más recientes de {{ health.failed_count }}.
+            </p>
+          </div>
+          <div v-if="health.failed_count > 0" class="flex gap-2">
+            <button class="btn-secondary text-xs" :disabled="bulkBusy" @click="retryAll">
+              <AppIcon name="refresh" :size="14" /> Reintentar todos
+            </button>
+            <button class="btn-secondary text-xs text-rose-600" :disabled="bulkBusy" @click="flush">
+              <AppIcon name="close" :size="14" /> Vaciar
+            </button>
+          </div>
         </div>
 
         <EmptyState
@@ -138,10 +223,10 @@ onUnmounted(() => {
               <p class="mt-1 text-xs text-slate-400">{{ formatDate(job.failed_at) }}</p>
             </div>
             <div class="flex shrink-0 items-center gap-2">
-              <button class="btn-secondary text-xs" :disabled="busyId === job.id" @click="retry(job)">
+              <button class="btn-secondary text-xs" :disabled="busyId === job.id || bulkBusy" @click="retry(job)">
                 <AppIcon name="refresh" :size="14" /> Reintentar
               </button>
-              <button class="btn-secondary text-xs text-rose-600" :disabled="busyId === job.id" @click="forget(job)">
+              <button class="btn-secondary text-xs text-rose-600" :disabled="busyId === job.id || bulkBusy" @click="forget(job)">
                 <AppIcon name="close" :size="14" /> Descartar
               </button>
             </div>

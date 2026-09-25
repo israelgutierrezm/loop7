@@ -57,6 +57,8 @@ final class AuditAction
     public const SUPERADMIN_USER_BLOCKED = 'superadmin.user_blocked';
     public const SUPERADMIN_USER_UNBLOCKED = 'superadmin.user_unblocked';
     public const SUPERADMIN_USER_MFA_RESET = 'superadmin.user_mfa_reset';
+    public const SUPERADMIN_FAILED_JOBS_RETRIED = 'superadmin.failed_jobs_retried';
+    public const SUPERADMIN_FAILED_JOBS_DISCARDED = 'superadmin.failed_jobs_discarded';
 
     // Billing / Payments
     public const SUBSCRIPTION_TRIAL_STARTED = 'subscription.trial_started';

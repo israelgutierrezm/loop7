@@ -30,6 +30,8 @@ Route::prefix('platform')->group(function (): void {
         Route::post('/users/{user}/reset-two-factor', [PlatformUsersController::class, 'resetTwoFactor']);
 
         Route::get('/jobs', [PlatformJobsController::class, 'index']);
+        Route::post('/jobs/retry-all', [PlatformJobsController::class, 'retryAll']);
+        Route::delete('/jobs', [PlatformJobsController::class, 'flush']);
         Route::post('/jobs/{id}/retry', [PlatformJobsController::class, 'retry']);
         Route::delete('/jobs/{id}', [PlatformJobsController::class, 'forget']);
 

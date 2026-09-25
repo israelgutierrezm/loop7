@@ -21,7 +21,7 @@ webhooks fallidos, conexiones sociales que requieren atención).
 | Pasarelas | Activación, entorno, credenciales cifradas y enmascaradas, "Probar conexión" |
 | Redes sociales | Proveedores (Meta), credenciales, versión de Graph API, URLs de la app |
 | Proveedores de IA | Activación, credenciales cifradas, modelos (se refrescan desde la API del proveedor) |
-| Colas | Jobs fallidos: reintentar u olvidar |
+| Colas | Pendientes por cola (vía `Queue::size`, sirve con database o Redis) y jobs fallidos: reintentar o descartar uno a uno o todos, auditado. El error se muestra sin secretos (`SecretRedactor`) |
 | Auditoría global | Todas las acciones, filtrables por acción u organización |
 | Configuración | Datos legales de la empresa (páginas legales), registro abierto/cerrado, plan y días de prueba, días de gracia, aviso global |
 
