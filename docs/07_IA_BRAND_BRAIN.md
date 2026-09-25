@@ -3,11 +3,10 @@
 ## Arquitectura agnóstica
 Contratos separados para texto, imagen, video, embeddings y transcripción.
 
-## Proveedores previstos
-- OpenAI
-- Anthropic
-- Google Gemini
-- otros configurables
+## Proveedores
+- OpenAI (texto e imagen)
+- Anthropic (texto)
+- Otros se añaden implementando los contratos (un proveedor sin adaptador no se ofrece)
 
 ## Configuración SUPERADMIN
 - provider enabled
@@ -62,19 +61,30 @@ DTOs de petición/resultado en `app/Modules/Ai/Contracts`.
 
 ### Proveedores
 - **FakeAiProvider** (texto + imagen): funcional sin red, para dev/pruebas; simula
-  fallo con el marcador `[[FAIL]]`.
-- **OpenAiProvider** (skeleton real, texto + imagen): usa `Http` contra la API de
-  OpenAI; sin `api_key` lanza `AiProviderNotConfiguredException`.
-- **AnthropicProvider** (skeleton real, sólo texto): Messages API de Claude.
+  fallo con el marcador `[[FAIL]]` y genera un PNG de muestra.
+- **OpenAiProvider** (texto + imagen): Chat Completions con `max_completion_tokens`;
+  los modelos de razonamiento (`o*`, `gpt-5*`) se llaman sin `temperature`. Imágenes con
+  `gpt-image-1` (tamaños mapeados a los que admite el modelo).
+- **AnthropicProvider** (texto): Messages API. Modelo por defecto `claude-opus-5`
+  (catálogo semilla: `claude-opus-5`, `claude-sonnet-5`, `claude-haiku-4-5`); sin
+  `temperature` (los modelos actuales la rechazan), `max_tokens` mínimo 16000, respaldo
+  del lado del servidor en los modelos que lo admiten, rechazos (`stop_reason: refusal`)
+  convertidos en un error claro y sólo se concatenan los bloques de texto.
 - `AiProviderManager` resuelve el proveedor por modalidad (habilitado + por defecto
-  con adaptador disponible). Gemini queda en el catálogo (sin adaptador aún).
+  con adaptador disponible). Sin `api_key` se lanza `AiProviderNotConfiguredException`.
 
-### Probar conexión (SUPERADMIN)
+### Probar conexión y modelos (SUPERADMIN)
 Cada proveedor de texto expone `verify(credentials)` (OpenAI/Anthropic hacen un
 `GET /models`; fake es no-op). Endpoint `POST /platform/ai-providers/{provider}/test`
-verifica las credenciales guardadas y devuelve `{ ok, message }`. En el panel hay un
-botón **"Probar conexión"** por proveedor, además de habilitar/deshabilitar, marcar
-por defecto y elegir modelo.
+verifica las credenciales guardadas y devuelve `{ ok, message }`.
+`POST /platform/ai-providers/{provider}/models` consulta los modelos disponibles para
+esas credenciales (`listModels`) y actualiza las listas de texto/imagen del panel. En el
+panel: habilitar/deshabilitar, marcar por defecto, elegir modelo, probar conexión y
+refrescar modelos.
+
+### Imágenes generadas
+Las imágenes de IA se guardan en la biblioteca de medios de la marca (respetando el
+límite de almacenamiento del plan) y se pueden adjuntar a cualquier variante.
 
 ### Brand Brain como contexto
 `BrandContextBuilder` compone voz/tono, propuestas de valor, CTA, hashtags,

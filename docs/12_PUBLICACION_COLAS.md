@@ -40,20 +40,32 @@ Un Content Item puede tener múltiples `PostVariant` y múltiples `PublicationTa
 ### Motor
 `App\Modules\Content\Services\PublishingService` ejecuta cada `PublicationTarget`
 de forma **independiente e idempotente**:
-- `publishTarget()` corta si el target ya está `PUBLISHED` o tiene `remote_id`
-  (idempotencia). Marca `PUBLISHING → PUBLISHED/FAILED`, registra cada intento en
-  `publication_attempts` y, si el proveedor falla, relanza la excepción para que el
-  job reintente.
+- `publishTarget($target, $finalAttempt)` corta si el target ya está `PUBLISHED` o tiene
+  `remote_id` (idempotencia), marca `PUBLISHING` y registra cada intento en
+  `publication_attempts`. Si el proveedor falla:
+  - con reintentos pendientes (`$finalAttempt = false`) guarda el error pero el target
+    **sigue `PUBLISHING`**: el contenido no se da por fallido mientras el reintento puede
+    resolverlo; relanza la excepción para que el job reintente;
+  - en el último intento marca `FAILED` y consolida.
+  - Token caducado/revocado: marca la conexión como expirada y falla sin reintentar
+    (hay que reconectar).
 - `rollup()` consolida el estado del `ContentItem` según sus targets:
-  `PUBLISHED` (todos), `FAILED` (ninguno) o `PARTIAL` (parcial).
+  `PUBLISHED` (todos), `FAILED` (ninguno) o `PARTIAL` (parcial). Es **idempotente**: si el
+  contenido ya tiene ese estado no vuelve a auditar ni a emitir eventos (el último
+  intento y `failed()` del job consolidan el mismo resultado). Emite `ContentPublished`
+  (published/partial) o `ContentPublicationFailed` (failed) para Automations y
+  Notifications.
 - `publishNow()` crea los targets faltantes en una transacción y despacha un job por target.
 - `dispatchDue()` despacha los targets `SCHEDULED` cuya fecha ya venció.
+- Al eliminar una marca (`BrandDeleted`) se cancelan sus targets pendientes y su
+  contenido programado.
 
 ### Job
 `App\Modules\Content\Jobs\PublishSocialPost`: `tries = 3`, `backoff = [10, 30, 60]`,
 middleware `WithoutOverlapping('publish-target-{id}')->dontRelease()` +
-`RateLimited('social-publish')` (60/min, ver `AppServiceProvider`). En `failed()`
-marca el target como `FAILED`.
+`RateLimited('social-publish')` (60/min, ver `AppServiceProvider`). Pasa
+`finalAttempt = attempts() >= tries` al servicio; en `failed()` marca el target como
+`FAILED` y consolida.
 
 ### Scheduler
 Comando `content:publish-due` (registrado en `ContentServiceProvider`) programado

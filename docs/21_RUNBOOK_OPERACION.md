@@ -110,20 +110,39 @@ docker run -d --name loop7-web -p 8080:8080 --env-file .env.production \
 - Health check integrado en `GET /up`.
 - Recuerda `APP_KEY`, `TRUSTED_PROXIES` y las variables de `[PROD]` del `.env`.
 
-**Worker y scheduler** (misma imagen, distinto comando):
+**Worker y scheduler** (misma imagen, distinto comando). El worker debe escuchar
+**todas** las colas; si sólo escucha `default`, las publicaciones nunca salen:
 ```bash
 docker run -d --name loop7-worker --env-file .env.production \
-  --entrypoint php ghcr.io/israelgutierrezm/loop7:latest artisan queue:work --queue=default
+  --entrypoint php ghcr.io/israelgutierrezm/loop7:latest artisan queue:work \
+  --queue=publishing,default,inbox,analytics,automations --sleep=2 --tries=3 --max-time=3600
 
 docker run -d --name loop7-scheduler --env-file .env.production \
   --entrypoint php ghcr.io/israelgutierrezm/loop7:latest artisan schedule:work
 ```
-En Linux se puede usar Redis + Horizon (`artisan horizon`) en un contenedor
-dedicado. Trabajos fallidos operables desde `/platform/jobs`.
+Trabajos fallidos operables desde `/platform/jobs`.
 
 ## Colas y jobs en producción
-Redis + Horizon (`php artisan horizon`, protegido tras auth/SUPERADMIN) y
-`php artisan schedule:run` por cron. Trabajos fallidos operables desde `/platform/jobs`.
+Redis (`QUEUE_CONNECTION=redis`; la imagen incluye phpredis) con uno o más workers
+`queue:work` como el de arriba, y el scheduler (`schedule:work` o
+`php artisan schedule:run` por cron cada minuto).
+
+| Cola | Qué procesa |
+|---|---|
+| `publishing` | Publicación de cada target en su red (3 intentos: 10 s, 30 s, 60 s) |
+| `default` | Webhooks de pago, correos y avisos |
+| `inbox` | Sincronización de conversaciones |
+| `analytics` | Métricas de cuentas y publicaciones |
+| `automations` | Ejecución de reglas |
+
+| Tarea programada | Frecuencia |
+|---|---|
+| `content:publish-due` | Cada minuto |
+| `billing:sync-subscriptions` (aviso de fin de prueba, vencimientos, gracia, suspensión) | Cada hora |
+| `social:refresh-tokens` | Cada hora |
+| `inbox:sync-due` | Cada 15 minutos |
+| `analytics:sync-due` | Diaria, 05:00 |
+| `notifications:prune` (leídos > 90 días, no leídos > 180) | Diaria, 03:30 |
 
 ## Notas de cumplimiento del checklist
 - Tokens OAuth, credenciales e IA (BYOK) cifrados at-rest (`encrypted`/`encrypted:array`).

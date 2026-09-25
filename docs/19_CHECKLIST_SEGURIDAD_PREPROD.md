@@ -18,16 +18,17 @@ Ver runbook: [21_RUNBOOK_OPERACION.md](21_RUNBOOK_OPERACION.md).
 - [x] ✅ tokens OAuth cifrados (`encrypted` at-rest)
 - [x] ✅ API keys cifradas — sólo hash SHA-256 en BD
 - [x] ✅ logs sin secretos — `AuditLogger` redacta claves sensibles (test)
-- [x] ✅ webhooks firmados/verificados — Stripe verifica HMAC; salientes vía Automations
-- [x] ✅ idempotencia — publicación, webhooks de pago, créditos IA
+- [x] ✅ webhooks firmados/verificados — Stripe (HMAC), Mercado Pago (x-signature + consulta a la API), Openpay (Basic auth)
+- [x] ✅ webhooks salientes sin SSRF — `OutboundUrl` (sólo IPs públicas, IP fijada, sin redirecciones)
+- [x] ✅ idempotencia — publicación (consolidación idempotente), webhooks de pago, créditos IA
 - [x] ✅ tests IDOR/tenant isolation — en cada módulo
+- [x] ✅ Brand Access — recursos hijos verifican acceso a su marca (`BrandAccessTest`)
 - [x] ✅ dependency audit Composer/NPM — pasos en CI
 - [x] ✅ SAST/linters en CI — Pint + PHPStan (nivel 5) + tests
-- [x] ✅ upload validation — MIME/tamaño/límite de plan (MediaLibrary)
-- [x] ✅ URLs firmadas para privados — MediaService (URL temporal)
-- [ ] ⚙️ Horizon protegido (auth/SUPERADMIN en producción)
+- [x] ✅ upload validation — MIME real/tamaño/límite de plan (MediaLibrary; logos de marca blanca sin SVG)
+- [x] ✅ URLs firmadas para privados — MediaService y logos de marca blanca (URL temporal)
 - [ ] ⚙️ SUPERADMIN con MFA obligatorio (recomendado activar antes de prod)
-- [x] ✅ impersonación auditada
+- [x] ✅ impersonación auditada, con caducidad (60 min), acciones críticas bloqueadas e `impersonated_by` en la auditoría
 - [ ] ⚙️ secret rotation procedure — documentado (runbook)
 - [ ] ⚙️ incident response básico — documentado (runbook)
 - [x] ✅ revisión permisos OAuth mínimos — `defaultScopes` por proveedor

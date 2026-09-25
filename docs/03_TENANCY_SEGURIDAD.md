@@ -10,6 +10,29 @@
 - Tests explícitos de acceso cruzado Organization A -> recurso Organization B = 404/403.
 - Evitar identificadores secuenciales expuestos cuando aporte seguridad adicional; usar UUID/ULID públicos.
 
+## Brand Access (dentro de la Organization)
+Un miembro accede a todas las Brands (`all_brands_access`) o sólo a las asignadas
+(`brand_user_access`). La regla vive en un único servicio, `BrandAccess`, que usan la
+`BrandPolicy`, el middleware de tenant, el contexto del SPA y las consultas agregadas.
+
+- Rutas por Brand: `ResolvesBrand::resolveBrand()` (policy `view`).
+- Recursos hijos resueltos por `public_id` (contenido, variantes, flujo de aprobación,
+  campañas, conversaciones del inbox, automatizaciones de una marca):
+  `ResolvesBrand::authorizeBrand($recurso->brand)`. Sin esto, un miembro limitado a una
+  marca podía operar recursos de otra conociendo su id.
+- Listados y agregados (automatizaciones, dashboard): `BrandAccess::restrictedBrandIds()`.
+- Destinatarios de avisos y personas asignables: `MembershipService::membersWithPermission()`
+  (permiso + membresía activa + acceso a la Brand).
+- Tests: `tests/Feature/Tenancy/BrandAccessTest.php`.
+
+## Salidas hacia URLs de clientes (anti-SSRF)
+Cualquier URL que configure un cliente y que el servidor vaya a llamar (webhooks de
+automatizaciones) pasa por `App\Support\Security\OutboundUrl`: sólo http(s), sin
+credenciales embebidas, sin hosts internos y resolviendo a IPs públicas (se rechazan
+privadas, reservadas, loopback, link-local/metadatos y CGNAT). Se valida al guardar y al
+ejecutar, la conexión se fija a la IP validada (evita DNS rebinding) y no se siguen
+redirecciones.
+
 ## OAuth social
 - Nunca solicitar contraseña social.
 - Authorization Code Flow y PKCE cuando el proveedor lo soporte.
