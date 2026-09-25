@@ -62,10 +62,21 @@ de forma **independiente e idempotente**:
 
 ### Job
 `App\Modules\Content\Jobs\PublishSocialPost`: `tries = 3`, `backoff = [10, 30, 60]`,
-middleware `WithoutOverlapping('publish-target-{id}')->dontRelease()` +
+`timeout = 300`, middleware `WithoutOverlapping('publish-target-{id}')->dontRelease()` +
 `RateLimited('social-publish')` (60/min, ver `AppServiceProvider`). Pasa
 `finalAttempt = attempts() >= tries` al servicio; en `failed()` marca el target como
 `FAILED` y consolida.
+
+El timeout cubre la espera al procesamiento de videos de Instagram: hasta 40 consultas
+de estado cada 3 s (2 min) por publicación, compartidas por todos sus contenedores (en un
+carrusel se crean primero todos los hijos y Meta los procesa en paralelo). Por eso
+`retry_after` de las colas `database` y `redis` es 330 s (`DB_QUEUE_RETRY_AFTER` /
+`REDIS_QUEUE_RETRY_AFTER`): siempre mayor que el timeout más largo, o un segundo worker
+retomaría un trabajo que sigue en curso.
+
+Los errores guardados en el target y en `publication_attempts` pasan por
+`SecretRedactor`, y `MetaGraph` nunca propaga el mensaje de cURL de un fallo de red
+(incluye la URL con el token).
 
 ### Scheduler
 Comando `content:publish-due` (registrado en `ContentServiceProvider`) programado
@@ -78,12 +89,17 @@ Sólo permite publicar contenido en estado `APPROVED` o `SCHEDULED`.
 ### Proveedores
 `SocialProviderInterface::publish(OAuthTokens, destinationExternalId, PublishPayload, credentials): PublishResult`.
 El proveedor `fake` publica de forma idempotente (hash de `idempotencyKey`) y simula
-fallos si el cuerpo contiene `[[FAIL]]`; `FacebookProvider::publish()` lanza
-`ProviderNotConfiguredException` hasta contar con Page Token + App Review.
+fallos si el cuerpo contiene `[[FAIL]]`. `FacebookProvider` (Páginas) e
+`InstagramProvider` (cuentas profesionales vinculadas a una Página) publican contra Graph
+API con el page token del destino; requieren las credenciales de la app de Meta
+(SUPERADMIN → Redes sociales) y, para clientes reales, App Review.
 
 ### Operación
-- **Producción / Linux:** Redis + Horizon (`php artisan horizon`) + `php artisan schedule:run` por cron.
+- **Producción / Linux:** Redis, el contenedor `worker` (`queue:work
+  --queue=publishing,default,inbox,analytics,automations`, necesita `ext-pcntl` para
+  hacer cumplir los timeouts) y el `scheduler` (`schedule:work`). Ver
+  [21_RUNBOOK_OPERACION.md](21_RUNBOOK_OPERACION.md).
 - **Desarrollo / Windows:** driver `database` con `php artisan queue:work` y
-  `php artisan schedule:work`. Horizon requiere `ext-pcntl` (no disponible en Windows).
-- **Fallos:** panel SUPERADMIN en `/platform/jobs` (reintentar / descartar) — cross-platform.
-  Ver [09_SUPERADMIN.md](09_SUPERADMIN.md).
+  `php artisan schedule:work` (sin `pcntl` los timeouts no se aplican).
+- **Fallos:** panel SUPERADMIN en `/platform/jobs` (pendientes por cola; reintentar o
+  descartar uno a uno o todos). Ver [09_SUPERADMIN.md](09_SUPERADMIN.md).

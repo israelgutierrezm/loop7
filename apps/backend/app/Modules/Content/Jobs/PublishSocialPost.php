@@ -32,7 +32,11 @@ class PublishSocialPost implements ShouldQueue
 
     public int $tries = 3;
 
-    public int $timeout = 60;
+    /**
+     * Cabe la espera al procesamiento de videos de Instagram (hasta 2 min) más las
+     * llamadas a la red. `retry_after` de la cola debe ser mayor (config/queue.php).
+     */
+    public int $timeout = 300;
 
     public function __construct(public readonly int $targetId)
     {

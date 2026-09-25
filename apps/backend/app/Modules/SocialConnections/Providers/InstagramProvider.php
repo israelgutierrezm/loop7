@@ -32,8 +32,12 @@ class InstagramProvider extends AbstractMetaProvider
     /** Máximo de elementos de un carrusel de Instagram. */
     private const CAROUSEL_MAX = 10;
 
-    /** Espera máxima al procesamiento de un video: intentos × segundos. */
-    private const STATUS_ATTEMPTS = 20;
+    /**
+     * Espera máxima al procesamiento de los videos de UNA publicación (consultas ×
+     * segundos = 2 min), compartida por todos sus contenedores. Debe caber holgada
+     * en el timeout de PublishSocialPost.
+     */
+    public const STATUS_CHECKS = 40;
     private const STATUS_INTERVAL_SECONDS = 3;
 
     public function key(): string
@@ -116,24 +120,31 @@ class InstagramProvider extends AbstractMetaProvider
         $token = $this->destinationToken($tokens);
         $account = $destinationExternalId;
         $urls = array_slice($payload->mediaUrls, 0, self::CAROUSEL_MAX);
+        $checksLeft = self::STATUS_CHECKS;
 
         if (count($urls) === 1) {
             $container = $this->createContainer($graph, $account, $token, $payload->isVideo(0)
                 ? ['media_type' => 'REELS', 'video_url' => $urls[0], 'caption' => $payload->body]
                 : ['image_url' => $urls[0], 'caption' => $payload->body]);
             if ($payload->isVideo(0)) {
-                $this->waitUntilReady($graph, $container, $token);
+                $this->waitUntilReady($graph, $container, $token, $checksLeft);
             }
         } else {
+            // Primero se crean todos los hijos: Meta procesa los videos en paralelo
+            // y la espera total es la del más lento, no la suma.
             $children = [];
+            $videos = [];
             foreach ($urls as $i => $url) {
                 $child = $this->createContainer($graph, $account, $token, $payload->isVideo($i)
                     ? ['media_type' => 'VIDEO', 'video_url' => $url, 'is_carousel_item' => 'true']
                     : ['image_url' => $url, 'is_carousel_item' => 'true']);
-                if ($payload->isVideo($i)) {
-                    $this->waitUntilReady($graph, $child, $token);
-                }
                 $children[] = $child;
+                if ($payload->isVideo($i)) {
+                    $videos[] = $child;
+                }
+            }
+            foreach ($videos as $video) {
+                $this->waitUntilReady($graph, $video, $token, $checksLeft);
             }
 
             $container = $this->createContainer($graph, $account, $token, [
@@ -141,7 +152,7 @@ class InstagramProvider extends AbstractMetaProvider
                 'children' => implode(',', $children),
                 'caption' => $payload->body,
             ]);
-            $this->waitUntilReady($graph, $container, $token);
+            $this->waitUntilReady($graph, $container, $token, $checksLeft);
         }
 
         $media = $graph->post($account . '/media_publish', [
@@ -278,11 +289,13 @@ class InstagramProvider extends AbstractMetaProvider
 
     /**
      * Los videos se procesan de forma asíncrona: se consulta `status_code` hasta
-     * FINISHED. Si no termina a tiempo, el job de publicación reintentará.
+     * FINISHED, consumiendo el presupuesto de consultas de la publicación. Si se
+     * agota, el job de publicación reintentará.
      */
-    private function waitUntilReady(MetaGraph $graph, string $container, string $token): void
+    private function waitUntilReady(MetaGraph $graph, string $container, string $token, int &$checksLeft): void
     {
-        for ($attempt = 1; $attempt <= self::STATUS_ATTEMPTS; $attempt++) {
+        while ($checksLeft > 0) {
+            $checksLeft--;
             $status = $graph->get($container, [
                 'fields' => 'status_code,status',
                 'access_token' => $token,
@@ -298,7 +311,9 @@ class InstagramProvider extends AbstractMetaProvider
                 );
             }
 
-            Sleep::for(self::STATUS_INTERVAL_SECONDS)->seconds();
+            if ($checksLeft > 0) {
+                Sleep::for(self::STATUS_INTERVAL_SECONDS)->seconds();
+            }
         }
 
         throw new SocialProviderException('Instagram sigue procesando el video; se reintentará la publicación.');

@@ -144,6 +144,63 @@ class InstagramProviderTest extends TestCase
         Http::assertSent(fn (Request $r) => str_ends_with($r->url(), '/IG1/media_publish') && $r['creation_id'] === 'C4');
     }
 
+    public function test_carrusel_con_videos_se_procesa_en_paralelo(): void
+    {
+        $sequence = [];
+        $container = 0;
+        Http::fake(function (Request $r) use (&$sequence, &$container) {
+            $u = $r->url();
+            if (str_ends_with($u, '/IG1/media')) {
+                $container++;
+                $sequence[] = 'crear';
+
+                return Http::response(['id' => 'C' . $container]);
+            }
+            if (str_contains($u, 'status_code')) {
+                $sequence[] = 'estado';
+
+                return Http::response(['status_code' => 'FINISHED']);
+            }
+            if (str_ends_with($u, '/IG1/media_publish')) {
+                return Http::response(['id' => 'MEDIA_MIX']);
+            }
+
+            return Http::response(['permalink' => 'https://www.instagram.com/p/mix/']);
+        });
+
+        $payload = new PublishPayload(
+            'Mixto',
+            ['https://cdn.test/1.mp4', 'https://cdn.test/2.jpg', 'https://cdn.test/3.mp4'],
+            mediaTypes: ['video', 'image', 'video'],
+        );
+        $this->provider()->publish($this->tokens(), 'IG1', $payload, self::CREDENTIALS);
+
+        // Los tres hijos se crean antes de consultar el estado de ningún video.
+        $this->assertSame(['crear', 'crear', 'crear', 'estado', 'estado', 'crear', 'estado'], $sequence);
+    }
+
+    public function test_video_que_no_termina_agota_la_espera_y_se_reintentara(): void
+    {
+        Http::fake(function (Request $r) {
+            if (str_ends_with($r->url(), '/IG1/media')) {
+                return Http::response(['id' => 'SLOW']);
+            }
+
+            return Http::response(['status_code' => 'IN_PROGRESS']);
+        });
+
+        try {
+            $payload = new PublishPayload('x', ['https://cdn.test/v.mp4'], mediaTypes: ['video']);
+            $this->provider()->publish($this->tokens(), 'IG1', $payload, self::CREDENTIALS);
+            $this->fail('Se esperaba SocialProviderException.');
+        } catch (SocialProviderException $e) {
+            $this->assertStringContainsString('sigue procesando', $e->getMessage());
+        }
+
+        Http::assertSentCount(1 + InstagramProvider::STATUS_CHECKS);
+        Sleep::assertSleptTimes(InstagramProvider::STATUS_CHECKS - 1);
+    }
+
     public function test_sin_imagen_ni_video_no_publica(): void
     {
         Http::fake();
