@@ -21,20 +21,20 @@ class PlatformOrganizationsController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $query = Organization::query()->withCount(['users', 'brands'])->latest();
+        $query = Organization::query()->withCount(['users', 'brands'])->latest()->latest('id');
 
         if ($request->filled('q')) {
-            $term = $request->string('q')->toString();
-            $query->where(fn ($q) => $q->where('name', 'like', "%{$term}%")
-                ->orWhere('slug', 'like', "%{$term}%")
-                ->orWhere('billing_email', 'like', "%{$term}%"));
+            $term = '%' . addcslashes($request->string('q')->trim()->toString(), '%_\\') . '%';
+            $query->where(fn ($q) => $q->where('name', 'like', $term)
+                ->orWhere('slug', 'like', $term)
+                ->orWhere('billing_email', 'like', $term));
         }
 
         if ($request->filled('status')) {
             $query->where('status', $request->string('status')->toString());
         }
 
-        $organizations = $query->paginate((int) $request->integer('per_page', 20))
+        $organizations = $query->paginate(min(100, max(1, (int) $request->integer('per_page', 20))))
             ->through(fn (Organization $o) => $this->present($o));
 
         return ApiResponse::paginated($organizations);

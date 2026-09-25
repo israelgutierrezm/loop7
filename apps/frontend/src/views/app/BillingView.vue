@@ -67,6 +67,9 @@ const addOns = ref<AddOnDto[]>([])
 const plans = ref<PlanDto[]>([])
 const gateways = ref<Gateway[]>([])
 const invoices = ref<InvoiceDto[]>([])
+const invoicePage = ref(1)
+const invoiceLastPage = ref(1)
+const loadingMoreInvoices = ref(false)
 
 const interval = ref<'month' | 'year'>('month')
 const gatewayKey = ref('')
@@ -148,6 +151,8 @@ async function load(): Promise<void> {
     plans.value = pl.data.data
     gateways.value = gw.data.data
     invoices.value = inv.data.data
+    invoicePage.value = 1
+    invoiceLastPage.value = inv.data.meta?.last_page ?? 1
     if (!gateways.value.some((g) => g.key === gatewayKey.value)) {
       gatewayKey.value = gateways.value.find((g) => !g.is_offline)?.key ?? gateways.value[0]?.key ?? ''
     }
@@ -156,6 +161,22 @@ async function load(): Promise<void> {
     failed.value = true
   } finally {
     loading.value = false
+  }
+}
+
+async function loadMoreInvoices(): Promise<void> {
+  if (loadingMoreInvoices.value || invoicePage.value >= invoiceLastPage.value) return
+  loadingMoreInvoices.value = true
+  try {
+    const { data } = await http.get('/billing/invoices', { params: { per_page: 20, page: invoicePage.value + 1 } })
+    const known = new Set(invoices.value.map((i) => i.id))
+    invoices.value.push(...(data.data as InvoiceDto[]).filter((i) => !known.has(i.id)))
+    invoicePage.value += 1
+    invoiceLastPage.value = data.meta?.last_page ?? invoicePage.value
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    loadingMoreInvoices.value = false
   }
 }
 
@@ -459,6 +480,11 @@ onMounted(() => {
               </tr>
             </tbody>
           </table>
+        </div>
+        <div v-if="invoicePage < invoiceLastPage" class="border-t border-slate-100 p-3 text-center dark:border-slate-800">
+          <button type="button" class="btn-ghost text-xs" :disabled="loadingMoreInvoices" @click="loadMoreInvoices">
+            {{ loadingMoreInvoices ? 'Cargando…' : 'Ver facturas anteriores' }}
+          </button>
         </div>
       </section>
     </template>

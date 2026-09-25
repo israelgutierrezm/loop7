@@ -54,6 +54,9 @@ const mineOnly = ref(false)
 const conversations = ref<Conversation[]>([])
 const members = ref<Member[]>([])
 const loading = ref(false)
+const page = ref(1)
+const lastPage = ref(1)
+const loadingMore = ref(false)
 const syncing = ref(false)
 
 const active = ref<Thread | null>(null)
@@ -76,19 +79,41 @@ const statuses = [
 const typeLabels: Record<string, string> = { comment: 'Comentario', dm: 'Mensaje directo', mention: 'Mención' }
 const typeIcons: Record<string, string> = { comment: 'content', dm: 'inbox', mention: 'bell' }
 
+function listParams(p: number): Record<string, string | number> {
+  const params: Record<string, string | number> = { page: p }
+  if (statusFilter.value) params.status = statusFilter.value
+  if (mineOnly.value) params.assigned_to_me = 1
+  return params
+}
+
 async function loadList(): Promise<void> {
   if (!brandId.value) return
   loading.value = true
   try {
-    const params: Record<string, string | number> = {}
-    if (statusFilter.value) params.status = statusFilter.value
-    if (mineOnly.value) params.assigned_to_me = 1
-    const { data } = await http.get(`/brands/${brandId.value}/inbox`, { params })
+    const { data } = await http.get(`/brands/${brandId.value}/inbox`, { params: listParams(1) })
     conversations.value = data.data
+    page.value = 1
+    lastPage.value = data.meta?.last_page ?? 1
   } catch (e) {
     toasts.error(apiErrorMessage(e))
   } finally {
     loading.value = false
+  }
+}
+
+async function loadMore(): Promise<void> {
+  if (!brandId.value || loadingMore.value || page.value >= lastPage.value) return
+  loadingMore.value = true
+  try {
+    const { data } = await http.get(`/brands/${brandId.value}/inbox`, { params: listParams(page.value + 1) })
+    const known = new Set(conversations.value.map((c) => c.id))
+    conversations.value.push(...(data.data as Conversation[]).filter((c) => !known.has(c.id)))
+    page.value += 1
+    lastPage.value = data.meta?.last_page ?? page.value
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    loadingMore.value = false
   }
 }
 
@@ -336,6 +361,11 @@ onMounted(async () => {
                   >{{ t }}</span>
                 </span>
               </span>
+            </button>
+          </li>
+          <li v-if="page < lastPage" class="p-3 text-center">
+            <button type="button" class="btn-ghost text-xs" :disabled="loadingMore" @click="loadMore">
+              {{ loadingMore ? 'Cargando…' : 'Cargar más conversaciones' }}
             </button>
           </li>
         </ul>

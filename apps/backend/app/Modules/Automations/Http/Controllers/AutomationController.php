@@ -75,7 +75,8 @@ class AutomationController extends Controller
                 fn ($w) => $w->whereNull('brand_id')->orWhereIn('brand_id', $restricted ?? []),
             ))
             ->latest()
-            ->paginate((int) $request->integer('per_page', 30))
+            ->latest('id')
+            ->paginate(min(100, max(1, (int) $request->integer('per_page', 30))))
             ->through(fn (Automation $a) => $this->present($a));
 
         return ApiResponse::paginated($items);

@@ -16,9 +16,14 @@ import Spinner from '@/components/ui/Spinner.vue'
 const auth = useAuthStore()
 const toasts = useToastStore()
 
+const PER_PAGE = 24
+
 const brands = ref<Brand[]>([])
 const loading = ref(true)
 const failed = ref(false)
+const page = ref(1)
+const lastPage = ref(1)
+const loadingMore = ref(false)
 
 const showCreate = ref(false)
 const creating = ref(false)
@@ -29,12 +34,30 @@ async function load(): Promise<void> {
   loading.value = true
   failed.value = false
   try {
-    const { data } = await http.get('/brands')
+    const { data } = await http.get('/brands', { params: { per_page: PER_PAGE } })
     brands.value = data.data
+    page.value = 1
+    lastPage.value = data.meta?.last_page ?? 1
   } catch {
     failed.value = true
   } finally {
     loading.value = false
+  }
+}
+
+async function loadMore(): Promise<void> {
+  if (loadingMore.value || page.value >= lastPage.value) return
+  loadingMore.value = true
+  try {
+    const { data } = await http.get('/brands', { params: { per_page: PER_PAGE, page: page.value + 1 } })
+    const known = new Set(brands.value.map((b) => b.id))
+    brands.value.push(...(data.data as Brand[]).filter((b) => !known.has(b.id)))
+    page.value += 1
+    lastPage.value = data.meta?.last_page ?? page.value
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    loadingMore.value = false
   }
 }
 
@@ -116,6 +139,12 @@ onMounted(load)
           Abrir Brand Brain <AppIcon name="chevron-right" :size="14" />
         </p>
       </RouterLink>
+    </div>
+
+    <div v-if="!loading && !failed && page < lastPage" class="mt-6 flex justify-center">
+      <button type="button" class="btn-secondary" :disabled="loadingMore" @click="loadMore">
+        <Spinner v-if="loadingMore" :size="16" /> Cargar más marcas
+      </button>
     </div>
 
     <ModalDialog :open="showCreate" title="Nueva marca" @close="showCreate = false">

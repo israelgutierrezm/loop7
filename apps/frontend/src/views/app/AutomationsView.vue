@@ -44,7 +44,11 @@ const toasts = useToastStore()
 const confirmDialog = useConfirmStore()
 
 const meta = ref<Meta | null>(null)
+const PER_PAGE = 50
 const items = ref<Automation[]>([])
+const page = ref(1)
+const lastPage = ref(1)
+const loadingMore = ref(false)
 const loading = ref(true)
 const failed = ref(false)
 const saving = ref(false)
@@ -88,13 +92,34 @@ async function load(): Promise<void> {
   loading.value = true
   failed.value = false
   try {
-    const [metaRes, listRes] = await Promise.all([http.get('/automations/meta'), http.get('/automations')])
+    const [metaRes, listRes] = await Promise.all([
+      http.get('/automations/meta'),
+      http.get('/automations', { params: { per_page: PER_PAGE } }),
+    ])
     meta.value = metaRes.data.data
     items.value = listRes.data.data
+    page.value = 1
+    lastPage.value = listRes.data.meta?.last_page ?? 1
   } catch {
     failed.value = true
   } finally {
     loading.value = false
+  }
+}
+
+async function loadMore(): Promise<void> {
+  if (loadingMore.value || page.value >= lastPage.value) return
+  loadingMore.value = true
+  try {
+    const { data } = await http.get('/automations', { params: { per_page: PER_PAGE, page: page.value + 1 } })
+    const known = new Set(items.value.map((a) => a.id))
+    items.value.push(...(data.data as Automation[]).filter((a) => !known.has(a.id)))
+    page.value += 1
+    lastPage.value = data.meta?.last_page ?? page.value
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    loadingMore.value = false
   }
 }
 
@@ -239,8 +264,15 @@ onMounted(load)
             {{ a.is_enabled ? 'Activa' : 'Pausada' }}
           </label>
           <button class="btn-secondary text-xs" @click="openEdit(a)">Editar</button>
-          <button class="btn-ghost text-xs text-rose-600" @click="remove(a)"><AppIcon name="close" :size="14" /></button>
+          <button class="btn-ghost text-xs text-rose-600" :aria-label="`Eliminar ${a.name}`" :title="`Eliminar ${a.name}`" @click="remove(a)">
+            <AppIcon name="close" :size="14" />
+          </button>
         </div>
+      </div>
+      <div v-if="page < lastPage" class="flex justify-center pt-2">
+        <button type="button" class="btn-secondary text-sm" :disabled="loadingMore" @click="loadMore">
+          {{ loadingMore ? 'Cargando…' : 'Cargar más automatizaciones' }}
+        </button>
       </div>
     </div>
 

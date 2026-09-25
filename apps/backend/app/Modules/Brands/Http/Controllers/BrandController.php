@@ -45,8 +45,8 @@ class BrandController extends Controller
             ? Brand::query()
             : Brand::query()->whereIn('id', $user->accessibleBrands()->select('brands.id'));
 
-        $brands = $query->with('logo')->orderBy('name')
-            ->paginate((int) $request->integer('per_page', 20))
+        $brands = $query->with('logo')->orderBy('name')->orderBy('id')
+            ->paginate(min(100, max(1, (int) $request->integer('per_page', 20))))
             ->through(fn (Brand $b) => new BrandResource($b));
 
         return ApiResponse::paginated($brands);

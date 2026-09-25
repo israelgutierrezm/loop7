@@ -54,7 +54,8 @@ class InboxController extends Controller
         $query = InboxConversation::query()
             ->where('brand_id', $brandModel->id)
             ->with('assignee:id,public_id,name')
-            ->orderByDesc('last_message_at');
+            ->orderByDesc('last_message_at')
+            ->orderByDesc('id');
 
         if ($request->filled('status')) {
             $query->where('status', $request->string('status')->toString());
@@ -63,7 +64,7 @@ class InboxController extends Controller
             $query->where('assigned_to_user_id', $request->user()->id);
         }
 
-        $items = $query->paginate((int) $request->integer('per_page', 30))
+        $items = $query->paginate(min(100, max(1, (int) $request->integer('per_page', 30))))
             ->through(fn (InboxConversation $c) => $this->presentConversation($c));
 
         return ApiResponse::paginated($items);
