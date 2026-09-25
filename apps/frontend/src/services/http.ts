@@ -19,6 +19,7 @@ const http: AxiosInstance = axios.create({
 let currentOrganizationId: string | null = null
 let currentBrandId: string | null = null
 let onUnauthorized: (() => void) | null = null
+let onImpersonationExpired: (() => void) | null = null
 
 export function setTenantHeaders(organizationId: string | null, brandId: string | null = null): void {
   currentOrganizationId = organizationId
@@ -27,6 +28,11 @@ export function setTenantHeaders(organizationId: string | null, brandId: string 
 
 export function setUnauthorizedHandler(handler: () => void): void {
   onUnauthorized = handler
+}
+
+/** La impersonación caducó: la sesión ya volvió al administrador. */
+export function setImpersonationExpiredHandler(handler: () => void): void {
+  onImpersonationExpired = handler
 }
 
 http.interceptors.request.use((config) => {
@@ -43,9 +49,12 @@ http.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error?.response?.status
-    // 401 en cualquier endpoint distinto del login implica sesión expirada.
+    const code = error?.response?.data?.code
     const url: string = error?.config?.url ?? ''
-    if (status === 401 && !url.includes('/auth/login') && onUnauthorized) {
+    if (status === 401 && code === 'impersonation_expired' && onImpersonationExpired) {
+      onImpersonationExpired()
+    } else if (status === 401 && !url.includes('/auth/login') && onUnauthorized) {
+      // 401 en cualquier endpoint distinto del login implica sesión expirada.
       onUnauthorized()
     }
     return Promise.reject(error)

@@ -10,13 +10,14 @@ use App\Modules\Audit\Enums\AuditAction;
 use App\Modules\Audit\Services\AuditLogger;
 use App\Modules\Identity\Http\Resources\UserResource;
 use App\Support\Http\ApiResponse;
+use App\Support\Security\ImpersonationSession;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 
 /**
- * Impersonación auditada por SUPERADMIN. No revela secretos y puede finalizarse
- * en cualquier momento. La impersonación de otros administradores está vetada.
+ * Impersonación auditada por SUPERADMIN. No revela secretos, caduca a los 60
+ * minutos (GuardImpersonation) y puede finalizarse en cualquier momento. La
+ * impersonación de otros administradores está vetada.
  */
 class ImpersonationController extends Controller
 {
@@ -33,14 +34,11 @@ class ImpersonationController extends Controller
             return ApiResponse::error('No se puede impersonar a otro administrador de plataforma.', 'forbidden', status: 403);
         }
 
-        $request->session()->put('impersonator_id', $admin->id);
-        Auth::guard('web')->login($target);
-        if ($request->hasSession()) {
-            $request->session()->regenerate();
-        }
+        ImpersonationSession::begin($request, $admin, $target);
 
         $this->audit->log(AuditAction::SUPERADMIN_IMPERSONATION_STARTED, $target, [
             'impersonator' => $admin->public_id,
+            'expires_in_minutes' => ImpersonationSession::TTL_MINUTES,
         ], actor: $admin);
 
         return ApiResponse::success(new UserResource($target), 'Estás impersonando a este usuario.');
@@ -48,17 +46,12 @@ class ImpersonationController extends Controller
 
     public function stop(Request $request): JsonResponse
     {
-        $impersonatorId = $request->session()->pull('impersonator_id');
-
-        if ($impersonatorId === null) {
+        if (! ImpersonationSession::active($request)) {
             return ApiResponse::error('No hay una sesión de impersonación activa.', 'no_impersonation', status: 409);
         }
 
-        $admin = User::query()->findOrFail($impersonatorId);
-        Auth::guard('web')->login($admin);
-        if ($request->hasSession()) {
-            $request->session()->regenerate();
-        }
+        $admin = ImpersonationSession::end($request);
+        abort_if($admin === null, 409, 'El administrador que inició la impersonación ya no existe.');
 
         $this->audit->log(AuditAction::SUPERADMIN_IMPERSONATION_ENDED, actor: $admin);
 

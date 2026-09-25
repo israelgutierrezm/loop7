@@ -8,6 +8,7 @@ use App\Modules\Api\Http\Middleware\AuthenticateApiKey;
 use App\Modules\Api\Http\Middleware\EnsureApiScope;
 use App\Modules\Identity\Http\Middleware\EnsureSuperAdmin;
 use App\Modules\Organizations\Http\Middleware\ResolveTenant;
+use App\Modules\PlatformAdmin\Http\Middleware\GuardImpersonation;
 use App\Support\Http\ApiResponse;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
@@ -38,6 +39,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // Correlation id (entrada) y cabeceras de seguridad (salida) en todas las rutas.
         $middleware->prepend(RequestId::class);
         $middleware->append(SecurityHeaders::class);
+
+        // Impersonación de SUPERADMIN: caducidad y acciones bloqueadas (tras iniciar la sesión SPA).
+        $middleware->appendToGroup('api', GuardImpersonation::class);
 
         // Detrás de un proxy/balanceador con TLS: confiar para detectar HTTPS
         // (necesario para HSTS, cookies Secure y URLs https). Se lee de env porque

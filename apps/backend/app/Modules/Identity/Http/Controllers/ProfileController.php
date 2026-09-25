@@ -11,6 +11,7 @@ use App\Modules\Identity\Http\Resources\UserResource;
 use App\Modules\Organizations\Http\Resources\OrganizationResource;
 use App\Modules\Organizations\Services\MembershipService;
 use App\Support\Http\ApiResponse;
+use App\Support\Security\ImpersonationSession;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -32,8 +33,8 @@ class ProfileController extends Controller
             'organizations' => $organizations
                 ->map(fn ($org) => (new OrganizationResource($org))->toArray($request))
                 ->all(),
-            'impersonation' => $request->session()->has('impersonator_id')
-                ? ['active' => true]
+            'impersonation' => ImpersonationSession::active($request)
+                ? ['active' => true, 'expires_in_minutes' => ImpersonationSession::TTL_MINUTES]
                 : null,
         ]);
     }

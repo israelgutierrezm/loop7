@@ -95,7 +95,7 @@ async function stopImpersonation(): Promise<void> {
       >
         <span class="flex items-center gap-2">
           <AppIcon name="shield" :size="16" />
-          Estás impersonando a un usuario.
+          Estás impersonando a {{ auth.user?.name ?? 'un usuario' }}. Caduca a los 60 minutos; contraseña, MFA, pagos y claves están bloqueados.
         </span>
         <button class="rounded-md bg-amber-950/10 px-2.5 py-1 font-semibold hover:bg-amber-950/20" @click="stopImpersonation">
           Finalizar

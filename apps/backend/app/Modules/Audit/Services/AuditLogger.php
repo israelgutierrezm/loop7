@@ -6,6 +6,7 @@ namespace App\Modules\Audit\Services;
 
 use App\Models\User;
 use App\Modules\Audit\Models\AuditLog;
+use App\Support\Security\ImpersonationSession;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
@@ -43,6 +44,13 @@ class AuditLogger
     ): AuditLog {
         $request = request();
         $actor ??= Auth::user();
+        $properties = $this->sanitize($properties);
+
+        // Durante una impersonación, queda constancia del administrador que actúa.
+        $impersonatorId = ImpersonationSession::impersonatorId($request);
+        if ($impersonatorId !== null && $impersonatorId !== $actor?->id) {
+            $properties['impersonated_by'] = User::query()->whereKey($impersonatorId)->value('public_id');
+        }
 
         return AuditLog::create([
             'organization_id' => $organizationId ?? $this->tenant->organizationId(),
@@ -51,7 +59,7 @@ class AuditLogger
             'auditable_type' => $auditable?->getMorphClass(),
             'auditable_id' => $auditable?->getKey(),
             'description' => $description,
-            'properties' => $this->sanitize($properties),
+            'properties' => $properties,
             'ip_address' => $request->ip(),
             'user_agent' => mb_substr((string) $request->userAgent(), 0, 1000),
         ]);
