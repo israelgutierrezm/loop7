@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Modules\Audit\Enums\AuditAction;
 use App\Modules\Audit\Services\AuditLogger;
 use App\Modules\Brands\Http\Concerns\ResolvesBrand;
+use App\Modules\Campaigns\Enums\CampaignStatus;
 use App\Modules\Campaigns\Models\Campaign;
 use App\Support\Http\ApiResponse;
 use Illuminate\Http\JsonResponse;
@@ -29,6 +30,8 @@ class CampaignController extends Controller
 
         $campaigns = Campaign::query()
             ->where('brand_id', $brandModel->id)
+            ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')->toString()))
+            ->withCount('contentItems')
             ->latest()
             ->get()
             ->map(fn (Campaign $c) => $this->present($c))
@@ -51,7 +54,7 @@ class CampaignController extends Controller
 
         $this->audit->log(AuditAction::CAMPAIGN_CREATED, $campaign, ['name' => $campaign->name]);
 
-        return ApiResponse::success($this->present($campaign), 'Campaña creada.', status: 201);
+        return ApiResponse::success($this->present($campaign->loadCount('contentItems')), 'Campaña creada.', status: 201);
     }
 
     public function update(Request $request, string $campaign): JsonResponse
@@ -59,9 +62,11 @@ class CampaignController extends Controller
         $model = $this->resolve($campaign);
         abort_unless($request->user()->can('campaigns.update'), 403);
 
-        $model->update($this->validateData($request, false));
+        $data = $this->validateData($request, false);
+        $model->update($data);
+        $this->audit->log(AuditAction::CAMPAIGN_UPDATED, $model, ['changes' => array_keys($data)]);
 
-        return ApiResponse::success($this->present($model), 'Campaña actualizada.');
+        return ApiResponse::success($this->present($model->loadCount('contentItems')), 'Campaña actualizada.');
     }
 
     public function destroy(Request $request, string $campaign): JsonResponse
@@ -69,9 +74,10 @@ class CampaignController extends Controller
         $model = $this->resolve($campaign);
         abort_unless($request->user()->can('campaigns.delete'), 403);
 
+        $this->audit->log(AuditAction::CAMPAIGN_DELETED, $model, ['name' => $model->name]);
         $model->delete();
 
-        return ApiResponse::message('Campaña eliminada.');
+        return ApiResponse::message('Campaña eliminada. Su contenido se conserva, sin campaña.');
     }
 
     /**
@@ -81,11 +87,11 @@ class CampaignController extends Controller
     {
         return $request->validate([
             'name' => [$creating ? 'required' : 'sometimes', 'string', 'max:255'],
-            'description' => ['nullable', 'string', 'max:2000'],
-            'objective' => ['nullable', 'string', 'max:255'],
-            'status' => ['sometimes', Rule::in(['draft', 'active', 'completed', 'archived'])],
-            'starts_at' => ['nullable', 'date'],
-            'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
+            'description' => ['sometimes', 'nullable', 'string', 'max:2000'],
+            'objective' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'status' => ['sometimes', Rule::in(CampaignStatus::values())],
+            'starts_at' => ['sometimes', 'nullable', 'date'],
+            'ends_at' => ['sometimes', 'nullable', 'date', 'after_or_equal:starts_at'],
         ]);
     }
 
@@ -108,8 +114,10 @@ class CampaignController extends Controller
             'description' => $campaign->description,
             'objective' => $campaign->objective,
             'status' => $campaign->status->value,
+            'status_label' => $campaign->status->label(),
             'starts_at' => $campaign->starts_at?->toIso8601String(),
             'ends_at' => $campaign->ends_at?->toIso8601String(),
+            'content_count' => (int) ($campaign->content_items_count ?? 0),
         ];
     }
 }

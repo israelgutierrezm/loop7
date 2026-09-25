@@ -67,9 +67,9 @@ const kpis = computed(() => {
   if (!c) return []
   return [
     { label: 'Programadas (7 días)', value: c.scheduled_next_7_days, icon: 'calendar', to: '/app/calendar', hint: `${c.ready} aprobada(s) sin programar` },
-    { label: 'Pendientes de aprobación', value: c.in_review, icon: 'check', to: '/app/content', hint: auth.can('content.approve') ? 'Te toca revisarlas' : 'En revisión' },
+    { label: 'Pendientes de aprobación', value: c.in_review, icon: 'check', to: '/app/content?status=in_review', hint: auth.can('content.approve') ? 'Te toca revisarlas' : 'En revisión' },
     { label: 'Publicadas (7 días)', value: c.published_7_days, icon: 'social', to: '/app/analytics', hint: 'Publicaciones por red' },
-    { label: 'Con errores (7 días)', value: c.failed_7_days, icon: 'alert', to: '/app/content', hint: c.failed_7_days ? 'Revisa y vuelve a intentar' : 'Todo en orden' },
+    { label: 'Con errores (7 días)', value: c.failed_7_days, icon: 'alert', to: '/app/content?status=failed', hint: c.failed_7_days ? 'Revisa y vuelve a intentar' : 'Todo en orden' },
   ]
 })
 

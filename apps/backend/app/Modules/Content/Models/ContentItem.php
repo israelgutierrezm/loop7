@@ -30,6 +30,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int|null $created_by_user_id
  * @property int|null $approved_by_user_id
  * @property \Illuminate\Support\Carbon|null $approved_at
+ * @property-read Campaign|null $campaign
  */
 class ContentItem extends Model
 {

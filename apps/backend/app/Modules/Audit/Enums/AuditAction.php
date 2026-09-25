@@ -87,6 +87,8 @@ final class AuditAction
     public const CONTENT_PUBLISHED = 'content.published';
     public const CONTENT_PUBLISH_FAILED = 'content.publish_failed';
     public const CAMPAIGN_CREATED = 'campaign.created';
+    public const CAMPAIGN_UPDATED = 'campaign.updated';
+    public const CAMPAIGN_DELETED = 'campaign.deleted';
 
     // Social connections
     public const SOCIAL_CONNECTED = 'social.connected';

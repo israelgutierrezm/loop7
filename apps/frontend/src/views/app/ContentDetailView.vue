@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import http from '@/services/http'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toasts'
@@ -35,6 +35,8 @@ interface Content {
   title: string
   body: string | null
   type: string
+  type_label: string
+  campaign: { id: string; name: string } | null
   status: string
   status_label: string
   editable: boolean
@@ -44,6 +46,7 @@ interface Content {
 }
 
 const route = useRoute()
+const router = useRouter()
 const auth = useAuthStore()
 const toasts = useToastStore()
 const confirmDialog = useConfirmStore()
@@ -51,6 +54,7 @@ const id = route.params.content as string
 
 const content = ref<Content | null>(null)
 const providers = ref<SocialProviderOption[]>([])
+const campaigns = ref<{ id: string; name: string; status: string }[]>([])
 const loading = ref(true)
 const failed = ref(false)
 const busy = ref(false)
@@ -164,8 +168,12 @@ async function load(silent = false): Promise<void> {
     const { data } = await http.get(`/content/${id}`)
     content.value = data.data
     if (providers.value.length === 0 && content.value?.brand) {
-      const res = await http.get(`/brands/${content.value.brand}/social/providers`)
+      const [res, camp] = await Promise.all([
+        http.get(`/brands/${content.value.brand}/social/providers`),
+        auth.can('campaigns.view') ? http.get(`/brands/${content.value.brand}/campaigns`) : Promise.resolve(null),
+      ])
       providers.value = res.data.data
+      campaigns.value = camp?.data.data ?? []
     }
     if (!newVariant.provider) newVariant.provider = availableProviders.value[0]?.key ?? ''
     ensurePolling()
@@ -267,6 +275,31 @@ async function saveBase(): Promise<void> {
   await act(() => http.patch(`/content/${id}`, { title: content.value!.title, body: content.value!.body }), 'Guardado.')
 }
 
+async function changeCampaign(campaignId: string): Promise<void> {
+  await act(() => http.patch(`/content/${id}`, { campaign: campaignId || null }), campaignId ? 'Campaña asignada.' : 'Quitado de la campaña.')
+}
+
+async function removeContent(): Promise<void> {
+  if (!content.value) return
+  const ok = await confirmDialog.ask({
+    title: 'Eliminar contenido',
+    message: `Se eliminará «${content.value.title}». Si estaba programado, se cancela su publicación.`,
+    confirmText: 'Eliminar',
+    danger: true,
+  })
+  if (!ok) return
+  busy.value = true
+  try {
+    await http.delete(`/content/${id}`)
+    toasts.success('Contenido eliminado.')
+    router.push('/app/content')
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    busy.value = false
+  }
+}
+
 onMounted(() => load())
 onUnmounted(stopPolling)
 </script>
@@ -277,8 +310,28 @@ onUnmounted(stopPolling)
     <ErrorState v-else-if="failed" @retry="load" />
 
     <template v-else-if="content">
-      <PageHeader :title="content.title">
+      <PageHeader :title="content.title" :description="content.type_label">
         <template #actions>
+          <template v-if="campaigns.length || content.campaign">
+            <label class="sr-only" for="content-campaign">Campaña</label>
+            <select
+              v-if="auth.can('content.update')"
+              id="content-campaign"
+              class="input w-auto py-1.5 text-sm"
+              :value="content.campaign?.id ?? ''"
+              :disabled="busy"
+              @change="changeCampaign(($event.target as HTMLSelectElement).value)"
+            >
+              <option value="">Sin campaña</option>
+              <option v-for="c in campaigns" :key="c.id" :value="c.id">{{ c.name }}</option>
+            </select>
+            <span v-else-if="content.campaign" class="rounded-md bg-slate-100 px-2.5 py-1 text-xs text-slate-600 dark:bg-slate-800">
+              {{ content.campaign.name }}
+            </span>
+          </template>
+          <button v-if="auth.can('content.delete')" type="button" class="btn-ghost text-sm text-rose-600" :disabled="busy" @click="removeContent">
+            Eliminar
+          </button>
           <RouterLink to="/app/content" class="btn-secondary text-sm">
             <AppIcon name="chevron-left" :size="16" /> Contenido
           </RouterLink>

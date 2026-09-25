@@ -20,4 +20,12 @@ enum CampaignStatus: string
             self::ARCHIVED => 'Archivada',
         };
     }
+
+    /**
+     * @return list<string>
+     */
+    public static function values(): array
+    {
+        return array_map(fn (self $s) => $s->value, self::cases());
+    }
 }

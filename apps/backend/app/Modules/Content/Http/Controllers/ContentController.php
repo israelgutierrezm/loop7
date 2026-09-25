@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Modules\Audit\Enums\AuditAction;
 use App\Modules\Audit\Services\AuditLogger;
 use App\Modules\Brands\Http\Concerns\ResolvesBrand;
+use App\Modules\Campaigns\Models\Campaign;
 use App\Modules\Content\Enums\ContentType;
 use App\Modules\Content\Http\Resources\VariantPresenter;
 use App\Modules\Content\Models\ContentItem;
@@ -38,14 +39,29 @@ class ContentController extends Controller
 
         $query = ContentItem::query()
             ->where('brand_id', $brandModel->id)
-            ->with('variants')
-            ->latest();
+            ->with(['variants', 'campaign:id,public_id,name'])
+            ->latest()
+            ->latest('id');
 
         if ($request->filled('status')) {
             $query->where('status', $request->string('status')->toString());
         }
 
-        $items = $query->paginate((int) $request->integer('per_page', 20))
+        // Campaña: su public_id, o "none" para el contenido sin campaña.
+        $campaign = $request->string('campaign')->toString();
+        if ($campaign === 'none') {
+            $query->whereNull('campaign_id');
+        } elseif ($campaign !== '') {
+            $query->whereHas('campaign', fn ($q) => $q->where('public_id', $campaign));
+        }
+
+        if ($request->filled('q')) {
+            $term = addcslashes($request->string('q')->trim()->toString(), '%_\\');
+            $query->where('title', 'like', "%{$term}%");
+        }
+
+        $perPage = min(50, max(1, (int) $request->integer('per_page', 20)));
+        $items = $query->paginate($perPage)
             ->through(fn (ContentItem $c) => $this->present($c));
 
         return ApiResponse::paginated($items);
@@ -79,7 +95,7 @@ class ContentController extends Controller
         abort_unless(request()->user()->can('content.view'), 403);
 
         return ApiResponse::success($this->present($model->load([
-            'variants.media', 'variants.targets.destination', 'comments.user',
+            'variants.media', 'variants.targets.destination', 'comments.user', 'campaign:id,public_id,name',
         ])));
     }
 
@@ -88,22 +104,50 @@ class ContentController extends Controller
         $model = $this->resolve($content);
         abort_unless($request->user()->can('content.update'), 403);
 
-        if (! $model->isEditable()) {
+        $data = $request->validate([
+            'title' => ['sometimes', 'required', 'string', 'max:255'],
+            'body' => ['sometimes', 'nullable', 'string', 'max:20000'],
+            'type' => ['sometimes', Rule::in(ContentType::values())],
+            'campaign' => ['sometimes', 'nullable', 'string'],
+        ]);
+
+        // El texto sólo se edita antes de aprobar; la campaña (organización) siempre.
+        $changes = array_intersect_key($data, array_flip(['title', 'body', 'type']));
+        if ($changes !== [] && ! $model->isEditable()) {
             throw ValidationException::withMessages([
                 'status' => 'El contenido no es editable en su estado actual.',
             ]);
         }
 
-        $data = $request->validate([
-            'title' => ['sometimes', 'required', 'string', 'max:255'],
-            'body' => ['sometimes', 'nullable', 'string', 'max:20000'],
-            'type' => ['sometimes', Rule::in(ContentType::values())],
-        ]);
+        if (array_key_exists('campaign', $data)) {
+            $changes['campaign_id'] = $this->campaignId($model, $data['campaign']);
+        }
 
-        $model->update($data);
+        $model->update($changes);
         $this->audit->log(AuditAction::CONTENT_UPDATED, $model, ['changes' => array_keys($data)]);
 
-        return ApiResponse::success($this->present($model->load('variants')), 'Contenido actualizado.');
+        return ApiResponse::success($this->present($model->load(['variants', 'campaign:id,public_id,name'])), 'Contenido actualizado.');
+    }
+
+    /**
+     * Campaña de la misma marca (null = sin campaña).
+     */
+    private function campaignId(ContentItem $content, ?string $campaignPublicId): ?int
+    {
+        if ($campaignPublicId === null || $campaignPublicId === '') {
+            return null;
+        }
+
+        $id = Campaign::query()
+            ->where('brand_id', $content->brand_id)
+            ->where('public_id', $campaignPublicId)
+            ->value('id');
+
+        if ($id === null) {
+            throw ValidationException::withMessages(['campaign' => 'La campaña no existe en esta marca.']);
+        }
+
+        return (int) $id;
     }
 
     public function destroy(string $content): JsonResponse
@@ -135,6 +179,10 @@ class ContentController extends Controller
             'title' => $content->title,
             'body' => $content->body,
             'type' => $content->type->value,
+            'type_label' => $content->type->label(),
+            'campaign' => $content->relationLoaded('campaign') && $content->campaign !== null
+                ? ['id' => $content->campaign->public_id, 'name' => $content->campaign->name]
+                : null,
             'status' => $content->status->value,
             'status_label' => $content->status->label(),
             'editable' => $content->isEditable(),
