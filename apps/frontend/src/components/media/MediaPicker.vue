@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useDebounceFn } from '@vueuse/core'
 import http from '@/services/http'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toasts'
@@ -27,7 +28,13 @@ const toasts = useToastStore()
 
 const items = ref<PickedMedia[]>([])
 const chosen = ref<string[]>([])
+// Todo lo visto en esta apertura: lo elegido se conserva aunque un filtro lo oculte.
+const known = new Map<string, PickedMedia>()
+const search = ref('')
+const page = ref(1)
+const lastPage = ref(1)
 const loading = ref(false)
+const loadingMore = ref(false)
 const uploading = ref(false)
 const generating = ref(false)
 const showAi = ref(false)
@@ -38,17 +45,55 @@ const canUpload = computed(() => auth.can('content.create'))
 const canGenerate = computed(() => auth.can('ai.generate_image'))
 const accept = computed(() => (props.acceptVideo ? 'image/jpeg,image/png,image/webp,image/gif,video/mp4' : 'image/jpeg,image/png,image/webp,image/gif'))
 
+function remember(list: PickedMedia[]): void {
+  list.forEach((m) => known.set(m.id, m))
+}
+
+async function fetchPage(p: number): Promise<void> {
+  const { data } = await http.get(`/brands/${props.brandId}/media`, {
+    params: { page: p, per_page: 30, type: props.acceptVideo ? 'visual' : 'image', q: search.value.trim() || undefined },
+  })
+  remember(data.data)
+  items.value = p === 1 ? data.data : [...items.value, ...data.data]
+  page.value = data.meta.current_page ?? p
+  lastPage.value = data.meta.last_page ?? p
+}
+
 async function load(): Promise<void> {
   loading.value = true
   try {
-    const { data } = await http.get(`/brands/${props.brandId}/media`, { params: { per_page: 60 } })
-    items.value = (data.data as PickedMedia[]).filter((m) => m.is_image || (props.acceptVideo && m.is_video))
+    await fetchPage(1)
+    // Los ya elegidos que no aparecen en la primera página se muestran primero.
+    const missing = chosen.value.filter((id) => !known.has(id))
+    if (missing.length > 0) {
+      const { data } = await http.get(`/brands/${props.brandId}/media`, { params: { ids: missing.join(','), per_page: 30 } })
+      remember(data.data)
+      if (!search.value.trim()) items.value = [...data.data, ...items.value]
+    }
   } catch (e) {
     toasts.error(apiErrorMessage(e))
   } finally {
     loading.value = false
   }
 }
+
+async function more(): Promise<void> {
+  loadingMore.value = true
+  try {
+    await fetchPage(page.value + 1)
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    loadingMore.value = false
+  }
+}
+
+const debouncedSearch = useDebounceFn(() => {
+  loading.value = true
+  fetchPage(1)
+    .catch((e) => toasts.error(apiErrorMessage(e)))
+    .finally(() => (loading.value = false))
+}, 350)
 
 function toggle(id: string): void {
   if (chosen.value.includes(id)) {
@@ -69,6 +114,7 @@ async function upload(event: Event): Promise<void> {
   form.append('file', file)
   try {
     const { data } = await http.post(`/brands/${props.brandId}/media`, form)
+    remember([data.data])
     items.value.unshift(data.data)
     toggle(data.data.id)
     toasts.success('Archivo subido.')
@@ -93,6 +139,7 @@ async function generate(): Promise<void> {
       toasts.error('La imagen se generó pero no se pudo guardar en la biblioteca.')
       return
     }
+    remember(saved)
     items.value.unshift(...saved)
     saved.forEach((m) => toggle(m.id))
     aiPrompt.value = ''
@@ -106,8 +153,7 @@ async function generate(): Promise<void> {
 }
 
 function confirm(): void {
-  const byId = new Map(items.value.map((m) => [m.id, m]))
-  emit('confirm', chosen.value.map((id) => byId.get(id)).filter((m): m is PickedMedia => m !== undefined))
+  emit('confirm', chosen.value.map((id) => known.get(id)).filter((m): m is PickedMedia => m !== undefined))
 }
 
 watch(
@@ -115,9 +161,14 @@ watch(
   (open) => {
     if (!open) return
     chosen.value = [...props.selected]
+    known.clear()
+    search.value = ''
     load()
   },
 )
+watch(search, () => {
+  if (props.open) debouncedSearch()
+})
 </script>
 
 <template>
@@ -131,6 +182,8 @@ watch(
       <button v-if="canGenerate" type="button" class="btn-secondary text-sm" @click="showAi = !showAi">
         <AppIcon name="sparkles" :size="16" /> Generar con IA
       </button>
+      <label class="sr-only" for="picker-search">Buscar por nombre</label>
+      <input id="picker-search" v-model="search" type="search" class="input w-44 py-1.5 text-sm" placeholder="Buscar…" />
       <span class="ml-auto text-xs text-slate-500">{{ chosen.length }} / {{ max }} seleccionados · el orden de selección es el orden de publicación</span>
     </div>
 
@@ -154,7 +207,7 @@ watch(
       <div v-for="n in 10" :key="n" class="skeleton aspect-square" />
     </div>
     <p v-else-if="items.length === 0" class="rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500 dark:border-slate-700">
-      La biblioteca de esta marca está vacía. Sube un archivo o genera una imagen.
+      {{ search.trim() ? 'Ningún archivo coincide con la búsqueda.' : 'La biblioteca de esta marca está vacía. Sube un archivo o genera una imagen.' }}
     </p>
     <ul v-else class="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-5">
       <li v-for="m in items" :key="m.id">
@@ -178,6 +231,11 @@ watch(
         </button>
       </li>
     </ul>
+    <div v-if="!loading && page < lastPage" class="mt-4 text-center">
+      <button type="button" class="btn-secondary text-sm" :disabled="loadingMore" @click="more">
+        <Spinner v-if="loadingMore" :size="16" /> Cargar más
+      </button>
+    </div>
 
     <template #footer>
       <button type="button" class="btn-secondary text-sm" @click="emit('close')">Cancelar</button>

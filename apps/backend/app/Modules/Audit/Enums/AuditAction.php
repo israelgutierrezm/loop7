@@ -44,6 +44,13 @@ final class AuditAction
     public const BRAND_ACCESS_GRANTED = 'brand.access_granted';
     public const BRAND_ACCESS_REVOKED = 'brand.access_revoked';
 
+    // Biblioteca de medios
+    public const MEDIA_UPLOADED = 'media.uploaded';
+    public const MEDIA_UPDATED = 'media.updated';
+    public const MEDIA_DELETED = 'media.deleted';
+    public const MEDIA_FOLDER_SAVED = 'media.folder_saved';
+    public const MEDIA_FOLDER_DELETED = 'media.folder_deleted';
+
     // Platform / SUPERADMIN
     public const SUPERADMIN_IMPERSONATION_STARTED = 'superadmin.impersonation_started';
     public const SUPERADMIN_IMPERSONATION_ENDED = 'superadmin.impersonation_ended';

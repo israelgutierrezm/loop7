@@ -28,6 +28,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int|null $width
  * @property int|null $height
  * @property \Illuminate\Support\Carbon|null $created_at
+ * @property-read MediaFolder|null $folder
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, MediaTag> $tags
  */
 class MediaAsset extends Model
 {

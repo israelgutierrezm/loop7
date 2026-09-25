@@ -10,11 +10,14 @@ use App\Modules\Billing\Exceptions\PlanLimitExceededException;
 use App\Modules\Billing\Services\EntitlementsService;
 use App\Modules\Brands\Models\Brand;
 use App\Modules\MediaLibrary\Models\MediaAsset;
+use App\Modules\MediaLibrary\Models\MediaFolder;
+use App\Modules\MediaLibrary\Models\MediaTag;
 use App\Modules\Organizations\Models\Organization;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class MediaService
 {
@@ -107,6 +110,53 @@ class MediaService
     {
         Storage::disk($asset->disk)->delete($asset->path);
         $asset->delete();
+    }
+
+    /**
+     * Carpeta de la Brand por su public_id (null = sin carpeta). Una carpeta de
+     * otra Brand se rechaza como si no existiera.
+     */
+    public function folderId(int $brandId, ?string $folderPublicId): ?int
+    {
+        if ($folderPublicId === null || $folderPublicId === '') {
+            return null;
+        }
+
+        $id = MediaFolder::query()->where('brand_id', $brandId)->where('public_id', $folderPublicId)->value('id');
+        if ($id === null) {
+            throw ValidationException::withMessages(['folder' => 'La carpeta no existe en esta marca.']);
+        }
+
+        return (int) $id;
+    }
+
+    /**
+     * Sustituye las etiquetas de un archivo (se crean al vuelo por nombre dentro
+     * de su Brand; las que se quedan sin archivos se eliminan).
+     *
+     * @param  list<string>  $names
+     */
+    public function syncTags(MediaAsset $asset, array $names): void
+    {
+        $unique = collect($names)
+            ->map(fn (string $name): string => trim(preg_replace('/\s+/', ' ', $name) ?? ''))
+            ->filter(fn (string $name): bool => $name !== '')
+            ->unique(fn (string $name): string => mb_strtolower($name))
+            ->values();
+
+        $existing = MediaTag::query()->where('brand_id', $asset->brand_id)->get()
+            ->keyBy(fn (MediaTag $tag): string => mb_strtolower($tag->name));
+
+        $ids = $unique->map(fn (string $name): int => ($existing->get(mb_strtolower($name))
+            ?? MediaTag::query()->create([
+                'organization_id' => $asset->organization_id,
+                'brand_id' => $asset->brand_id,
+                'name' => mb_substr($name, 0, 40),
+            ]))->id)->all();
+
+        $asset->tags()->sync($ids);
+
+        MediaTag::query()->where('brand_id', $asset->brand_id)->doesntHave('assets')->delete();
     }
 
     /**

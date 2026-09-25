@@ -60,6 +60,7 @@ const products = ref<Product[]>([])
 const services = ref<Service[]>([])
 const knowledge = ref<Knowledge[]>([])
 const media = ref<MediaItem[]>([])
+const mediaTotal = ref(0)
 const socialProviders = ref<SocialProviderOption[]>([])
 
 const newAudience = reactive({ name: '', description: '' })
@@ -90,7 +91,7 @@ async function load(): Promise<void> {
     const [brandResp, brain, mediaResp, providersResp] = await Promise.all([
       http.get(`/brands/${brandId}`),
       http.get(`/brands/${brandId}/brain`),
-      http.get(`/brands/${brandId}/media`),
+      http.get(`/brands/${brandId}/media`, { params: { per_page: 12 } }),
       http.get(`/brands/${brandId}/social/providers`),
     ])
     brand.value = brandResp.data.data
@@ -110,6 +111,7 @@ async function load(): Promise<void> {
     services.value = d.services
     knowledge.value = d.knowledge
     media.value = mediaResp.data.data
+    mediaTotal.value = mediaResp.data.meta.total ?? media.value.length
     socialProviders.value = providersResp.data.data
   } catch {
     failed.value = true
@@ -226,7 +228,8 @@ async function uploadMedia(event: Event): Promise<void> {
   form.append('file', file)
   try {
     const { data } = await http.post(`/brands/${brandId}/media`, form)
-    media.value.unshift(data.data)
+    media.value = [data.data, ...media.value].slice(0, 12)
+    mediaTotal.value++
     toasts.success('Archivo subido.')
   } catch (e) {
     toasts.error(apiErrorMessage(e))
@@ -248,6 +251,7 @@ async function deleteMedia(item: MediaItem): Promise<void> {
   try {
     await http.delete(`/media/${item.id}`)
     media.value = media.value.filter((m) => m.id !== item.id)
+    mediaTotal.value = Math.max(0, mediaTotal.value - 1)
     if (isLogo && brand.value) brand.value = { ...brand.value, logo: null }
   } catch (e) {
     toasts.error(apiErrorMessage(e))
@@ -516,13 +520,18 @@ onMounted(async () => {
 
       <!-- Medios -->
       <div v-show="activeTab === 'medios'" class="space-y-4">
-        <div v-if="auth.can('content.create')" class="card flex flex-wrap items-center gap-3 p-4">
-          <label class="btn-primary cursor-pointer">
+        <div class="card flex flex-wrap items-center gap-3 p-4">
+          <label v-if="auth.can('content.create')" class="btn-primary cursor-pointer">
             <Spinner v-if="uploading" :size="18" />
             <AppIcon v-else name="plus" :size="18" /> Subir archivo
             <input type="file" class="hidden" accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,application/pdf" :disabled="uploading" @change="uploadMedia" />
           </label>
-          <span class="text-sm text-slate-400">Imágenes, vídeo MP4 o PDF (máx. 50 MB)</span>
+          <span class="text-sm text-slate-500">
+            {{ mediaTotal }} archivo(s){{ mediaTotal > media.length ? ` · se muestran los ${media.length} más recientes` : '' }}
+          </span>
+          <RouterLink :to="{ path: '/app/media', query: { brand: brandId } }" class="btn-secondary ml-auto text-sm">
+            Abrir en la biblioteca (carpetas y etiquetas)
+          </RouterLink>
         </div>
         <EmptyState v-if="media.length === 0" icon="brands" title="Sin archivos" description="Sube imágenes y documentos de tu marca." />
         <div v-else class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">

@@ -237,6 +237,19 @@ publicadas y con errores en la última semana, próximas publicaciones, contenid
 requiere atención, cuentas por reconectar, uso del plan y equipo. Cada bloque depende
 del rol y el contenido se limita a las marcas accesibles.
 
+## Biblioteca de medios
+Por marca: subida (MIME real, tamaño y límite de almacenamiento del plan; sin SVG),
+archivos privados servidos por URL firmada, **carpetas** (un nivel; al borrar una
+carpeta sus archivos quedan "sin carpeta") y **etiquetas** (se crean al etiquetar y se
+eliminan cuando nadie las usa). Listado paginado con filtros por carpeta, etiqueta, tipo
+(imagen, vídeo, documento) y búsqueda por nombre. Organizar exige `content.update`,
+subir `content.create` y borrar `content.delete`; subida, cambios y borrados se auditan.
+
+- `GET|POST /brands/{brand}/media` (`folder`, `tag`, `type`, `q`, `ids`, `per_page` ≤ 60)
+- `PATCH /media/{asset}` (`folder`, `tags`), `DELETE /media/{asset}`
+- `GET|POST /brands/{brand}/media/folders`, `PATCH|DELETE /media/folders/{folder}`
+- `GET /brands/{brand}/media/tags`
+
 ## Marcas: logo y eliminación
 - El logo es una imagen de la biblioteca de la propia marca (`PUT /brands/{brand}/logo`).
 - Eliminar una marca emite `BrandDeleted`: se cancelan sus publicaciones programadas,
