@@ -187,7 +187,8 @@ class PublishingService
 
         DB::transaction(function () use ($content): void {
             $this->planner->createTargets($content, now());
-            $content->update(['status' => ContentStatus::PUBLISHING->value]);
+            // La fecha de salida es ahora (así aparece en el calendario).
+            $content->update(['status' => ContentStatus::PUBLISHING->value, 'scheduled_at' => now()]);
             $this->audit->log(AuditAction::CONTENT_PUBLISHING, $content);
         });
 

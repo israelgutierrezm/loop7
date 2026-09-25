@@ -7,6 +7,7 @@ namespace App\Modules\Content\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Brands\Http\Concerns\ResolvesBrand;
 use App\Modules\Content\Models\ContentItem;
+use App\Modules\Content\Models\PostVariant;
 use App\Support\Http\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -27,10 +28,16 @@ class CalendarController extends Controller
         $from = $request->filled('from') ? Carbon::parse($request->string('from')->toString()) : now()->startOfMonth();
         $to = $request->filled('to') ? Carbon::parse($request->string('to')->toString()) : now()->endOfMonth();
 
+        // Rango acotado (como mucho ~6 semanas visibles en la vista mensual).
+        if ($from->diffInDays($to, true) > 62) {
+            $to = $from->copy()->addDays(62);
+        }
+
         $items = ContentItem::query()
             ->where('brand_id', $brandModel->id)
             ->whereNotNull('scheduled_at')
             ->whereBetween('scheduled_at', [$from, $to])
+            ->with(['variants:id,content_item_id,provider', 'campaign:id,public_id,name'])
             ->orderBy('scheduled_at')
             ->get()
             ->map(fn (ContentItem $c) => [
@@ -39,6 +46,8 @@ class CalendarController extends Controller
                 'status' => $c->status->value,
                 'status_label' => $c->status->label(),
                 'scheduled_at' => $c->scheduled_at?->toIso8601String(),
+                'providers' => $c->variants->map(fn (PostVariant $v) => $v->provider)->unique()->values()->all(),
+                'campaign' => $c->campaign?->name,
             ])
             ->all();
 
