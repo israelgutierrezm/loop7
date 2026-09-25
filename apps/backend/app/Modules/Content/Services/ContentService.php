@@ -23,11 +23,15 @@ class ContentService
     }
 
     /**
+     * Crea un borrador. Sin usuario cuando llega por API key (API pública / MCP);
+     * `$auditContext` deja constancia del origen en la auditoría.
+     *
      * @param  array<string, mixed>  $data
+     * @param  array<string, mixed>  $auditContext
      */
-    public function create(Brand $brand, array $data, User $user): ContentItem
+    public function create(Brand $brand, array $data, ?User $user, array $auditContext = []): ContentItem
     {
-        return DB::transaction(function () use ($brand, $data, $user): ContentItem {
+        return DB::transaction(function () use ($brand, $data, $user, $auditContext): ContentItem {
             $content = ContentItem::query()->create([
                 'organization_id' => $brand->organization_id,
                 'brand_id' => $brand->id,
@@ -36,14 +40,14 @@ class ContentService
                 'body' => $data['body'] ?? null,
                 'type' => $data['type'] ?? 'post',
                 'status' => ContentStatus::DRAFT->value,
-                'created_by_user_id' => $user->id,
+                'created_by_user_id' => $user?->id,
             ]);
 
             foreach ($data['variants'] ?? [] as $variant) {
                 $this->addVariant($content, $variant);
             }
 
-            $this->audit->log(AuditAction::CONTENT_CREATED, $content, ['title' => $content->title]);
+            $this->audit->log(AuditAction::CONTENT_CREATED, $content, ['title' => $content->title] + $auditContext);
 
             return $content;
         });

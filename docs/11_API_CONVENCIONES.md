@@ -62,13 +62,20 @@ Cada key concede scopes (`brands:read`, `content:read`, `content:write`,
 - `GET /brands` — `brands:read`.
 - `GET /brands/{brand}/content` — `content:read`.
 - `POST /brands/{brand}/content` — `content:write` (crea borrador).
-- `GET /brands/{brand}/analytics` — `analytics:read` (reutiliza Analytics).
+- `GET /brands/{brand}/analytics` — `analytics:read` (reutiliza Analytics;
+  `from`/`to` opcionales, máximo 365 días por consulta, como en la app).
+
+Los listados aceptan `per_page` (1–100, 30 por defecto). Los borradores creados por
+API o MCP pasan por el mismo `ContentService` que la app: quedan en la auditoría de la
+organización con `via` (`api` | `mcp`), `api_key_id` y `api_key_name` (nunca el secreto).
 
 ### Servidor MCP
 `POST /api/public/v1/mcp` — JSON-RPC 2.0 sobre la misma API y autenticación por
 key. Métodos: `initialize`, `ping`, `tools/list` (filtra herramientas por los
 scopes de la key), `tools/call`. Herramientas: `list_brands`, `list_content`,
-`create_content`, `get_analytics` (cada una exige su scope).
+`create_content`, `get_analytics` (cada una exige su scope). Los errores de una
+herramienta vuelven como `isError` con un mensaje para el usuario (validación, marca
+inexistente); los fallos internos se registran y nunca exponen detalles.
 
 ### Webhooks salientes
 Disponibles a través de la acción `webhook` de **Automations** (Fase 10), que hace

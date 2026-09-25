@@ -20,7 +20,7 @@ class PublicBrandsController extends Controller
     {
         $items = Brand::query()
             ->orderBy('name')
-            ->paginate((int) $request->integer('per_page', 30))
+            ->paginate(min(100, max(1, (int) $request->integer('per_page', 30))))
             ->through(fn (Brand $b) => [
                 'id' => $b->public_id,
                 'name' => $b->name,

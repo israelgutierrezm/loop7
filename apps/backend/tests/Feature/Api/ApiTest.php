@@ -132,6 +132,25 @@ class ApiTest extends TestCase
             ->assertJsonPath('data.status', 'draft');
 
         $this->assertDatabaseHas('content_items', ['brand_id' => $brand->id, 'title' => 'Post desde API']);
+
+        // Queda auditado con la key de origen (nunca su secreto).
+        $log = \App\Modules\Audit\Models\AuditLog::query()->withoutGlobalScopes()
+            ->where('action', 'content.created')->firstOrFail();
+        $this->assertSame($org->id, $log->organization_id);
+        $this->assertSame('api', $log->properties['via']);
+        $this->assertSame('Test key', $log->properties['api_key_name']);
+        $this->assertStringNotContainsString($key, json_encode($log->properties));
+    }
+
+    public function test_per_page_tiene_tope(): void
+    {
+        [$org, $key] = $this->orgWithKey([ApiScope::BRANDS_READ]);
+        Brand::factory()->create(['organization_id' => $org->id]);
+
+        $this->withToken($key)
+            ->getJson('/api/public/v1/brands?per_page=100000')
+            ->assertOk()
+            ->assertJsonPath('meta.per_page', 100);
     }
 
     public function test_aislamiento_entre_organizaciones(): void
@@ -209,5 +228,24 @@ class ApiTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('error.code', -32001);
+    }
+
+    public function test_mcp_crea_contenido_validado_y_sin_filtrar_detalles_internos(): void
+    {
+        [$org, $key] = $this->orgWithKey([ApiScope::CONTENT_WRITE]);
+        $brand = Brand::factory()->create(['organization_id' => $org->id]);
+        $call = fn (array $arguments) => $this->withToken($key)->postJson('/api/public/v1/mcp', [
+            'jsonrpc' => '2.0', 'id' => 5, 'method' => 'tools/call',
+            'params' => ['name' => 'create_content', 'arguments' => $arguments],
+        ])->assertOk();
+
+        $call(['brand' => $brand->public_id, 'title' => 'Desde MCP'])->assertJsonMissingPath('result.isError');
+        $this->assertDatabaseHas('content_items', ['brand_id' => $brand->id, 'title' => 'Desde MCP', 'status' => 'draft']);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'content.created', 'organization_id' => $org->id]);
+
+        $call(['brand' => $brand->public_id, 'title' => str_repeat('x', 300)])->assertJsonPath('result.isError', true);
+
+        $unknown = $call(['brand' => 'no-existe', 'title' => 'x'])->assertJsonPath('result.isError', true);
+        $this->assertStringNotContainsString('App\\', (string) $unknown->json('result.content.0.text'));
     }
 }

@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Modules\Api\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Api\Models\ApiKey;
 use App\Modules\Brands\Models\Brand;
 use App\Modules\Content\Enums\ContentType;
 use App\Modules\Content\Models\ContentItem;
+use App\Modules\Content\Services\ContentService;
 use App\Support\Http\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,6 +21,10 @@ use Illuminate\Validation\Rule;
  */
 class PublicContentController extends Controller
 {
+    public function __construct(private readonly ContentService $content)
+    {
+    }
+
     public function index(Request $request, string $brand): JsonResponse
     {
         $brandModel = $this->resolveBrand($brand);
@@ -26,7 +32,8 @@ class PublicContentController extends Controller
         $items = ContentItem::query()
             ->where('brand_id', $brandModel->id)
             ->latest()
-            ->paginate((int) $request->integer('per_page', 30))
+            ->latest('id')
+            ->paginate(min(100, max(1, (int) $request->integer('per_page', 30))))
             ->through(fn (ContentItem $c) => $this->present($c));
 
         return ApiResponse::paginated($items);
@@ -42,13 +49,9 @@ class PublicContentController extends Controller
             'type' => ['nullable', Rule::in(ContentType::values())],
         ]);
 
-        $content = ContentItem::query()->create([
-            'brand_id' => $brandModel->id,
-            'title' => $data['title'],
-            'body' => $data['body'] ?? null,
-            'type' => $data['type'] ?? ContentType::POST->value,
-            'status' => 'draft',
-        ]);
+        /** @var ApiKey $key */
+        $key = $request->attributes->get('api_key');
+        $content = $this->content->create($brandModel, $data, null, $key->auditContext('api'));
 
         return ApiResponse::success($this->present($content), 'Contenido creado.', status: 201);
     }

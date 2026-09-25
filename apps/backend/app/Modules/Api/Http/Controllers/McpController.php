@@ -9,11 +9,15 @@ use App\Modules\Analytics\Services\AnalyticsQueryService;
 use App\Modules\Api\Models\ApiKey;
 use App\Modules\Api\Support\ApiScope;
 use App\Modules\Brands\Models\Brand;
-use App\Modules\Content\Enums\ContentType;
 use App\Modules\Content\Models\ContentItem;
+use App\Modules\Content\Services\ContentService;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\ValidationException;
+use LogicException;
 use Throwable;
 
 /**
@@ -22,8 +26,10 @@ use Throwable;
  */
 class McpController extends Controller
 {
-    public function __construct(private readonly AnalyticsQueryService $analytics)
-    {
+    public function __construct(
+        private readonly AnalyticsQueryService $analytics,
+        private readonly ContentService $content,
+    ) {
     }
 
     public function handle(Request $request): JsonResponse
@@ -71,13 +77,17 @@ class McpController extends Controller
             return $this->rpcError($id, -32001, 'La API key no tiene el scope: ' . $tool['scope']);
         }
 
+        // Al cliente sólo le llegan mensajes pensados para él: nunca detalles internos.
         try {
-            $data = $this->execute($name, $args);
+            $data = $this->execute($request, $name, $args);
+        } catch (ModelNotFoundException) {
+            return $this->toolError($id, 'No existe esa marca en la organización de la API key.');
+        } catch (ValidationException $e) {
+            return $this->toolError($id, (string) $e->validator->errors()->first());
         } catch (Throwable $e) {
-            return $this->rpc($id, [
-                'isError' => true,
-                'content' => [['type' => 'text', 'text' => 'Error: ' . $e->getMessage()]],
-            ]);
+            report($e);
+
+            return $this->toolError($id, 'No se pudo ejecutar la herramienta. Inténtalo de nuevo más tarde.');
         }
 
         return $this->rpc($id, [
@@ -89,45 +99,41 @@ class McpController extends Controller
      * @param  array<string, mixed>  $args
      * @return array<string, mixed>|list<array<string, mixed>>
      */
-    private function execute(string $name, array $args): array
+    private function execute(Request $request, string $name, array $args): array
     {
         return match ($name) {
             'list_brands' => Brand::query()->orderBy('name')->get()
                 ->map(fn (Brand $b) => ['id' => $b->public_id, 'name' => $b->name])->all(),
             'list_content' => ContentItem::query()
-                ->where('brand_id', $this->brand($args)->id)->latest()->limit(50)->get()
+                ->where('brand_id', $this->brand($args)->id)->latest()->latest('id')->limit(50)->get()
                 ->map(fn (ContentItem $c) => [
                     'id' => $c->public_id, 'title' => $c->title, 'status' => $c->status->value,
                 ])->all(),
-            'create_content' => $this->createContent($args),
+            'create_content' => $this->createContent($request, $args),
             'get_analytics' => $this->analytics->overview(
                 $this->brand($args),
                 Carbon::today()->subDays(29),
                 Carbon::today(),
             ),
-            default => throw new \RuntimeException('Herramienta no implementada.'),
+            default => throw new LogicException("Herramienta sin implementar: {$name}"),
         };
     }
 
     /**
+     * Mismas reglas y el mismo servicio que la API REST (auditoría incluida).
+     *
      * @param  array<string, mixed>  $args
      * @return array<string, mixed>
      */
-    private function createContent(array $args): array
+    private function createContent(Request $request, array $args): array
     {
         $brand = $this->brand($args);
-        $title = trim((string) ($args['title'] ?? ''));
-        if ($title === '') {
-            throw new \RuntimeException('El título es obligatorio.');
-        }
+        $data = Validator::make($args, [
+            'title' => ['required', 'string', 'max:255'],
+            'body' => ['nullable', 'string', 'max:20000'],
+        ])->validate();
 
-        $content = ContentItem::query()->create([
-            'brand_id' => $brand->id,
-            'title' => $title,
-            'body' => isset($args['body']) ? (string) $args['body'] : null,
-            'type' => ContentType::POST->value,
-            'status' => 'draft',
-        ]);
+        $content = $this->content->create($brand, $data, null, $this->key($request)->auditContext('mcp'));
 
         return ['id' => $content->public_id, 'title' => $content->title, 'status' => $content->status->value];
     }
@@ -137,7 +143,9 @@ class McpController extends Controller
      */
     private function brand(array $args): Brand
     {
-        return Brand::query()->where('public_id', (string) ($args['brand'] ?? ''))->firstOrFail();
+        $publicId = $args['brand'] ?? null;
+
+        return Brand::query()->where('public_id', is_string($publicId) ? $publicId : '')->firstOrFail();
     }
 
     private function key(Request $request): ApiKey
@@ -202,6 +210,11 @@ class McpController extends Controller
     private function rpc(mixed $id, mixed $result): JsonResponse
     {
         return response()->json(['jsonrpc' => '2.0', 'id' => $id, 'result' => $result]);
+    }
+
+    private function toolError(mixed $id, string $message): JsonResponse
+    {
+        return $this->rpc($id, ['isError' => true, 'content' => [['type' => 'text', 'text' => $message]]]);
     }
 
     private function rpcError(mixed $id, int $code, string $message): JsonResponse

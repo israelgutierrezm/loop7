@@ -59,4 +59,14 @@ class ApiKey extends Model
     {
         return in_array($scope, $this->scopes ?? [], true);
     }
+
+    /**
+     * Origen de una acción hecha con esta key, para la auditoría (nunca el secreto).
+     *
+     * @return array{via: string, api_key_id: string, api_key_name: string}
+     */
+    public function auditContext(string $via): array
+    {
+        return ['via' => $via, 'api_key_id' => $this->public_id, 'api_key_name' => $this->name];
+    }
 }

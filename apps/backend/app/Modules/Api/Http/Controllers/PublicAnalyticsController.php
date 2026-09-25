@@ -35,6 +35,10 @@ class PublicAnalyticsController extends Controller
         if ($from->greaterThan($to)) {
             [$from, $to] = [$to, $from];
         }
+        // Mismo límite que la app: máximo 365 días por consulta.
+        if ($from->diffInDays($to) > 365) {
+            $from = $to->copy()->subDays(365);
+        }
 
         return ApiResponse::success($this->query->overview($brandModel, $from, $to));
     }
