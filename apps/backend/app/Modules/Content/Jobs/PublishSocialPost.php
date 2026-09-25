@@ -7,6 +7,7 @@ namespace App\Modules\Content\Jobs;
 use App\Modules\Content\Enums\TargetStatus;
 use App\Modules\Content\Models\PublicationTarget;
 use App\Modules\Content\Services\PublishingService;
+use App\Support\Security\SecretRedactor;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -75,7 +76,7 @@ class PublishSocialPost implements ShouldQueue
         if ($target !== null && $target->status !== TargetStatus::PUBLISHED) {
             $target->update([
                 'status' => TargetStatus::FAILED->value,
-                'error' => Str::limit($exception->getMessage(), 1000),
+                'error' => Str::limit(SecretRedactor::redact($exception->getMessage()), 1000),
             ]);
             app(PublishingService::class)->rollup($target);
         }

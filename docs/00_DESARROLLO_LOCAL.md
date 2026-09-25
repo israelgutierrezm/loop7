@@ -65,3 +65,10 @@ npm run build        # build de producción
   IPv6 (`::1`) y falle la conexión al backend.
 - Si el servidor MySQL local usa MyISAM por defecto, no hay problema: la conexión
   fuerza `InnoDB ROW_FORMAT=DYNAMIC` desde `config/database.php`.
+- Con Xdebug 3.3 en modo `develop` (WAMP lo trae activado), PHP 8.3 puede terminar
+  en *segmentation fault* cuando una prueba simula un fallo de red del cliente HTTP.
+  Ejecuta las pruebas con Xdebug apagado (la variable llega también al subproceso de
+  `artisan test`, a diferencia de `php -d`):
+  ```bash
+  XDEBUG_MODE=off php artisan test
+  ```

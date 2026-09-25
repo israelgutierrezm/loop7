@@ -9,8 +9,10 @@ use App\Modules\SocialConnections\Contracts\PublishPayload;
 use App\Modules\SocialConnections\Exceptions\SocialProviderException;
 use App\Modules\SocialConnections\Exceptions\SocialTokenExpiredException;
 use App\Modules\SocialConnections\Providers\FacebookProvider;
+use App\Support\Security\SecretRedactor;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
 /**
@@ -300,6 +302,43 @@ class FacebookProviderTest extends TestCase
         $this->expectException(SocialProviderException::class);
         $this->expectExceptionMessage('Permiso denegado');
         $this->provider()->publish($this->pageTokens(), 'PAGE1', new PublishPayload('x'), self::CREDENTIALS);
+    }
+
+    public function test_fallo_de_red_no_filtra_tokens_ni_el_secreto_de_la_app(): void
+    {
+        // El mensaje de cURL incluye la URL completa, con el token en la query.
+        Http::fake(['*' => Http::failedConnection()]);
+        Log::spy();
+
+        try {
+            $this->provider()->exchangeCode('CODE', 'https://app.test/cb', null, self::CREDENTIALS);
+            $this->fail('Se esperaba SocialProviderException.');
+        } catch (SocialProviderException $e) {
+            $this->assertStringContainsString('No se pudo conectar con Meta', $e->getMessage());
+            $this->assertStringNotContainsString('SECRET', $e->getMessage());
+            $this->assertNull($e->getPrevious()); // la original lleva la URL con secretos
+        }
+
+        try {
+            $this->provider()->publish($this->pageTokens(), 'PAGE1', new PublishPayload('x'), self::CREDENTIALS);
+            $this->fail('Se esperaba SocialProviderException.');
+        } catch (SocialProviderException $e) {
+            $this->assertStringNotContainsString('PAGE_TOKEN', $e->getMessage());
+        }
+
+        Log::shouldHaveReceived('warning')->withArgs(function (string $message, array $context): bool {
+            $logged = json_encode($context);
+
+            return ! str_contains($logged, 'PAGE_TOKEN') && ! str_contains($logged, 'SECRET');
+        });
+    }
+
+    public function test_redactor_de_secretos(): void
+    {
+        $this->assertSame(
+            'GET https://graph.facebook.com/v25.0/me?fields=id&access_token=[REDACTED]&client_secret=[REDACTED] Bearer [REDACTED]',
+            SecretRedactor::redact('GET https://graph.facebook.com/v25.0/me?fields=id&access_token=EAAB123&client_secret=s3cr3t Bearer sk-abc.def'),
+        );
     }
 
     public function test_token_caducado_lanza_excepcion_de_token(): void

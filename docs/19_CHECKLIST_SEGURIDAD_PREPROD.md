@@ -18,6 +18,7 @@ Ver runbook: [21_RUNBOOK_OPERACION.md](21_RUNBOOK_OPERACION.md).
 - [x] ✅ tokens OAuth cifrados (`encrypted` at-rest)
 - [x] ✅ API keys cifradas — sólo hash SHA-256 en BD
 - [x] ✅ logs sin secretos — `AuditLogger` redacta claves sensibles (test)
+- [x] ✅ errores de red de Meta sin tokens — Graph recibe el token en la query y el mensaje de cURL incluye la URL: `MetaGraph` lo sustituye por un mensaje propio y `SecretRedactor` limpia errores de publicación y trabajos fallidos (`FacebookProviderTest`)
 - [x] ✅ webhooks firmados/verificados — Stripe (HMAC), Mercado Pago (x-signature + consulta a la API), Openpay (Basic auth)
 - [x] ✅ webhooks salientes sin SSRF — `OutboundUrl` (sólo IPs públicas, IP fijada, sin redirecciones)
 - [x] ✅ idempotencia — publicación (consolidación idempotente), webhooks de pago, créditos IA

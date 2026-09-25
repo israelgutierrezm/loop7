@@ -6,16 +6,25 @@ namespace App\Modules\SocialConnections\Providers\Meta;
 
 use App\Modules\SocialConnections\Exceptions\SocialProviderException;
 use App\Modules\SocialConnections\Exceptions\SocialTokenExpiredException;
+use App\Support\Security\SecretRedactor;
+use GuzzleHttp\Exception\TransferException;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Cliente mínimo de Graph API compartido por Facebook e Instagram. La versión
  * sale de la configuración del proveedor (SUPERADMIN) o de
  * `services.meta.graph_version`; Meta retira cada versión ~2 años después.
+ *
+ * Graph recibe los tokens (y el app secret del intercambio OAuth) en la query:
+ * un fallo de red nunca propaga el mensaje de cURL, que incluye la URL completa.
  */
 final class MetaGraph
 {
+    private const TIMEOUT_SECONDS = 30;
+
     private const HOST = 'https://graph.facebook.com/';
 
     public function __construct(public readonly string $version)
@@ -51,7 +60,11 @@ final class MetaGraph
      */
     public function get(string $path, array $query, string $action = 'consultar los datos'): array
     {
-        return $this->check(Http::get($this->url($path), $query), $action);
+        return $this->check($this->send(
+            fn () => Http::timeout(self::TIMEOUT_SECONDS)->get($this->url($path), $query),
+            $path,
+            $action,
+        ), $action);
     }
 
     /**
@@ -60,7 +73,31 @@ final class MetaGraph
      */
     public function post(string $path, array $form, string $action): array
     {
-        return $this->check(Http::asForm()->post($this->url($path), $form), $action);
+        return $this->check($this->send(
+            fn () => Http::asForm()->timeout(self::TIMEOUT_SECONDS)->post($this->url($path), $form),
+            $path,
+            $action,
+        ), $action);
+    }
+
+    /**
+     * @param  callable(): Response  $request
+     */
+    private function send(callable $request, string $path, string $action): Response
+    {
+        try {
+            return $request();
+        } catch (ConnectionException|TransferException $e) {
+            // Sin encadenar la excepción original: su mensaje lleva la URL con el token.
+            Log::warning('Meta Graph: fallo de conexión.', [
+                'path' => $path,
+                'error' => SecretRedactor::redact($e->getMessage()),
+            ]);
+
+            throw new SocialProviderException(
+                'No se pudo conectar con Meta para ' . $action . '. Inténtalo de nuevo en unos minutos.',
+            );
+        }
     }
 
     /**

@@ -23,6 +23,7 @@ use App\Modules\SocialConnections\Exceptions\SocialTokenExpiredException;
 use App\Modules\SocialConnections\Models\SocialConnectionDestination;
 use App\Modules\SocialConnections\Services\SocialConnectionService;
 use App\Modules\SocialConnections\Services\SocialProviderManager;
+use App\Support\Security\SecretRedactor;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Throwable;
@@ -136,12 +137,14 @@ class PublishingService
             $this->markFailed($target, 'La conexión con la red social expiró. Reconecta la cuenta y vuelve a publicar.', $attemptNumber);
             $this->rollup($target);
         } catch (Throwable $e) {
+            // El error lo ve el equipo en la app: nunca con secretos.
+            $error = SecretRedactor::redact($e->getMessage());
             if ($finalAttempt) {
-                $this->markFailed($target, $e->getMessage(), $attemptNumber);
+                $this->markFailed($target, $error, $attemptNumber);
                 $this->rollup($target);
             } else {
-                $target->update(['error' => Str::limit($e->getMessage(), 1000)]);
-                $this->recordAttempt($target, $attemptNumber, 'failed', ['error' => Str::limit($e->getMessage(), 500)]);
+                $target->update(['error' => Str::limit($error, 1000)]);
+                $this->recordAttempt($target, $attemptNumber, 'failed', ['error' => Str::limit($error, 500)]);
             }
 
             throw $e; // permite el reintento del job
