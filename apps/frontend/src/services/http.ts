@@ -20,6 +20,7 @@ let currentOrganizationId: string | null = null
 let currentBrandId: string | null = null
 let onUnauthorized: (() => void) | null = null
 let onImpersonationExpired: (() => void) | null = null
+let onAccountBlocked: (() => void) | null = null
 
 export function setTenantHeaders(organizationId: string | null, brandId: string | null = null): void {
   currentOrganizationId = organizationId
@@ -33,6 +34,11 @@ export function setUnauthorizedHandler(handler: () => void): void {
 /** La impersonación caducó: la sesión ya volvió al administrador. */
 export function setImpersonationExpiredHandler(handler: () => void): void {
   onImpersonationExpired = handler
+}
+
+/** Soporte bloqueó la cuenta con la sesión abierta: el backend ya la cerró. */
+export function setAccountBlockedHandler(handler: () => void): void {
+  onAccountBlocked = handler
 }
 
 http.interceptors.request.use((config) => {
@@ -53,6 +59,9 @@ http.interceptors.response.use(
     const url: string = error?.config?.url ?? ''
     if (status === 401 && code === 'impersonation_expired' && onImpersonationExpired) {
       onImpersonationExpired()
+    } else if (status === 403 && code === 'account_blocked' && !url.includes('/auth/login') && onAccountBlocked) {
+      // En el login el propio formulario muestra el aviso.
+      onAccountBlocked()
     } else if (status === 401 && !url.includes('/auth/login') && onUnauthorized) {
       // 401 en cualquier endpoint distinto del login implica sesión expirada.
       onUnauthorized()

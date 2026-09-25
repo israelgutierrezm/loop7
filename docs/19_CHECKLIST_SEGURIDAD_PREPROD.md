@@ -29,6 +29,7 @@ Ver runbook: [21_RUNBOOK_OPERACION.md](21_RUNBOOK_OPERACION.md).
 - [x] ✅ URLs firmadas para privados — MediaService y logos de marca blanca (URL temporal)
 - [ ] ⚙️ SUPERADMIN con MFA obligatorio (recomendado activar antes de prod)
 - [x] ✅ impersonación auditada, con caducidad (60 min), acciones críticas bloqueadas e `impersonated_by` en la auditoría
+- [x] ✅ bloqueo de cuentas por SUPERADMIN: rechaza el login y corta la sesión abierta (`EnsureAccountActive`, `PlatformUsersTest`)
 - [ ] ⚙️ secret rotation procedure — documentado (runbook)
 - [ ] ⚙️ incident response básico — documentado (runbook)
 - [x] ✅ revisión permisos OAuth mínimos — `defaultScopes` por proveedor

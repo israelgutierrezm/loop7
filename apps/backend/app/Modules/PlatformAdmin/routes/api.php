@@ -25,6 +25,9 @@ Route::prefix('platform')->group(function (): void {
         Route::post('/organizations/{organization}/activate', [PlatformOrganizationsController::class, 'activate']);
 
         Route::get('/users', [PlatformUsersController::class, 'index']);
+        Route::post('/users/{user}/block', [PlatformUsersController::class, 'block']);
+        Route::post('/users/{user}/unblock', [PlatformUsersController::class, 'unblock']);
+        Route::post('/users/{user}/reset-two-factor', [PlatformUsersController::class, 'resetTwoFactor']);
 
         Route::get('/jobs', [PlatformJobsController::class, 'index']);
         Route::post('/jobs/{id}/retry', [PlatformJobsController::class, 'retry']);

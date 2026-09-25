@@ -33,6 +33,9 @@ class ImpersonationController extends Controller
         if ($target->isPlatformAdmin()) {
             return ApiResponse::error('No se puede impersonar a otro administrador de plataforma.', 'forbidden', status: 403);
         }
+        if ($target->isBlocked()) {
+            return ApiResponse::error('La cuenta está bloqueada: desbloquéala antes de impersonarla.', 'account_blocked', status: 422);
+        }
 
         ImpersonationSession::begin($request, $admin, $target);
 

@@ -54,6 +54,9 @@ final class AuditAction
     public const SUPERADMIN_IMPERSONATION_STARTED = 'superadmin.impersonation_started';
     public const SUPERADMIN_IMPERSONATION_ENDED = 'superadmin.impersonation_ended';
     public const SUPERADMIN_ORGANIZATION_SUSPENDED = 'superadmin.organization_suspended';
+    public const SUPERADMIN_USER_BLOCKED = 'superadmin.user_blocked';
+    public const SUPERADMIN_USER_UNBLOCKED = 'superadmin.user_unblocked';
+    public const SUPERADMIN_USER_MFA_RESET = 'superadmin.user_mfa_reset';
 
     // Billing / Payments
     public const SUBSCRIPTION_TRIAL_STARTED = 'subscription.trial_started';

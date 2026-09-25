@@ -2,7 +2,7 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
-import { setImpersonationExpiredHandler, setUnauthorizedHandler } from '@/services/http'
+import { setAccountBlockedHandler, setImpersonationExpiredHandler, setUnauthorizedHandler } from '@/services/http'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toasts'
 import './assets/main.css'
@@ -25,6 +25,15 @@ setUnauthorizedHandler(() => {
   if (hadSession && current.meta.requiresAuth) {
     router.push({ name: 'login', query: { redirect: current.fullPath } })
   }
+})
+
+// Soporte bloqueó la cuenta con la sesión abierta: el backend ya la cerró.
+setAccountBlockedHandler(() => {
+  const auth = useAuthStore(pinia)
+  if (!auth.isAuthenticated) return
+  auth.reset()
+  useToastStore(pinia).error('Tu cuenta está bloqueada. Escribe a soporte para más información.')
+  router.push({ name: 'login' })
 })
 
 // La impersonación caducó (60 min): la sesión ya es otra vez la del administrador.

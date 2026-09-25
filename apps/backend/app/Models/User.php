@@ -28,6 +28,7 @@ use Spatie\Permission\Traits\HasRoles;
  * @property list<string>|null $two_factor_recovery_codes
  * @property \Illuminate\Support\Carbon|null $two_factor_confirmed_at
  * @property \Illuminate\Support\Carbon|null $last_login_at
+ * @property \Illuminate\Support\Carbon|null $blocked_at
  * @property \Illuminate\Support\Carbon|null $email_verified_at
  * @property array{mail?: array<string, bool>}|null $notification_preferences
  * @property \Illuminate\Support\Carbon|null $created_at
@@ -76,6 +77,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'two_factor_recovery_codes' => 'encrypted:array',
             'two_factor_confirmed_at' => 'datetime',
             'last_login_at' => 'datetime',
+            'blocked_at' => 'datetime',
             'notification_preferences' => 'array',
         ];
     }
@@ -120,6 +122,11 @@ class User extends Authenticatable implements MustVerifyEmail
     public function isPlatformAdmin(): bool
     {
         return (bool) $this->is_platform_admin;
+    }
+
+    public function isBlocked(): bool
+    {
+        return $this->blocked_at !== null;
     }
 
     public function hasTwoFactorEnabled(): bool

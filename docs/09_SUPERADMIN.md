@@ -14,7 +14,7 @@ webhooks fallidos, conexiones sociales que requieren atención).
 |---|---|
 | Dashboard | Métricas de negocio y operación |
 | Organizaciones | Listado, suspensión/activación y **detalle de facturación**: plan de cortesía o cambio de plan, ampliar prueba, cancelar, excepciones de límites (overrides), add-ons y facturas |
-| Usuarios | Listado e impersonación |
+| Usuarios | Búsqueda paginada, filtro de bloqueados, bloquear/desbloquear, restablecer el doble factor e impersonación |
 | Suscripciones | Todas las suscripciones con filtro por estado |
 | Planes | Planes, precios por moneda/intervalo, límites y funciones, add-ons |
 | Pagos y facturas | Facturas (marcar pagada / anular), transacciones y bitácora de webhooks (con reintento y código de verificación de Openpay) |
@@ -28,9 +28,22 @@ webhooks fallidos, conexiones sociales que requieren atención).
 Las "feature flags" se gestionan como funciones de plan (`feature.*`) y excepciones por
 organización; los avisos del sistema, como el aviso global de Configuración.
 
+## Usuarios: acciones de soporte
+Ninguna se aplica a otros administradores de plataforma (`403`) ni a la propia cuenta
+(`422`). Todas quedan auditadas.
+
+| Acción | Endpoint | Efecto |
+|---|---|---|
+| Bloquear | `POST /platform/users/{id}/block` | `users.blocked_at`. El login responde `403 account_blocked` (sólo tras validar la contraseña, para no revelar el bloqueo a terceros) y `EnsureAccountActive` cierra la sesión abierta en su siguiente petición; el SPA vuelve al login con el aviso. Sus organizaciones siguen funcionando para el resto del equipo |
+| Desbloquear | `POST /platform/users/{id}/unblock` | Vuelve a poder iniciar sesión |
+| Restablecer MFA | `POST /platform/users/{id}/reset-two-factor` | Borra secreto, códigos de recuperación y confirmación: la persona entra sólo con su contraseña y vuelve a activarlo. Hacerlo únicamente tras verificar su identidad por otro medio |
+
+Una cuenta bloqueada no se puede impersonar (`422 account_blocked`). Para dar de baja a
+una organización completa se usa la suspensión de Organizaciones.
+
 ## Impersonación
 - explícita y auditada (inicio, fin y fin por caducidad);
-- no se puede impersonar a otro administrador de plataforma;
+- no se puede impersonar a otro administrador de plataforma ni a una cuenta bloqueada;
 - banner visible mientras dura, con botón para finalizar;
 - **caduca a los 60 minutos** (`GuardImpersonation`): la siguiente petición devuelve la
   sesión al administrador (`401 impersonation_expired`) y el SPA vuelve a `/platform`;

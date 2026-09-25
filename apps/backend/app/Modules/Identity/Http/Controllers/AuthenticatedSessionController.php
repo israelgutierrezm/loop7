@@ -44,6 +44,13 @@ class AuthenticatedSessionController extends Controller
             ]);
         }
 
+        // Sólo tras comprobar la contraseña (no revela el bloqueo a terceros).
+        if ($user->isBlocked()) {
+            $this->audit->log(AuditAction::AUTH_LOGIN_FAILED, $user, ['reason' => 'blocked'], actor: $user);
+
+            return ApiResponse::error('Tu cuenta está bloqueada. Escribe a soporte para más información.', 'account_blocked', status: 403);
+        }
+
         // Segundo factor si el usuario lo tiene activo.
         if ($user->hasTwoFactorEnabled()) {
             $code = $request->string('code')->toString();

@@ -6,6 +6,7 @@ use App\Http\Middleware\RequestId;
 use App\Http\Middleware\SecurityHeaders;
 use App\Modules\Api\Http\Middleware\AuthenticateApiKey;
 use App\Modules\Api\Http\Middleware\EnsureApiScope;
+use App\Modules\Identity\Http\Middleware\EnsureAccountActive;
 use App\Modules\Identity\Http\Middleware\EnsureSuperAdmin;
 use App\Modules\Organizations\Http\Middleware\ResolveTenant;
 use App\Modules\PlatformAdmin\Http\Middleware\GuardImpersonation;
@@ -42,6 +43,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Impersonación de SUPERADMIN: caducidad y acciones bloqueadas (tras iniciar la sesión SPA).
         $middleware->appendToGroup('api', GuardImpersonation::class);
+        // Cuentas bloqueadas: pierden la sesión en su siguiente petición.
+        $middleware->appendToGroup('api', EnsureAccountActive::class);
 
         // Detrás de un proxy/balanceador con TLS: confiar para detectar HTTPS
         // (necesario para HSTS, cookies Secure y URLs https). Se lee de env porque
