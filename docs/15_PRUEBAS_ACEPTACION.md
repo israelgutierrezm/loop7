@@ -24,3 +24,12 @@
 
 ## Auditoría
 Toda acción crítica registra actor, contexto, recurso, timestamp e IP/user-agent cuando corresponda.
+
+## Recorrido de punta a punta
+`tests/Feature/EndToEnd/MainJourneyTest.php` recorre por la API, en una sola prueba, el
+flujo mínimo que exige CLAUDE.md: registro (organización + OWNER + prueba), login,
+onboarding del dashboard, crear marca, conectar una cuenta simulada (`fake`), crear un
+post con su variante, enviarlo a revisión (la creadora no puede aprobar), aprobarlo con
+un APPROVER, programarlo y que el scheduler lo publique (target y contenido
+`published`, auditado). Se ejecuta con el resto de la suite:
+`XDEBUG_MODE=off php artisan test`.
