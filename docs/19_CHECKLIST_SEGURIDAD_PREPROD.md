@@ -27,6 +27,7 @@ Ver runbook: [21_RUNBOOK_OPERACION.md](21_RUNBOOK_OPERACION.md).
 - [x] ✅ dependency audit Composer/NPM — pasos en CI
 - [x] ✅ SAST/linters en CI — Pint + PHPStan (nivel 5) + tests
 - [x] ✅ upload validation — MIME real/tamaño/límite de plan (MediaLibrary; logos de marca blanca sin SVG)
+- [x] ✅ exportaciones CSV sin inyección de fórmulas — `CsvWriter` prefija con apóstrofo lo que empieza por `= + - @` (y añade BOM UTF-8)
 - [x] ✅ URLs firmadas para privados — MediaService y logos de marca blanca (URL temporal)
 - [ ] ⚙️ SUPERADMIN con MFA obligatorio (recomendado activar antes de prod)
 - [x] ✅ impersonación auditada, con caducidad (60 min), acciones críticas bloqueadas e `impersonated_by` en la auditoría

@@ -13,6 +13,7 @@ use App\Modules\Content\Models\PublicationTarget;
 use App\Modules\Organizations\Models\Organization;
 use App\Modules\SocialConnections\Models\SocialConnection;
 use App\Modules\SocialConnections\Models\SocialConnectionDestination;
+use App\Support\Csv\CsvWriter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -159,7 +160,19 @@ class AnalyticsTest extends TestCase
             ->assertOk();
 
         $this->assertStringContainsString('text/csv', $response->headers->get('content-type'));
-        $this->assertStringContainsString('Impresiones', $response->streamedContent());
+        $csv = $response->streamedContent();
+        $this->assertStringStartsWith("\xEF\xBB\xBF", $csv); // Excel lee bien los acentos
+        $this->assertStringContainsString('Publicación', $csv);
+    }
+
+    public function test_el_csv_neutraliza_formulas(): void
+    {
+        $this->assertSame("'=HYPERLINK(\"http://x\")", CsvWriter::safe('=HYPERLINK("http://x")'));
+        $this->assertSame("'+1", CsvWriter::safe('+1'));
+        $this->assertSame("'@SUM(A1)", CsvWriter::safe('@SUM(A1)'));
+        $this->assertSame('Lanzamiento', CsvWriter::safe('Lanzamiento'));
+        $this->assertSame(-5, CsvWriter::safe(-5)); // los números negativos no se tocan
+        $this->assertSame('', CsvWriter::safe(null));
     }
 
     public function test_proveedor_no_configurado_se_omite(): void

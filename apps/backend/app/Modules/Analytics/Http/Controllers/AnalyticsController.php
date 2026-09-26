@@ -11,6 +11,7 @@ use App\Modules\Billing\Entitlements\Entitlement;
 use App\Modules\Billing\Exceptions\PlanLimitExceededException;
 use App\Modules\Billing\Services\EntitlementsService;
 use App\Modules\Brands\Http\Concerns\ResolvesBrand;
+use App\Support\Csv\CsvWriter;
 use App\Support\Http\ApiResponse;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
@@ -80,16 +81,18 @@ class AnalyticsController extends Controller
 
         return response()->streamDownload(function () use ($rows): void {
             $out = fopen('php://output', 'wb');
-            fputcsv($out, ['Publicacion', 'Red', 'Destino', 'Impresiones', 'Alcance', 'Likes', 'Comentarios', 'Compartidos', 'Interacciones']);
+            CsvWriter::start($out);
+            CsvWriter::row($out, ['Publicación', 'Red', 'Destino', 'Impresiones', 'Alcance', 'Me gusta', 'Comentarios', 'Compartidos', 'Interacciones']);
             foreach ($rows as $r) {
-                fputcsv($out, [
+                // Título y destino los escriben personas: CsvWriter neutraliza fórmulas.
+                CsvWriter::row($out, [
                     $r['title'], $r['provider'], $r['destination'],
                     $r['impressions'], $r['reach'], $r['likes'], $r['comments'], $r['shares'], $r['engagement'],
                 ]);
             }
             fclose($out);
         }, "analitica-{$brandModel->slug}-{$from->toDateString()}-{$to->toDateString()}.csv", [
-            'Content-Type' => 'text/csv',
+            'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
     }
 
