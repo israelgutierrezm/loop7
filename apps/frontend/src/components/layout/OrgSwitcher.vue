@@ -4,12 +4,14 @@ import { useRouter } from 'vue-router'
 import { onClickOutside } from '@vueuse/core'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toasts'
+import { usePublicConfigStore } from '@/stores/publicConfig'
 import AppIcon from '@/components/AppIcon.vue'
 import ModalDialog from '@/components/ui/ModalDialog.vue'
 import CreateOrganizationForm from '@/components/organization/CreateOrganizationForm.vue'
 
 const auth = useAuthStore()
 const toasts = useToastStore()
+const publicConfig = usePublicConfigStore()
 const router = useRouter()
 const open = ref(false)
 const root = ref<HTMLElement | null>(null)
@@ -94,7 +96,7 @@ async function select(id: string): Promise<void> {
           />
         </button>
         <button
-          v-if="!auth.impersonating"
+          v-if="!auth.impersonating && (publicConfig.registrationOpen || auth.isPlatformAdmin)"
           class="flex w-full items-center gap-2 border-t border-slate-100 px-3 py-2 text-left text-sm font-medium text-brand-600 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800"
           @click="startCreate"
         >

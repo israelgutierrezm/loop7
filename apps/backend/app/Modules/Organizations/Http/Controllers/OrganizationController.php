@@ -16,6 +16,7 @@ use App\Modules\Organizations\Enums\MembershipStatus;
 use App\Modules\Organizations\Http\Resources\OrganizationResource;
 use App\Modules\Organizations\Models\Organization;
 use App\Modules\Organizations\Services\MembershipService;
+use App\Modules\PlatformAdmin\Services\PlatformSettings;
 use App\Support\Http\ApiResponse;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
@@ -40,8 +41,17 @@ class OrganizationController extends Controller
         );
     }
 
-    public function store(Request $request, CreateOrganizationForUser $create): JsonResponse
+    public function store(Request $request, CreateOrganizationForUser $create, PlatformSettings $settings): JsonResponse
     {
+        // Con el alta cerrada (beta privada, sólo por invitación) tampoco se crean organizaciones nuevas.
+        if (! $settings->bool('registration.open') && ! $request->user()->isPlatformAdmin()) {
+            return ApiResponse::error(
+                'El alta de organizaciones nuevas está cerrada por el momento.',
+                'registration_closed',
+                status: 403,
+            );
+        }
+
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'country' => ['nullable', 'string', 'size:2'],

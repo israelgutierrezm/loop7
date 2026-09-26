@@ -175,4 +175,13 @@ class OrganizationLifecycleTest extends TestCase
         $api->postJson('/api/v1/organizations', ['name' => 'Tercera'])
             ->assertStatus(422)->assertJsonPath('code', 'organization_limit');
     }
+
+    public function test_con_el_alta_cerrada_no_se_crean_organizaciones(): void
+    {
+        [$owner] = $this->owner();
+        app(\App\Modules\PlatformAdmin\Services\PlatformSettings::class)->set(['registration.open' => false]);
+
+        $this->actingInOrganization($owner)->postJson('/api/v1/organizations', ['name' => 'Otra'])
+            ->assertForbidden()->assertJsonPath('code', 'registration_closed');
+    }
 }

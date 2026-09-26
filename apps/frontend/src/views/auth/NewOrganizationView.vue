@@ -1,12 +1,17 @@
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toasts'
+import { usePublicConfigStore } from '@/stores/publicConfig'
 import CreateOrganizationForm from '@/components/organization/CreateOrganizationForm.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
 const toasts = useToastStore()
+const publicConfig = usePublicConfigStore()
+
+onMounted(() => publicConfig.load())
 
 function created(): void {
   toasts.success('Organización creada.')
@@ -21,13 +26,17 @@ async function logout(): Promise<void> {
 
 <template>
   <div>
-    <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Crea tu organización</h1>
+    <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+      {{ publicConfig.registrationOpen ? 'Crea tu organización' : 'Sin organización' }}
+    </h1>
     <p class="mt-2 text-sm text-slate-500">
-      Tu cuenta no pertenece a ninguna organización. Crea una para empezar o pide a tu equipo que te invite:
-      el enlace de la invitación te sumará a la suya.
+      Tu cuenta no pertenece a ninguna organización.
+      {{ publicConfig.registrationOpen
+        ? 'Crea una para empezar o pide a tu equipo que te invite: el enlace de la invitación te sumará a la suya.'
+        : 'El alta de organizaciones nuevas está cerrada por el momento: pide a tu equipo que te invite y abre el enlace de la invitación.' }}
     </p>
 
-    <div class="mt-6">
+    <div v-if="publicConfig.registrationOpen" class="mt-6">
       <CreateOrganizationForm @created="created" />
     </div>
 
