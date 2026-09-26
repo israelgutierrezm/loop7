@@ -87,10 +87,18 @@ Las imágenes de IA se guardan en la biblioteca de medios de la marca (respetand
 límite de almacenamiento del plan) y se pueden adjuntar a cualquier variante.
 
 ### Brand Brain como contexto
-`BrandContextBuilder` compone voz/tono, propuestas de valor, CTA, hashtags,
-vocabulario preferido/prohibido, audiencias y oferta de la Brand. **Estrictamente
-acotado a la Brand**: nunca mezcla contexto entre Organizations/Brands. Incluye
-adaptación por red (`networkInstruction`).
+`BrandContextBuilder` compone descripción y sitio web, voz/tono, propuestas de valor,
+CTA, hashtags, vocabulario preferido/prohibido, **notas del equipo**, audiencias (con su
+descripción), oferta (productos con precio, descripción y enlace; servicios) y la **base
+de conocimiento** (FAQs como pregunta/respuesta, notas y enlaces de referencia, que la IA
+usa como datos verificados). Cada sección tiene tope (25 elementos, 30 de conocimiento,
+textos recortados) para que el prompt no crezca sin límite. **Estrictamente acotado a la
+Brand**: nunca mezcla contexto entre Organizations/Brands. Incluye adaptación por red
+(`networkInstruction`).
+
+En la ficha de la marca (Brand Brain) cada audiencia, producto, servicio y elemento de
+conocimiento se crea, **edita en línea** y quita con confirmación
+(`POST|PATCH|DELETE /brands/{brand}/{audiences|products|services|knowledge}`).
 
 ### Créditos y límites
 `AiCreditService` usa el entitlement `ai_credits.month` (docs/08) y acumula el

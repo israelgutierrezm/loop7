@@ -40,14 +40,14 @@ class BrandBrainController extends Controller
                 'prohibited_terms' => $guidelines->prohibited_terms ?? [],
                 'notes' => $guidelines->notes,
             ] : null,
-            'audiences' => BrandAudience::query()->where('brand_id', $id)->get()
+            'audiences' => BrandAudience::query()->where('brand_id', $id)->latest('id')->get()
                 ->map(fn (BrandAudience $a) => [
                     'id' => $a->public_id,
                     'name' => $a->name,
                     'description' => $a->description,
                     'demographics' => $a->demographics,
                 ])->all(),
-            'products' => BrandProduct::query()->where('brand_id', $id)->get()
+            'products' => BrandProduct::query()->where('brand_id', $id)->latest('id')->get()
                 ->map(fn (BrandProduct $p) => [
                     'id' => $p->public_id,
                     'name' => $p->name,
@@ -55,14 +55,14 @@ class BrandBrainController extends Controller
                     'price' => $p->price,
                     'url' => $p->url,
                 ])->all(),
-            'services' => BrandService::query()->where('brand_id', $id)->get()
+            'services' => BrandService::query()->where('brand_id', $id)->latest('id')->get()
                 ->map(fn (BrandService $s) => [
                     'id' => $s->public_id,
                     'name' => $s->name,
                     'description' => $s->description,
                     'url' => $s->url,
                 ])->all(),
-            'knowledge' => BrandKnowledgeItem::query()->where('brand_id', $id)->get()
+            'knowledge' => BrandKnowledgeItem::query()->where('brand_id', $id)->latest('id')->get()
                 ->map(fn (BrandKnowledgeItem $k) => [
                     'id' => $k->public_id,
                     'type' => $k->type,

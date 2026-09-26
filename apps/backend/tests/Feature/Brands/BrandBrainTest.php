@@ -75,6 +75,29 @@ class BrandBrainTest extends TestCase
             ->assertJsonCount(1, 'data.knowledge');
     }
 
+    public function test_se_edita_y_quita_un_elemento_sin_tocar_los_de_otra_marca(): void
+    {
+        [$owner, $org] = $this->createOwnerWithOrganization();
+        $brand = Brand::factory()->create(['organization_id' => $org->id]);
+        $other = Brand::factory()->create(['organization_id' => $org->id]);
+        $api = $this->actingInOrganization($owner, $org);
+
+        $id = $api->postJson("/api/v1/brands/{$brand->public_id}/knowledge", ['type' => 'url', 'title' => 'Precios', 'url' => 'https://a.test'])
+            ->assertCreated()->json('data.id');
+
+        // Al pasar a FAQ, la interfaz envía la URL oculta como null.
+        $api->patchJson("/api/v1/brands/{$brand->public_id}/knowledge/{$id}", [
+            'type' => 'faq', 'title' => '¿Cuánto cuesta?', 'body' => 'Desde $99', 'url' => null,
+        ])->assertOk()->assertJsonPath('data.title', '¿Cuánto cuesta?')->assertJsonPath('data.url', null);
+
+        // El elemento sólo se resuelve dentro de su marca.
+        $api->patchJson("/api/v1/brands/{$other->public_id}/knowledge/{$id}", ['type' => 'faq', 'title' => 'x'])->assertNotFound();
+        $api->patchJson("/api/v1/brands/{$brand->public_id}/knowledge/{$id}", ['type' => 'faq', 'title' => ''])->assertStatus(422);
+
+        $api->deleteJson("/api/v1/brands/{$brand->public_id}/knowledge/{$id}")->assertOk();
+        $this->assertDatabaseMissing('brand_knowledge_items', ['public_id' => $id]);
+    }
+
     public function test_viewer_no_puede_editar_la_identidad(): void
     {
         [, $org] = $this->createOwnerWithOrganization();

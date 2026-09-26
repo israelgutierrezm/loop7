@@ -15,6 +15,7 @@ import AppIcon from '@/components/AppIcon.vue'
 import BrandAvatar from '@/components/BrandAvatar.vue'
 import MediaPicker, { type PickedMedia } from '@/components/media/MediaPicker.vue'
 import BrandSocialPanel from '@/components/social/BrandSocialPanel.vue'
+import BrainList, { type BrainField } from '@/components/brand/BrainList.vue'
 import type { Brand, SocialProviderOption } from '@/types/models'
 
 interface Audience { id: string; name: string; description: string | null }
@@ -63,11 +64,30 @@ const media = ref<MediaItem[]>([])
 const mediaTotal = ref(0)
 const socialProviders = ref<SocialProviderOption[]>([])
 
-const newAudience = reactive({ name: '', description: '' })
-const newProduct = reactive({ name: '', price: '', url: '' })
-const newService = reactive({ name: '', url: '' })
-const newKnowledge = reactive({ type: 'faq', title: '', body: '', url: '' })
 const uploading = ref(false)
+
+const audienceFields: BrainField[] = [
+  { key: 'name', label: 'Nombre', required: true, maxlength: 255, placeholder: 'PyMEs tecnológicas' },
+  { key: 'description', label: 'Descripción', type: 'textarea', maxlength: 2000, placeholder: 'Qué necesitan, qué les preocupa, cómo hablan…' },
+]
+const productFields: BrainField[] = [
+  { key: 'name', label: 'Nombre', required: true, maxlength: 255 },
+  { key: 'price', label: 'Precio', maxlength: 64, placeholder: '$499 MXN' },
+  { key: 'url', label: 'Enlace', type: 'url', maxlength: 255, placeholder: 'https://', wide: true },
+  { key: 'description', label: 'Descripción', type: 'textarea', maxlength: 2000 },
+]
+const serviceFields: BrainField[] = [
+  { key: 'name', label: 'Nombre', required: true, maxlength: 255 },
+  { key: 'url', label: 'Enlace', type: 'url', maxlength: 255, placeholder: 'https://' },
+  { key: 'description', label: 'Descripción', type: 'textarea', maxlength: 2000 },
+]
+const knowledgeTypes: Record<string, string> = { faq: 'Pregunta frecuente', note: 'Nota', url: 'Enlace de referencia' }
+const knowledgeFields: BrainField[] = [
+  { key: 'type', label: 'Tipo', type: 'select', options: Object.entries(knowledgeTypes).map(([value, label]) => ({ value, label })) },
+  { key: 'title', label: 'Título o pregunta', required: true, maxlength: 255 },
+  { key: 'body', label: 'Contenido o respuesta', type: 'textarea', maxlength: 10000, showIf: (d) => d.type !== 'url' },
+  { key: 'url', label: 'URL', type: 'url', maxlength: 2048, placeholder: 'https://', wide: true, showIf: (d) => d.type === 'url' },
+]
 
 function linesToArray(text: string): string[] {
   return text.split('\n').map((l) => l.trim()).filter(Boolean)
@@ -194,28 +214,6 @@ async function saveGuidelines(): Promise<void> {
     toasts.error(apiErrorMessage(e))
   } finally {
     savingGuidelines.value = false
-  }
-}
-
-const lists: Record<string, { value: { id: string }[] }> = { audiences, products, services, knowledge }
-
-async function addChild(kind: string, payload: object, resetFn: () => void): Promise<void> {
-  try {
-    const { data } = await http.post(`/brands/${brandId}/${kind}`, payload)
-    lists[kind].value.unshift(data.data)
-    resetFn()
-    toasts.success('Añadido.')
-  } catch (e) {
-    toasts.error(apiErrorMessage(e))
-  }
-}
-
-async function deleteChild(kind: string, id: string): Promise<void> {
-  try {
-    await http.delete(`/brands/${brandId}/${kind}/${id}`)
-    lists[kind].value = lists[kind].value.filter((i) => i.id !== id)
-  } catch (e) {
-    toasts.error(apiErrorMessage(e))
   }
 }
 
@@ -425,97 +423,100 @@ onMounted(async () => {
       </div>
 
       <!-- Audiencias -->
-      <div v-show="activeTab === 'audiencias'" class="space-y-4">
-        <form
-          v-if="canEdit"
-          class="card flex flex-wrap items-end gap-3 p-4"
-          @submit.prevent="addChild('audiences', { ...newAudience }, () => { newAudience.name = ''; newAudience.description = '' })"
+      <div v-show="activeTab === 'audiencias'" class="max-w-3xl">
+        <p class="mb-3 text-sm text-slate-500">La IA adapta el mensaje a cada público que describas aquí.</p>
+        <BrainList
+          v-model:items="audiences"
+          kind="audiences"
+          :brand-id="brandId"
+          :fields="audienceFields"
+          :can-edit="canEdit"
+          add-label="Añadir audiencia"
+          :item-label="(a) => a.name"
+          empty-icon="team"
+          empty-title="Sin audiencias"
+          empty-description="Define a quién te diriges."
         >
-          <div class="flex-1"><label class="label" for="aud-name">Nombre</label><input id="aud-name" v-model="newAudience.name" required class="input" placeholder="PyMEs tecnológicas" /></div>
-          <div class="flex-1"><label class="label" for="aud-desc">Descripción</label><input id="aud-desc" v-model="newAudience.description" class="input" /></div>
-          <button type="submit" class="btn-primary">Añadir</button>
-        </form>
-        <EmptyState v-if="audiences.length === 0" icon="team" title="Sin audiencias" description="Define a quién te diriges." />
-        <div v-for="a in audiences" :key="a.id" class="card flex items-center justify-between p-4">
-          <div><p class="font-medium text-slate-800 dark:text-slate-100">{{ a.name }}</p><p class="text-sm text-slate-500">{{ a.description }}</p></div>
-          <button v-if="canEdit" class="btn-ghost text-rose-600" :aria-label="`Quitar ${a.name}`" @click="deleteChild('audiences', a.id)"><AppIcon name="close" :size="18" /></button>
-        </div>
+          <template #item="{ item }">
+            <p class="font-medium text-slate-800 dark:text-slate-100">{{ item.name }}</p>
+            <p v-if="item.description" class="mt-0.5 whitespace-pre-line text-sm text-slate-500">{{ item.description }}</p>
+          </template>
+        </BrainList>
       </div>
 
       <!-- Productos y servicios -->
-      <div v-show="activeTab === 'oferta'" class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div class="space-y-3">
-          <h3 class="font-semibold text-slate-900 dark:text-white">Productos</h3>
-          <form
-            v-if="canEdit"
-            class="card flex flex-wrap items-end gap-2 p-4"
-            @submit.prevent="addChild('products', { ...newProduct }, () => { newProduct.name = ''; newProduct.price = ''; newProduct.url = '' })"
+      <div v-show="activeTab === 'oferta'" class="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <section aria-labelledby="products-title">
+          <h3 id="products-title" class="mb-3 font-semibold text-slate-900 dark:text-white">Productos</h3>
+          <BrainList
+            v-model:items="products"
+            kind="products"
+            :brand-id="brandId"
+            :fields="productFields"
+            :can-edit="canEdit"
+            add-label="Añadir producto"
+            :item-label="(p) => p.name"
+            empty-icon="brands"
+            empty-title="Sin productos"
+            empty-description="La IA los menciona con su precio y enlace."
           >
-            <div class="flex-1"><label class="sr-only" for="prod-name">Nombre del producto</label><input id="prod-name" v-model="newProduct.name" required class="input" placeholder="Nombre" /></div>
-            <div class="w-24"><label class="sr-only" for="prod-price">Precio</label><input id="prod-price" v-model="newProduct.price" class="input" placeholder="Precio" /></div>
-            <button type="submit" class="btn-primary" aria-label="Añadir producto"><AppIcon name="plus" :size="16" /></button>
-          </form>
-          <div v-for="p in products" :key="p.id" class="card flex items-center justify-between p-3">
-            <span class="text-sm">{{ p.name }} <span v-if="p.price" class="text-slate-400">· {{ p.price }}</span></span>
-            <button v-if="canEdit" class="btn-ghost text-rose-600" :aria-label="`Quitar ${p.name}`" @click="deleteChild('products', p.id)"><AppIcon name="close" :size="16" /></button>
-          </div>
-        </div>
-        <div class="space-y-3">
-          <h3 class="font-semibold text-slate-900 dark:text-white">Servicios</h3>
-          <form
-            v-if="canEdit"
-            class="card flex flex-wrap items-end gap-2 p-4"
-            @submit.prevent="addChild('services', { ...newService }, () => { newService.name = ''; newService.url = '' })"
+            <template #item="{ item }">
+              <p class="font-medium text-slate-800 dark:text-slate-100">
+                {{ item.name }} <span v-if="item.price" class="font-normal text-slate-400">· {{ item.price }}</span>
+              </p>
+              <p v-if="item.description" class="mt-0.5 whitespace-pre-line text-sm text-slate-500">{{ item.description }}</p>
+              <a v-if="item.url" :href="item.url" target="_blank" rel="noopener noreferrer" class="break-all text-xs text-brand-600 hover:underline">{{ item.url }}</a>
+            </template>
+          </BrainList>
+        </section>
+        <section aria-labelledby="services-title">
+          <h3 id="services-title" class="mb-3 font-semibold text-slate-900 dark:text-white">Servicios</h3>
+          <BrainList
+            v-model:items="services"
+            kind="services"
+            :brand-id="brandId"
+            :fields="serviceFields"
+            :can-edit="canEdit"
+            add-label="Añadir servicio"
+            :item-label="(s) => s.name"
+            empty-icon="brands"
+            empty-title="Sin servicios"
+            empty-description="Describe qué ofreces y dónde contratarlo."
           >
-            <div class="flex-1"><label class="sr-only" for="serv-name">Nombre del servicio</label><input id="serv-name" v-model="newService.name" required class="input" placeholder="Nombre" /></div>
-            <button type="submit" class="btn-primary" aria-label="Añadir servicio"><AppIcon name="plus" :size="16" /></button>
-          </form>
-          <div v-for="s in services" :key="s.id" class="card flex items-center justify-between p-3">
-            <span class="text-sm">{{ s.name }}</span>
-            <button v-if="canEdit" class="btn-ghost text-rose-600" :aria-label="`Quitar ${s.name}`" @click="deleteChild('services', s.id)"><AppIcon name="close" :size="16" /></button>
-          </div>
-        </div>
+            <template #item="{ item }">
+              <p class="font-medium text-slate-800 dark:text-slate-100">{{ item.name }}</p>
+              <p v-if="item.description" class="mt-0.5 whitespace-pre-line text-sm text-slate-500">{{ item.description }}</p>
+              <a v-if="item.url" :href="item.url" target="_blank" rel="noopener noreferrer" class="break-all text-xs text-brand-600 hover:underline">{{ item.url }}</a>
+            </template>
+          </BrainList>
+        </section>
       </div>
 
       <!-- Conocimiento -->
-      <div v-show="activeTab === 'conocimiento'" class="space-y-4">
-        <form
-          v-if="canEdit"
-          class="card space-y-3 p-4"
-          @submit.prevent="addChild('knowledge', { ...newKnowledge }, () => { newKnowledge.title = ''; newKnowledge.body = ''; newKnowledge.url = '' })"
+      <div v-show="activeTab === 'conocimiento'" class="max-w-3xl">
+        <p class="mb-3 text-sm text-slate-500">
+          Preguntas frecuentes, datos y enlaces verificados: la IA los usa como fuente y evita inventar otros.
+        </p>
+        <BrainList
+          v-model:items="knowledge"
+          kind="knowledge"
+          :brand-id="brandId"
+          :fields="knowledgeFields"
+          :can-edit="canEdit"
+          add-label="Añadir a la base"
+          :item-label="(k) => k.title"
+          empty-title="Base de conocimiento vacía"
+          empty-description="Añade preguntas frecuentes, notas o enlaces de referencia."
         >
-          <div class="flex flex-wrap gap-2">
-            <label class="sr-only" for="kn-type">Tipo</label>
-            <select id="kn-type" v-model="newKnowledge.type" class="input w-auto">
-              <option value="faq">FAQ</option>
-              <option value="note">Nota</option>
-              <option value="url">URL</option>
-            </select>
-            <label class="sr-only" for="kn-title">Título o pregunta</label>
-            <input id="kn-title" v-model="newKnowledge.title" required class="input flex-1" placeholder="Título / pregunta" />
-          </div>
-          <template v-if="newKnowledge.type !== 'url'">
-            <label class="sr-only" for="kn-body">Contenido o respuesta</label>
-            <textarea id="kn-body" v-model="newKnowledge.body" rows="2" class="input" placeholder="Contenido / respuesta" />
+          <template #item="{ item }">
+            <span class="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:bg-slate-800">
+              {{ knowledgeTypes[item.type] ?? item.type }}
+            </span>
+            <p class="mt-1.5 font-medium text-slate-800 dark:text-slate-100">{{ item.title }}</p>
+            <p v-if="item.body" class="mt-0.5 whitespace-pre-line text-sm text-slate-500">{{ item.body }}</p>
+            <a v-if="item.url" :href="item.url" target="_blank" rel="noopener noreferrer" class="break-all text-sm text-brand-600 hover:underline">{{ item.url }}</a>
           </template>
-          <template v-else>
-            <label class="sr-only" for="kn-url">URL</label>
-            <input id="kn-url" v-model="newKnowledge.url" type="url" class="input" placeholder="https://" />
-          </template>
-          <div class="flex justify-end">
-            <button type="submit" class="btn-primary">Añadir</button>
-          </div>
-        </form>
-        <EmptyState v-if="knowledge.length === 0" icon="sparkles" title="Base de conocimiento vacía" description="Añade FAQs, notas o URLs de referencia." />
-        <div v-for="k in knowledge" :key="k.id" class="card p-4">
-          <div class="flex items-center justify-between">
-            <span class="rounded bg-slate-100 px-2 py-0.5 text-xs uppercase text-slate-500 dark:bg-slate-800">{{ k.type }}</span>
-            <button v-if="canEdit" class="btn-ghost text-rose-600" :aria-label="`Quitar ${k.title}`" @click="deleteChild('knowledge', k.id)"><AppIcon name="close" :size="16" /></button>
-          </div>
-          <p class="mt-1 font-medium text-slate-800 dark:text-slate-100">{{ k.title }}</p>
-          <p v-if="k.body" class="text-sm text-slate-500">{{ k.body }}</p>
-          <a v-if="k.url" :href="k.url" target="_blank" rel="noopener noreferrer" class="text-sm text-brand-600 hover:underline">{{ k.url }}</a>
-        </div>
+        </BrainList>
       </div>
 
       <!-- Medios -->
