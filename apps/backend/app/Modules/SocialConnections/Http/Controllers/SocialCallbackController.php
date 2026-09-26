@@ -25,9 +25,11 @@ class SocialCallbackController extends Controller
     public function handle(Request $request, string $provider): RedirectResponse
     {
         $frontend = rtrim((string) config('app.frontend_url'), '/');
+        // Redes sociales muestra el aviso de cada resultado (el dashboard no).
+        $social = $frontend . '/app/social?social=';
 
         if ($request->query('error')) {
-            return redirect()->away($frontend . '/app?social=denied');
+            return redirect()->away($social . 'denied');
         }
 
         try {
@@ -39,13 +41,13 @@ class SocialCallbackController extends Controller
 
             return redirect()->away($frontend . '/app/brands/' . $connection->brand->public_id . '?social=connected');
         } catch (InvalidOAuthStateException) {
-            return redirect()->away($frontend . '/app?social=invalid');
+            return redirect()->away($social . 'invalid');
         } catch (PlanLimitExceededException) {
-            return redirect()->away($frontend . '/app/social?social=limit');
+            return redirect()->away($social . 'limit');
         } catch (Throwable $e) {
             report($e);
 
-            return redirect()->away($frontend . '/app?social=error');
+            return redirect()->away($social . 'error');
         }
     }
 }

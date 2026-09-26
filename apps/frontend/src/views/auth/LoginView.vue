@@ -24,7 +24,9 @@ async function submit(): Promise<void> {
   generalError.value = ''
   try {
     await auth.login({ ...form })
-    const redirect = (route.query.redirect as string) || '/app'
+    // Sólo rutas internas: nunca otra web (//dominio o https://…).
+    const requested = typeof route.query.redirect === 'string' ? route.query.redirect : ''
+    const redirect = requested.startsWith('/') && !requested.startsWith('//') ? requested : '/app'
     router.push(redirect)
   } catch (e) {
     const code = apiErrorCode(e)
