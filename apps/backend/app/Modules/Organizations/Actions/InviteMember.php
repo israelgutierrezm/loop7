@@ -6,6 +6,7 @@ namespace App\Modules\Organizations\Actions;
 
 use App\Models\User;
 use App\Modules\AccessControl\Enums\OrganizationRole;
+use App\Modules\AccessControl\Services\RoleCatalog;
 use App\Modules\Audit\Enums\AuditAction;
 use App\Modules\Audit\Services\AuditLogger;
 use App\Modules\Billing\Entitlements\Entitlement;
@@ -26,12 +27,13 @@ class InviteMember
         private readonly AuditLogger $audit,
         private readonly EntitlementsService $entitlements,
         private readonly MembershipService $memberships,
+        private readonly RoleCatalog $roles,
     ) {
     }
 
     public function handle(Organization $organization, string $email, string $role, User $invitedBy): OrganizationInvitation
     {
-        $this->assertValidRole($role);
+        $this->assertValidRole($organization, $role);
 
         // Nadie puede invitar con un rol que no podría asignar (p. ej. un MANAGER, ADMIN).
         if (! in_array($role, $this->memberships->assignableRoles($invitedBy, $organization), true)) {
@@ -88,9 +90,10 @@ class InviteMember
         return $invitation;
     }
 
-    private function assertValidRole(string $role): void
+    private function assertValidRole(Organization $organization, string $role): void
     {
-        if (! in_array($role, OrganizationRole::values(), true)) {
+        // Predefinidos o personalizados de ESTA organización.
+        if (! in_array($role, $this->roles->names($organization), true)) {
             throw ValidationException::withMessages([
                 'role' => 'El rol indicado no es válido.',
             ]);

@@ -46,6 +46,7 @@ Catálogo en código (`App\Modules\Billing\Entitlements\Entitlement`); `-1` = il
 | `feature.byok` | Claves de IA propias | Claves de IA |
 | `feature.api` | API pública y MCP | API keys |
 | `feature.white_label` | Marca blanca | Configuración → Marca blanca |
+| `feature.custom_roles` | Roles personalizados (Professional, Agency, Enterprise) | Crear y editar roles (`POST|PATCH /roles`); eliminar siempre se permite |
 
 Sin suscripción vigente (prueba vencida, suspendida, cancelada) todos los límites valen 0
 y las funciones quedan desactivadas (los datos se conservan). Un 402

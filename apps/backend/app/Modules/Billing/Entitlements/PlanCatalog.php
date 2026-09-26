@@ -44,6 +44,7 @@ final class PlanCatalog
                     Entitlement::FEATURE_BYOK => false,
                     Entitlement::FEATURE_API => false,
                     Entitlement::FEATURE_WHITE_LABEL => false,
+                    Entitlement::FEATURE_CUSTOM_ROLES => false,
                 ],
             ],
             'growth' => [
@@ -66,6 +67,7 @@ final class PlanCatalog
                     Entitlement::FEATURE_BYOK => false,
                     Entitlement::FEATURE_API => false,
                     Entitlement::FEATURE_WHITE_LABEL => false,
+                    Entitlement::FEATURE_CUSTOM_ROLES => false,
                 ],
             ],
             'professional' => [
@@ -88,6 +90,7 @@ final class PlanCatalog
                     Entitlement::FEATURE_BYOK => true,
                     Entitlement::FEATURE_API => true,
                     Entitlement::FEATURE_WHITE_LABEL => false,
+                    Entitlement::FEATURE_CUSTOM_ROLES => true,
                 ],
             ],
             'agency' => [
@@ -110,6 +113,7 @@ final class PlanCatalog
                     Entitlement::FEATURE_BYOK => true,
                     Entitlement::FEATURE_API => true,
                     Entitlement::FEATURE_WHITE_LABEL => true,
+                    Entitlement::FEATURE_CUSTOM_ROLES => true,
                 ],
             ],
             'enterprise' => [
@@ -132,6 +136,7 @@ final class PlanCatalog
                     Entitlement::FEATURE_BYOK => true,
                     Entitlement::FEATURE_API => true,
                     Entitlement::FEATURE_WHITE_LABEL => true,
+                    Entitlement::FEATURE_CUSTOM_ROLES => true,
                 ],
             ],
         ];

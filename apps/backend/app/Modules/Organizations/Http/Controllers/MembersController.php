@@ -6,8 +6,8 @@ namespace App\Modules\Organizations\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
-use App\Modules\AccessControl\Enums\OrganizationRole;
 use App\Modules\AccessControl\Permissions\Permission;
+use App\Modules\AccessControl\Services\RoleCatalog;
 use App\Modules\Audit\Enums\AuditAction;
 use App\Modules\Audit\Services\AuditLogger;
 use App\Modules\Brands\Models\Brand;
@@ -39,6 +39,7 @@ class MembersController extends Controller
         private readonly PermissionRegistrar $registrar,
         private readonly AuditLogger $audit,
         private readonly BrandAccess $brandAccess,
+        private readonly RoleCatalog $roleCatalog,
     ) {
     }
 
@@ -73,7 +74,7 @@ class MembersController extends Controller
         }
 
         $data = $request->validate([
-            'role' => ['sometimes', 'required', 'string', Rule::in(OrganizationRole::values())],
+            'role' => ['sometimes', 'required', 'string', Rule::in($this->roleCatalog->names($organization))],
             'status' => ['sometimes', 'required', Rule::in([MembershipStatus::ACTIVE->value, MembershipStatus::SUSPENDED->value])],
             'all_brands_access' => ['sometimes', 'boolean'],
             'brands' => ['sometimes', 'array', 'max:500'],

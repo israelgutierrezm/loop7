@@ -61,7 +61,7 @@ async function select(id: string): Promise<void> {
           {{ auth.currentOrganization?.name ?? 'Sin organización' }}
         </span>
         <span class="block truncate text-xs text-slate-400">
-          {{ auth.currentOrganization?.roles?.[0] ?? '—' }}
+          {{ auth.currentOrganization?.role_labels?.[0] ?? auth.currentOrganization?.roles?.[0] ?? '—' }}
         </span>
       </span>
       <AppIcon name="chevron-down" :size="16" class="shrink-0 text-slate-400" />

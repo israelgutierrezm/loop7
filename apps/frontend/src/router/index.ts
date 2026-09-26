@@ -44,6 +44,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'brands', name: 'brands', component: () => import('@/views/app/BrandsView.vue'), meta: { title: 'Marcas', permission: 'brands.view' } },
       { path: 'brands/:brand', name: 'brand-detail', component: () => import('@/views/app/BrandDetailView.vue'), meta: { title: 'Marca', permission: 'brands.view' } },
       { path: 'team', name: 'team', component: () => import('@/views/app/TeamView.vue'), meta: { title: 'Equipo', permission: 'members.view' } },
+      { path: 'team/roles', name: 'roles', component: () => import('@/views/app/RolesView.vue'), meta: { title: 'Roles y permisos', permission: 'roles.view' } },
       { path: 'audit', name: 'audit', component: () => import('@/views/app/AuditView.vue'), meta: { title: 'Auditoría', permission: 'organization.update' } },
       { path: 'settings', name: 'settings', component: () => import('@/views/app/SettingsView.vue'), meta: { title: 'Configuración', permission: 'organization.view' } },
       { path: 'profile', name: 'profile', component: () => import('@/views/app/ProfileView.vue'), meta: { title: 'Mi perfil' } },

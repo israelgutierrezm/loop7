@@ -6,7 +6,7 @@ namespace App\Modules\Organizations\Services;
 
 use App\Models\User;
 use App\Modules\AccessControl\Enums\OrganizationRole;
-use App\Modules\AccessControl\Permissions\Permission;
+use App\Modules\AccessControl\Services\RoleCatalog;
 use App\Modules\Organizations\Models\Organization;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -15,8 +15,10 @@ use Spatie\Permission\PermissionRegistrar;
 
 class MembershipService
 {
-    public function __construct(private readonly PermissionRegistrar $registrar)
-    {
+    public function __construct(
+        private readonly PermissionRegistrar $registrar,
+        private readonly RoleCatalog $roles,
+    ) {
     }
 
     /**
@@ -70,20 +72,24 @@ class MembershipService
 
     /**
      * Roles que el usuario puede asignar (al invitar o cambiar un rol) en la
-     * Organization. OWNER nunca se asigna (se transfiere); ADMIN sólo lo asigna
-     * quien administra miembros (OWNER/ADMIN), para que un rol inferior con
-     * permiso de invitar o asignar roles no pueda crear administradores.
+     * Organization, predefinidos o personalizados: los que no conceden nada que
+     * él no tenga (docs/04: nadie concede permisos superiores a los suyos).
+     * OWNER nunca se asigna (se transfiere). Así un MANAGER no nombra ADMIN ni
+     * BILLING, y un ADMIN sí puede nombrar ADMIN.
      *
      * @return list<string>
      */
     public function assignableRoles(User $actor, Organization $organization): array
     {
-        $canManageMembers = in_array(Permission::MEMBERS_UPDATE, $this->permissionsFor($actor, $organization), true);
+        $mine = $this->permissionsFor($actor, $organization);
 
-        return array_values(array_filter(
-            OrganizationRole::values(),
-            fn (string $role): bool => $role !== OrganizationRole::OWNER->value
-                && ($canManageMembers || $role !== OrganizationRole::ADMIN->value),
+        return array_values(array_map(
+            fn (array $role): string => $role['value'],
+            array_filter(
+                $this->roles->all($organization),
+                fn (array $role): bool => $role['value'] !== OrganizationRole::OWNER->value
+                    && array_diff($role['permissions'], $mine) === [],
+            ),
         ));
     }
 

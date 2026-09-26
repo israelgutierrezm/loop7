@@ -38,6 +38,21 @@ enum OrganizationRole: string
         };
     }
 
+    public function description(): string
+    {
+        return match ($this) {
+            self::OWNER => 'Control total: facturación, equipo y eliminar o transferir la organización.',
+            self::ADMIN => 'Todo salvo eliminar o transferir la organización.',
+            self::MANAGER => 'Gestiona marcas, redes, contenido, campañas, automatizaciones y parte del equipo.',
+            self::APPROVER => 'Revisa y aprueba el contenido.',
+            self::PUBLISHER => 'Programa y publica el contenido aprobado.',
+            self::CONTENT_CREATOR => 'Crea contenido, lo envía a revisión y usa la IA.',
+            self::ANALYST => 'Consulta y exporta la analítica.',
+            self::BILLING => 'Gestiona el plan, los pagos y las facturas.',
+            self::VIEWER => 'Solo lectura.',
+        };
+    }
+
     /**
      * @return list<string>
      */

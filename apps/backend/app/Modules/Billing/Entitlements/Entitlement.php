@@ -29,6 +29,7 @@ final class Entitlement
     public const FEATURE_BYOK = 'feature.byok';
     public const FEATURE_API = 'feature.api';
     public const FEATURE_WHITE_LABEL = 'feature.white_label';
+    public const FEATURE_CUSTOM_ROLES = 'feature.custom_roles';
 
     public const TYPE_LIMIT = 'limit';
     public const TYPE_BOOL = 'bool';
@@ -56,6 +57,7 @@ final class Entitlement
             self::FEATURE_BYOK => ['type' => self::TYPE_BOOL, 'label' => 'Claves propias (BYOK)'],
             self::FEATURE_API => ['type' => self::TYPE_BOOL, 'label' => 'API pública'],
             self::FEATURE_WHITE_LABEL => ['type' => self::TYPE_BOOL, 'label' => 'Marca blanca'],
+            self::FEATURE_CUSTOM_ROLES => ['type' => self::TYPE_BOOL, 'label' => 'Roles personalizados'],
         ];
     }
 

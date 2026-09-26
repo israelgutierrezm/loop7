@@ -107,6 +107,7 @@ const featureLabels: Record<string, string> = {
   'feature.byok': 'Claves de IA propias',
   'feature.api': 'API pública y MCP',
   'feature.white_label': 'Marca blanca',
+  'feature.custom_roles': 'Roles personalizados',
 }
 
 function statusTone(status: string | undefined): BadgeTone {

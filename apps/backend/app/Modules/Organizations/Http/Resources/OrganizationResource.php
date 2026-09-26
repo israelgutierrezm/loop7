@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Organizations\Http\Resources;
 
+use App\Modules\AccessControl\Services\RoleCatalog;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -36,6 +37,11 @@ class OrganizationResource extends JsonResource
                 'joined_at' => $this->pivot->joined_at,
             ]),
             'roles' => $this->when(isset($this->current_roles), fn () => $this->current_roles),
+            // Nombre visible (los personalizados tienen un nombre interno custom_…).
+            'role_labels' => $this->when(
+                isset($this->current_roles),
+                fn () => app(RoleCatalog::class)->labels($this->resource, (array) $this->current_roles),
+            ),
         ];
     }
 }

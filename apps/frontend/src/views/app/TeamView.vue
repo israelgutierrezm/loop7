@@ -205,6 +205,9 @@ onMounted(load)
   <div>
     <PageHeader title="Equipo" description="Miembros, roles, acceso a marcas e invitaciones de tu organización.">
       <template #actions>
+        <RouterLink v-if="auth.can('roles.view')" to="/app/team/roles" class="btn-secondary">
+          <AppIcon name="lock" :size="18" /> Roles y permisos
+        </RouterLink>
         <button v-if="auth.can('members.invite')" class="btn-primary" @click="showInvite = true">
           <AppIcon name="plus" :size="18" /> Invitar
         </button>

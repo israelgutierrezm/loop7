@@ -40,6 +40,9 @@ final class AuditAction
     public const MEMBER_ROLE_ASSIGNED = 'member.role_assigned';
     public const MEMBER_ROLE_REVOKED = 'member.role_revoked';
     public const MEMBER_BRAND_ACCESS_UPDATED = 'member.brand_access_updated';
+    public const ROLE_CREATED = 'role.created';
+    public const ROLE_UPDATED = 'role.updated';
+    public const ROLE_DELETED = 'role.deleted';
 
     // Brands
     public const BRAND_CREATED = 'brand.created';

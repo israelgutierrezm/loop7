@@ -189,4 +189,94 @@ final class Permission
     {
         return array_merge(...array_values(self::groups()));
     }
+
+    /**
+     * Nombre legible de cada grupo (para el editor de roles).
+     *
+     * @return array<string, string>
+     */
+    public static function groupLabels(): array
+    {
+        return [
+            'organization' => 'Organización',
+            'members' => 'Equipo y roles',
+            'brands' => 'Marcas',
+            'social_accounts' => 'Redes sociales',
+            'content' => 'Contenido',
+            'campaigns' => 'Campañas',
+            'analytics' => 'Analítica',
+            'automations' => 'Automatizaciones',
+            'api' => 'API',
+            'billing' => 'Facturación',
+            'ai' => 'Inteligencia artificial',
+        ];
+    }
+
+    /**
+     * Nombre legible de cada permiso.
+     *
+     * @return array<string, string>
+     */
+    public static function labels(): array
+    {
+        return [
+            self::ORGANIZATION_VIEW => 'Ver la organización',
+            self::ORGANIZATION_UPDATE => 'Editar la organización y la auditoría',
+            self::ORGANIZATION_DELETE => 'Eliminar la organización',
+            self::ORGANIZATION_TRANSFER_OWNERSHIP => 'Transferir la propiedad',
+            self::MEMBERS_VIEW => 'Ver el equipo',
+            self::MEMBERS_INVITE => 'Invitar miembros',
+            self::MEMBERS_UPDATE => 'Gestionar miembros',
+            self::MEMBERS_REMOVE => 'Quitar o suspender miembros',
+            self::ROLES_VIEW => 'Ver roles',
+            self::ROLES_CREATE => 'Crear roles personalizados',
+            self::ROLES_UPDATE => 'Editar roles personalizados',
+            self::ROLES_DELETE => 'Eliminar roles personalizados',
+            self::ROLES_ASSIGN => 'Asignar roles',
+            self::BRANDS_VIEW => 'Ver marcas',
+            self::BRANDS_CREATE => 'Crear marcas',
+            self::BRANDS_UPDATE => 'Editar marcas y su Brand Brain',
+            self::BRANDS_DELETE => 'Eliminar marcas',
+            self::BRANDS_MANAGE_ACCESS => 'Gestionar el acceso a marcas',
+            self::SOCIAL_ACCOUNTS_VIEW => 'Ver cuentas sociales',
+            self::SOCIAL_ACCOUNTS_CONNECT => 'Conectar cuentas',
+            self::SOCIAL_ACCOUNTS_RECONNECT => 'Reconectar cuentas',
+            self::SOCIAL_ACCOUNTS_DISCONNECT => 'Desconectar cuentas',
+            self::SOCIAL_ACCOUNTS_MANAGE => 'Gestionar cuentas',
+            self::SOCIAL_ACCOUNTS_ANALYTICS => 'Analítica de cuentas',
+            self::SOCIAL_ACCOUNTS_INBOX => 'Usar el inbox',
+            self::CONTENT_VIEW => 'Ver contenido',
+            self::CONTENT_CREATE => 'Crear contenido',
+            self::CONTENT_UPDATE => 'Editar contenido',
+            self::CONTENT_DELETE => 'Eliminar contenido',
+            self::CONTENT_AI_GENERATE => 'Generar contenido con IA',
+            self::CONTENT_SUBMIT_FOR_REVIEW => 'Enviar a revisión',
+            self::CONTENT_APPROVE => 'Aprobar contenido',
+            self::CONTENT_REJECT => 'Pedir cambios',
+            self::CONTENT_SCHEDULE => 'Programar publicaciones',
+            self::CONTENT_PUBLISH_NOW => 'Publicar al momento',
+            self::CAMPAIGNS_VIEW => 'Ver campañas',
+            self::CAMPAIGNS_CREATE => 'Crear campañas',
+            self::CAMPAIGNS_UPDATE => 'Editar campañas',
+            self::CAMPAIGNS_DELETE => 'Eliminar campañas',
+            self::ANALYTICS_VIEW => 'Ver analítica',
+            self::ANALYTICS_EXPORT => 'Exportar analítica',
+            self::AUTOMATIONS_VIEW => 'Ver automatizaciones',
+            self::AUTOMATIONS_CREATE => 'Crear automatizaciones',
+            self::AUTOMATIONS_UPDATE => 'Editar automatizaciones',
+            self::AUTOMATIONS_DELETE => 'Eliminar automatizaciones',
+            self::API_MANAGE => 'Gestionar API keys',
+            self::BILLING_VIEW => 'Ver facturación',
+            self::BILLING_INVOICES => 'Ver facturas',
+            self::BILLING_CHANGE_PLAN => 'Cambiar de plan',
+            self::BILLING_PAYMENT_METHODS => 'Métodos de pago',
+            self::BILLING_CANCEL_SUBSCRIPTION => 'Cancelar la suscripción',
+            self::AI_USE => 'Usar la IA',
+            self::AI_GENERATE_TEXT => 'Generar textos',
+            self::AI_GENERATE_IMAGE => 'Generar imágenes',
+            self::AI_GENERATE_VIDEO => 'Generar videos',
+            self::AI_VIEW_USAGE => 'Ver el consumo de IA',
+            self::AI_MANAGE_OWN_KEYS => 'Gestionar claves propias de IA',
+        ];
+    }
 }

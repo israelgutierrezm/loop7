@@ -31,6 +31,23 @@ export interface Organization {
   created_at: string | null
   membership?: Membership
   roles?: string[]
+  /** Nombre visible de cada rol (los personalizados tienen un nombre interno custom_…). */
+  role_labels?: string[]
+}
+
+/** Rol de la organización: predefinido (docs/04) o personalizado. */
+export interface RoleDefinition {
+  value: string
+  label: string
+  description: string | null
+  custom: boolean
+  permissions: string[]
+}
+
+export interface PermissionGroup {
+  key: string
+  label: string
+  permissions: { key: string; label: string; owner_only: boolean }[]
 }
 
 export interface Brand {
