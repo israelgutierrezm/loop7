@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\Ai\Providers;
 
+use App\Modules\Ai\Contracts\EmbeddingProviderInterface;
+use App\Modules\Ai\Contracts\EmbeddingResult;
 use App\Modules\Ai\Contracts\ImageAIProviderInterface;
 use App\Modules\Ai\Contracts\ImageGenerationRequest;
 use App\Modules\Ai\Contracts\ImageGenerationResult;
@@ -21,13 +23,50 @@ use RuntimeException;
  * Los modelos de razonamiento (o*, gpt-5*) no aceptan `temperature` y todos
  * los actuales usan `max_completion_tokens`.
  */
-class OpenAiProvider implements ImageAIProviderInterface, TextAIProviderInterface
+class OpenAiProvider implements EmbeddingProviderInterface, ImageAIProviderInterface, TextAIProviderInterface
 {
     private const BASE_URL = 'https://api.openai.com/v1';
 
     private const DEFAULT_TEXT_MODEL = 'gpt-4o-mini';
 
     private const DEFAULT_IMAGE_MODEL = 'gpt-image-1';
+
+    private const DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small';
+
+    public function defaultEmbeddingModel(): string
+    {
+        return self::DEFAULT_EMBEDDING_MODEL;
+    }
+
+    /**
+     * Embeddings de la API de OpenAI. `dimensions` (sólo modelos text-embedding-3)
+     * reduce el tamaño del vector sin apenas perder calidad.
+     */
+    public function embed(array $inputs, array $credentials, string $model, int $dimensions): EmbeddingResult
+    {
+        $apiKey = $this->apiKey($credentials);
+        $model = $model !== '' ? $model : self::DEFAULT_EMBEDDING_MODEL;
+
+        $response = Http::withToken($apiKey)->timeout(60)->post(self::BASE_URL . '/embeddings', [
+            'model' => $model,
+            'input' => $inputs,
+            'dimensions' => $dimensions,
+            'encoding_format' => 'float',
+        ]);
+
+        if ($response->failed()) {
+            throw new RuntimeException('OpenAI devolvió un error: ' . $this->errorMessage($response));
+        }
+
+        $data = (array) $response->json();
+        $rows = collect((array) ($data['data'] ?? []))->sortBy('index')->values();
+        $vectors = $rows->map(fn ($row) => array_map('floatval', (array) ($row['embedding'] ?? [])))->all();
+        if (count($vectors) !== count($inputs)) {
+            throw new RuntimeException('OpenAI devolvió un número inesperado de embeddings.');
+        }
+
+        return new EmbeddingResult(array_values($vectors), (string) ($data['model'] ?? $model), (int) ($data['usage']['total_tokens'] ?? 0));
+    }
 
     public function generateText(TextGenerationRequest $request, array $credentials): TextGenerationResult
     {

@@ -48,7 +48,7 @@ class SearchController extends Controller
                 ->map(fn (ContentItem $c) => [
                     'id' => $c->public_id,
                     'title' => $c->title,
-                    'subtitle' => trim(($c->brand?->name ?? '') . ' · ' . $c->status->label(), ' ·'),
+                    'subtitle' => trim(($c->brand->name ?? '') . ' · ' . $c->status->label(), ' ·'),
                     'url' => '/app/content/' . $c->public_id,
                 ])->all();
         }
@@ -79,8 +79,8 @@ class SearchController extends Controller
                 ->map(fn (Campaign $c) => [
                     'id' => $c->public_id,
                     'title' => $c->name,
-                    'subtitle' => trim(($c->brand?->name ?? '') . ' · ' . $c->status->label(), ' ·'),
-                    'url' => '/app/campaigns?brand=' . ($c->brand?->public_id ?? ''),
+                    'subtitle' => trim(($c->brand->name ?? '') . ' · ' . $c->status->label(), ' ·'),
+                    'url' => '/app/campaigns?brand=' . ($c->brand->public_id ?? ''),
                 ])->all();
         }
 

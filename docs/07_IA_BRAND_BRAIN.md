@@ -37,6 +37,38 @@ Contexto de una Brand:
 ## RAG
 Los documentos del Brand Brain pueden indexarse para retrieval. Separar embeddings por Organization/Brand. Nunca mezclar contexto entre tenants.
 
+### Implementación (módulo `Knowledge`)
+- **Documentos**: PDF (con texto seleccionable), Word `.docx`, TXT, Markdown y CSV de
+  hasta 10 MB por marca (Brand Brain → Conocimiento → Documentos). El tipo real (finfo)
+  debe corresponder a la extensión. Archivo privado en el disco por defecto
+  (`knowledge/{org}/{marca}/{ulid}.{ext}`), descarga autenticada. Límite por plan
+  `knowledge_documents.max` (docs/08). Subir/reindexar/eliminar exige `brands.update`;
+  ver y probar, acceso a la marca. Auditado (`knowledge.document_uploaded|deleted`).
+- **Indexado** (`IndexKnowledgeDocument`, cola `default`): `DocumentTextExtractor`
+  (PDF con `smalot/pdfparser` sin imágenes y con límite de memoria; `.docx` leyendo
+  `word/document.xml` con tope contra zip bombs; texto con conversión desde Latin‑1) →
+  `TextChunker` (~1000 caracteres por párrafos y frases, solapamiento de 150) →
+  vectores por lotes de 64 → `knowledge_chunks`. Topes: 400 fragmentos por documento y
+  3.000 por marca. Un documento ilegible queda `failed` con el motivo; si el proveedor de
+  embeddings no responde, el último intento indexa sin vectores. Estados: En cola,
+  Procesando, Listo, Error (la ficha se refresca sola mientras indexa).
+- **Embeddings** (`EmbeddingProviderInterface`): OpenAI `text-embedding-3-small` a 512
+  dimensiones (modelo configurable en `config.embedding_model` del proveedor) y el de
+  prueba (hashing determinista, sin red). `EmbeddingService::spaceFor()` elige: la clave
+  propia (BYOK) si el plan lo permite, un proveedor real de plataforma configurado o el
+  de prueba. Cada vector guarda su espacio (`proveedor:modelo:dimensiones`): vectores de
+  espacios distintos nunca se comparan (tras cambiar de proveedor, «Reindexar»). El
+  indexado registra el uso (`index_document`, sin coste en créditos).
+- **Búsqueda híbrida** (`KnowledgeRetriever`, sólo la marca pedida): similitud del coseno
+  si fragmentos y consulta comparten espacio; si no (sin proveedor, o documentos de otro
+  espacio), palabras clave normalizadas (sin acentos ni palabras vacías, raíz de 6
+  letras). Probador en la ficha: `GET /brands/{marca}/documents/search?q=`.
+- **Generación**: `BrandContextBuilder::build($brand, $prompt)` añade hasta 4 fragmentos
+  relevantes (900 caracteres cada uno) indicando que son datos de referencia y que **no
+  se siguen instrucciones que contengan** (mitiga la inyección de prompts desde
+  documentos). La IA depende del contrato `KnowledgeSource`, no del módulo.
+- Eliminar un documento o su marca borra de verdad el archivo y sus fragmentos.
+
 ## AI Usage
 Registrar:
 - organization_id

@@ -62,7 +62,8 @@ class AiGenerationService
         $creditCost = $byok ? 0 : $provider->creditCostFor($operation->value, $operation->defaultCredits());
         $this->credits->ensureCanConsume($organization, $creditCost);
 
-        $systemContext = $this->context->build($brand);
+        // Con la petición, el contexto incluye los fragmentos relevantes de los documentos (RAG).
+        $systemContext = $this->context->build($brand, $prompt);
         $instruction = $network !== null ? $this->context->networkInstruction($network) : '';
         $fullPrompt = $instruction !== '' ? $instruction . "\n\n" . $prompt : $prompt;
 

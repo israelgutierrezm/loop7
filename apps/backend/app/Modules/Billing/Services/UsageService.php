@@ -8,6 +8,7 @@ use App\Modules\Billing\Entitlements\Entitlement;
 use App\Modules\Billing\Exceptions\PlanLimitExceededException;
 use App\Modules\Brands\Models\Brand;
 use App\Modules\Content\Models\PublicationTarget;
+use App\Modules\Knowledge\Models\KnowledgeDocument;
 use App\Modules\MediaLibrary\Models\MediaAsset;
 use App\Modules\Organizations\Models\Organization;
 use App\Modules\SocialConnections\Models\SocialConnection;
@@ -44,6 +45,9 @@ class UsageService
             Entitlement::SCHEDULED_POSTS_MONTH => $this->scheduledPostsThisMonth($organization),
             Entitlement::STORAGE_GB => round($bytes / 1024 ** 3, 2),
             Entitlement::AI_CREDITS_MONTH => $this->entitlements->usage($organization, Entitlement::AI_CREDITS_MONTH, Carbon::now()->format('Y-m')),
+            Entitlement::KNOWLEDGE_DOCUMENTS_MAX => KnowledgeDocument::query()->withoutGlobalScope(OrganizationScope::class)
+                ->where('organization_id', $organization->id)
+                ->count(),
         ];
     }
 

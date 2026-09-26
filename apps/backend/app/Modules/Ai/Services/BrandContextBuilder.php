@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Ai\Services;
 
+use App\Modules\Ai\Contracts\KnowledgeSource;
 use App\Modules\Brands\Models\Brand;
 use App\Modules\Brands\Models\BrandAudience;
 use App\Modules\Brands\Models\BrandGuideline;
@@ -29,7 +30,15 @@ class BrandContextBuilder
 
     private const MAX_KNOWLEDGE_TEXT = 800;
 
-    public function build(Brand $brand): string
+    public function __construct(private readonly ?KnowledgeSource $documents = null)
+    {
+    }
+
+    /**
+     * @param  string|null  $query  petición del usuario: con ella se añaden los
+     *                              fragmentos relevantes de los documentos (RAG)
+     */
+    public function build(Brand $brand, ?string $query = null): string
     {
         $lines = [
             'Eres un experto en marketing de redes sociales que escribe para la marca "' . $brand->name . '".',
@@ -101,6 +110,13 @@ class BrandContextBuilder
             ->all();
         if ($knowledge !== []) {
             $lines[] = "Base de conocimiento (datos verificados; úsalos y no inventes otros):\n" . implode("\n", $knowledge);
+        }
+
+        if ($query !== null && trim($query) !== '' && $this->documents !== null) {
+            $fragments = $this->documents->promptContext($brand, $query);
+            if ($fragments !== '') {
+                $lines[] = $fragments;
+            }
         }
 
         return implode("\n", $lines);

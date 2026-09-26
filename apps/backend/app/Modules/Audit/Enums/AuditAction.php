@@ -48,6 +48,8 @@ final class AuditAction
     public const BRAND_CREATED = 'brand.created';
     public const BRAND_UPDATED = 'brand.updated';
     public const BRAND_DELETED = 'brand.deleted';
+    public const KNOWLEDGE_DOCUMENT_UPLOADED = 'knowledge.document_uploaded';
+    public const KNOWLEDGE_DOCUMENT_DELETED = 'knowledge.document_deleted';
 
     // Biblioteca de medios
     public const MEDIA_UPLOADED = 'media.uploaded';

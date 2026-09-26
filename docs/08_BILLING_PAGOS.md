@@ -39,6 +39,7 @@ Catálogo en código (`App\Modules\Billing\Entitlements\Entitlement`); `-1` = il
 | `scheduled_posts.month` | Publicaciones (una por red) programadas o publicadas en el mes | Programar / publicar ahora |
 | `storage.gb` | Almacenamiento de la biblioteca | Subida y guardado de imágenes IA |
 | `ai_credits.month` | Créditos de IA | Cada generación |
+| `knowledge_documents.max` | Documentos del Brand Brain (Starter 5, Growth 25, Professional 100, Agency 500, Enterprise ilimitados) | Subir documento (RAG) |
 | `feature.approvals` | Flujo de aprobación (sin él se aprueba directo) | Enviar a revisión |
 | `feature.analytics_advanced` | Exportación de analítica | Export CSV |
 | `feature.inbox` | Inbox | Todo el módulo |

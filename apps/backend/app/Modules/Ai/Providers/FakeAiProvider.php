@@ -4,21 +4,65 @@ declare(strict_types=1);
 
 namespace App\Modules\Ai\Providers;
 
+use App\Modules\Ai\Contracts\EmbeddingProviderInterface;
+use App\Modules\Ai\Contracts\EmbeddingResult;
 use App\Modules\Ai\Contracts\ImageAIProviderInterface;
 use App\Modules\Ai\Contracts\ImageGenerationRequest;
 use App\Modules\Ai\Contracts\ImageGenerationResult;
 use App\Modules\Ai\Contracts\TextAIProviderInterface;
 use App\Modules\Ai\Contracts\TextGenerationRequest;
 use App\Modules\Ai\Contracts\TextGenerationResult;
+use Illuminate\Support\Str;
 use RuntimeException;
 
 /**
  * Proveedor de IA simulado para desarrollo y pruebas. No hace llamadas de red:
  * compone una respuesta plausible a partir del prompt y el contexto de marca.
  * Simula un fallo si el prompt contiene el marcador [[FAIL]].
+ *
+ * Sus embeddings son deterministas (hashing de palabras normalizadas): textos
+ * que comparten términos quedan cerca, suficiente para probar el RAG sin red.
  */
-class FakeAiProvider implements ImageAIProviderInterface, TextAIProviderInterface
+class FakeAiProvider implements EmbeddingProviderInterface, ImageAIProviderInterface, TextAIProviderInterface
 {
+    public function defaultEmbeddingModel(): string
+    {
+        return 'fake-embedding-1';
+    }
+
+    public function embed(array $inputs, array $credentials, string $model, int $dimensions): EmbeddingResult
+    {
+        $vectors = [];
+        foreach ($inputs as $input) {
+            if (str_contains($input, '[[FAIL]]')) {
+                throw new RuntimeException('Fallo simulado del proveedor de IA.');
+            }
+            $vector = array_fill(0, $dimensions, 0.0);
+            foreach ($this->terms($input) as $term) {
+                $hash = crc32($term);
+                $vector[$hash % $dimensions] += ($hash & 1) === 1 ? 1.0 : -1.0;
+            }
+            $norm = sqrt(array_sum(array_map(fn (float $v) => $v * $v, $vector)));
+            $vectors[] = $norm > 0 ? array_map(fn (float $v) => $v / $norm, $vector) : $vector;
+        }
+
+        return new EmbeddingResult($vectors, $model !== '' ? $model : $this->defaultEmbeddingModel(), (int) ceil(mb_strlen(implode(' ', $inputs)) / 4));
+    }
+
+    /**
+     * Palabras normalizadas (sin acentos, recortadas a 6 letras como raíz tosca).
+     *
+     * @return list<string>
+     */
+    private function terms(string $text): array
+    {
+        $words = preg_split('/[^a-z0-9]+/', Str::lower(Str::ascii($text))) ?: [];
+
+        return array_values(array_map(
+            fn (string $w) => mb_substr($w, 0, 6),
+            array_filter($words, fn (string $w) => mb_strlen($w) >= 3),
+        ));
+    }
     public function generateText(TextGenerationRequest $request, array $credentials): TextGenerationResult
     {
         if (str_contains($request->prompt, '[[FAIL]]')) {

@@ -16,6 +16,7 @@ import BrandAvatar from '@/components/BrandAvatar.vue'
 import MediaPicker, { type PickedMedia } from '@/components/media/MediaPicker.vue'
 import BrandSocialPanel from '@/components/social/BrandSocialPanel.vue'
 import BrainList, { type BrainField } from '@/components/brand/BrainList.vue'
+import KnowledgeDocuments from '@/components/brand/KnowledgeDocuments.vue'
 import type { Brand, SocialProviderOption } from '@/types/models'
 
 interface Audience { id: string; name: string; description: string | null }
@@ -494,6 +495,8 @@ onMounted(async () => {
 
       <!-- Conocimiento -->
       <div v-show="activeTab === 'conocimiento'" class="max-w-3xl">
+        <KnowledgeDocuments class="mb-6" :brand-id="brandId" :can-edit="canEdit" />
+        <h3 class="mb-1 font-semibold text-slate-900 dark:text-white">Preguntas frecuentes, notas y enlaces</h3>
         <p class="mb-3 text-sm text-slate-500">
           Preguntas frecuentes, datos y enlaces verificados: la IA los usa como fuente y evita inventar otros.
         </p>

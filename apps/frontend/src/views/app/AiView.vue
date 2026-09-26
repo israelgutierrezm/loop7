@@ -108,7 +108,9 @@ const opLabels: Record<string, string> = {
   generate_ideas: 'Generar ideas',
   improve_text: 'Mejorar texto',
   adapt_variant: 'Adaptar por red',
+  suggest_reply: 'Sugerir respuesta',
   generate_image: 'Generar imagen',
+  index_document: 'Indexar documento',
 }
 
 function formatDate(value: string | null): string {

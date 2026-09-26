@@ -27,6 +27,7 @@ Ver runbook: [21_RUNBOOK_OPERACION.md](21_RUNBOOK_OPERACION.md).
 - [x] ✅ dependency audit Composer/NPM — pasos en CI
 - [x] ✅ SAST/linters en CI — Pint + PHPStan (nivel 5) + tests
 - [x] ✅ upload validation — MIME real/tamaño/límite de plan (MediaLibrary; logos de marca blanca sin SVG)
+- [x] ✅ documentos del Brand Brain — tipo real vs extensión, 10 MB, sin imágenes del PDF ni zip bombs de Word, archivo privado; los fragmentos se dan a la IA como datos y se le indica no seguir instrucciones que contengan
 - [x] ✅ exportaciones CSV sin inyección de fórmulas — `CsvWriter` prefija con apóstrofo lo que empieza por `= + - @` (y añade BOM UTF-8)
 - [x] ✅ URLs firmadas para privados — MediaService y logos de marca blanca (URL temporal)
 - [ ] ⚙️ SUPERADMIN con MFA obligatorio (recomendado activar antes de prod)

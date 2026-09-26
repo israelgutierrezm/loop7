@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Ai\Services;
 
+use App\Modules\Ai\Contracts\EmbeddingProviderInterface;
 use App\Modules\Ai\Contracts\ImageAIProviderInterface;
 use App\Modules\Ai\Contracts\TextAIProviderInterface;
 use App\Modules\Ai\Enums\AiModality;
@@ -25,15 +26,25 @@ class AiProviderManager
     /** @var array<string, ImageAIProviderInterface> */
     private array $imageAdapters;
 
+    /** @var array<string, EmbeddingProviderInterface> */
+    private array $embeddingAdapters;
+
     public function __construct()
     {
         $fake = new FakeAiProvider();
         $openai = new OpenAiProvider();
         $anthropic = new AnthropicProvider();
 
-        // Texto: fake, OpenAI y Anthropic. Imagen: fake y OpenAI (Anthropic no genera imágenes).
+        // Texto: fake, OpenAI y Anthropic. Imagen y embeddings: fake y OpenAI
+        // (Anthropic no genera imágenes ni ofrece embeddings).
         $this->textAdapters = ['fake' => $fake, 'openai' => $openai, 'anthropic' => $anthropic];
         $this->imageAdapters = ['fake' => $fake, 'openai' => $openai];
+        $this->embeddingAdapters = ['fake' => $fake, 'openai' => $openai];
+    }
+
+    public function embeddingAdapter(string $key): ?EmbeddingProviderInterface
+    {
+        return $this->embeddingAdapters[$key] ?? null;
     }
 
     public function textAdapter(string $key): ?TextAIProviderInterface
