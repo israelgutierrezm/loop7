@@ -6,15 +6,14 @@ namespace App\Modules\Organizations\Enums;
 
 enum MembershipStatus: string
 {
+    // Las invitaciones pendientes viven en organization_invitations, no aquí.
     case ACTIVE = 'active';
-    case INVITED = 'invited';
     case SUSPENDED = 'suspended';
 
     public function label(): string
     {
         return match ($this) {
             self::ACTIVE => 'Activo',
-            self::INVITED => 'Invitado',
             self::SUSPENDED => 'Suspendido',
         };
     }

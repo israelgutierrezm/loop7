@@ -11,7 +11,6 @@ use App\Modules\Billing\Models\Plan;
 use App\Modules\Billing\Models\PlanEntitlement;
 use App\Modules\Billing\Models\PlanPrice;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 
 /**
  * Catálogo inicial de billing. Es idempotente y NO destructivo: sólo crea lo que
@@ -22,14 +21,7 @@ class BillingSeeder extends Seeder
 {
     public function run(): void
     {
-        // Catálogo de entitlements (definido en código) y retirada de claves obsoletas.
-        foreach (Entitlement::definitions() as $key => $def) {
-            DB::table('entitlements')->updateOrInsert(
-                ['key' => $key],
-                ['type' => $def['type'], 'label' => $def['label'], 'updated_at' => now(), 'created_at' => now()],
-            );
-        }
-        DB::table('entitlements')->whereNotIn('key', Entitlement::all())->delete();
+        // El catálogo de entitlements vive en código (Entitlement): se retiran las claves obsoletas.
         PlanEntitlement::query()->whereNotIn('entitlement_key', Entitlement::all())->delete();
 
         // Planes por defecto (sólo si no existen).
