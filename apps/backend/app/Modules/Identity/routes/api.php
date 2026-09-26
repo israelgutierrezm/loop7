@@ -18,9 +18,10 @@ Route::middleware('throttle:auth')->group(function (): void {
     Route::post('/auth/reset-password', [PasswordResetController::class, 'reset']);
 });
 
-// Verificación de correo (enlace firmado desde el email; redirige al SPA).
+// Verificación de correo (enlace firmado desde el email; redirige al SPA). La
+// firma se valida en el controlador para volver al SPA también si caducó.
 Route::get('/email/verify/{id}/{hash}', [EmailVerificationController::class, 'verify'])
-    ->middleware(['signed', 'throttle:6,1'])
+    ->middleware('throttle:6,1')
     ->name('verification.verify');
 
 // ---- Sesión autenticada ----------------------------------------------------

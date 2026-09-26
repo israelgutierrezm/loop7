@@ -6,12 +6,14 @@ import http from '@/services/http'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toasts'
 import { apiErrorMessage, apiValidationErrors } from '@/utils/errors'
+import { useEmailVerification } from '@/composables/useEmailVerification'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import Spinner from '@/components/ui/Spinner.vue'
 import AppIcon from '@/components/AppIcon.vue'
 
 const auth = useAuthStore()
 const toasts = useToastStore()
+const verification = useEmailVerification()
 
 // --- Perfil ---
 const profileForm = reactive({ name: auth.user?.name ?? '' })
@@ -158,7 +160,18 @@ async function disableMfa(): Promise<void> {
         </div>
         <div>
           <label class="label" for="p-email">Correo</label>
-          <input id="p-email" :value="auth.user?.email" type="email" disabled class="input" />
+          <input id="p-email" :value="auth.user?.email" type="email" disabled class="input" aria-describedby="p-email-status" />
+          <p id="p-email-status" class="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
+            <template v-if="auth.user?.email_verified">
+              <span class="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400"><AppIcon name="check" :size="14" /> Verificado</span>
+            </template>
+            <template v-else>
+              <span class="inline-flex items-center gap-1 text-amber-700 dark:text-amber-400"><AppIcon name="alert" :size="14" /> Sin verificar</span>
+              <button type="button" class="font-medium text-brand-600 hover:underline disabled:opacity-60" :disabled="verification.sending.value || verification.sent.value" @click="verification.resend">
+                {{ verification.sent.value ? 'Enlace enviado: revisa tu correo' : verification.sending.value ? 'Enviando…' : 'Enviar enlace de verificación' }}
+              </button>
+            </template>
+          </p>
         </div>
         <p class="flex items-center gap-2 text-xs text-slate-500">
           <AppIcon name="info" :size="14" />

@@ -60,7 +60,10 @@ redirecciones.
 - rate limiting.
 - bloqueo progresivo ante abuso.
 - MFA/TOTP.
-- verificación de correo.
+- verificación de correo: el enlace firmado (60 min) vuelve siempre al SPA, también si
+  caducó (`/verificar-correo?status=invalid`, con botón para pedir otro). Mientras no se
+  verifica, el panel muestra un aviso con «Enviar enlace» y Mi perfil indica el estado
+  (`POST /email/verification-notification`, 6/min).
 - gestión y revocación de sesiones.
 
 ## Uploads

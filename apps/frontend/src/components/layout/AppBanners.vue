@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { usePublicConfigStore } from '@/stores/publicConfig'
 import { dateLong } from '@/utils/format'
+import { useEmailVerification } from '@/composables/useEmailVerification'
 import AppIcon from '@/components/AppIcon.vue'
 
 /**
@@ -13,15 +14,30 @@ import AppIcon from '@/components/AppIcon.vue'
 const auth = useAuthStore()
 const publicConfig = usePublicConfigStore()
 const dismissedAnnouncement = ref<string | null>(null)
+const verification = useEmailVerification()
+const verifyDismissed = ref(false)
 
 onMounted(() => {
   publicConfig.load()
   try {
     dismissedAnnouncement.value = sessionStorage.getItem('loop7.dismissedAnnouncement')
+    verifyDismissed.value = sessionStorage.getItem('loop7.dismissedVerifyEmail') === '1'
   } catch {
     /* almacenamiento no disponible */
   }
 })
+
+// Correo sin verificar: los avisos y la recuperación de la cuenta dependen de él.
+const showVerifyEmail = computed(() => auth.user !== null && !auth.user.email_verified && !auth.impersonating && !verifyDismissed.value)
+
+function dismissVerify(): void {
+  verifyDismissed.value = true
+  try {
+    sessionStorage.setItem('loop7.dismissedVerifyEmail', '1')
+  } catch {
+    /* almacenamiento no disponible */
+  }
+}
 
 const announcement = computed(() =>
   publicConfig.announcement && publicConfig.announcement.message !== dismissedAnnouncement.value ? publicConfig.announcement : null,
@@ -80,6 +96,30 @@ const tones: Record<string, string> = {
       >
         Ver planes
       </RouterLink>
+    </div>
+    <div
+      v-if="showVerifyEmail"
+      class="flex flex-wrap items-center gap-3 border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100"
+      role="status"
+    >
+      <AppIcon name="alert" :size="16" class="shrink-0" />
+      <p class="flex-1">
+        {{ verification.sent.value
+          ? `Te enviamos un enlace a ${auth.user?.email}: ábrelo para verificar tu correo.`
+          : `Verifica tu correo (${auth.user?.email}) para recibir los avisos y poder recuperar tu cuenta.` }}
+      </p>
+      <button
+        v-if="!verification.sent.value"
+        type="button"
+        class="rounded-md bg-amber-900/10 px-2.5 py-1 font-semibold hover:bg-amber-900/20 dark:bg-white/10 dark:hover:bg-white/20"
+        :disabled="verification.sending.value"
+        @click="verification.resend"
+      >
+        {{ verification.sending.value ? 'Enviando…' : 'Enviar enlace' }}
+      </button>
+      <button type="button" class="rounded p-1 opacity-70 hover:opacity-100" aria-label="Ocultar aviso de verificación" @click="dismissVerify">
+        <AppIcon name="close" :size="14" />
+      </button>
     </div>
   </div>
 </template>

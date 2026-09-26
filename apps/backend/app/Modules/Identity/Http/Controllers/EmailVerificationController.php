@@ -26,6 +26,11 @@ class EmailVerificationController extends Controller
     public function verify(Request $request, string $id, string $hash): RedirectResponse
     {
         $frontend = rtrim((string) config('app.frontend_url'), '/');
+
+        if (! $request->hasValidSignature()) {
+            return redirect()->away($frontend . '/verificar-correo?status=invalid');
+        }
+
         $user = User::find($id);
 
         if ($user === null || ! hash_equals(sha1($user->getEmailForVerification()), $hash)) {
