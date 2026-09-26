@@ -290,6 +290,20 @@ class SubscriptionService
             ->first();
     }
 
+    /**
+     * ¿La pasarela seguirá cobrando sola? (suscripción recurrente vigente y sin
+     * cancelación programada). Mientras sea así no se elimina la organización.
+     */
+    public function hasAutomaticCharge(Organization $organization): bool
+    {
+        $subscription = $this->find($organization);
+
+        return $subscription !== null
+            && ! empty($subscription->gateway_subscription_id)
+            && ! $subscription->cancel_at_period_end
+            && in_array($subscription->status, [SubscriptionStatus::ACTIVE, SubscriptionStatus::PAST_DUE, SubscriptionStatus::GRACE], true);
+    }
+
     public function findByGatewaySubscription(string $gateway, string $gatewaySubscriptionId): ?Subscription
     {
         return Subscription::query()

@@ -5,15 +5,22 @@ declare(strict_types=1);
 namespace App\Modules\Organizations\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use App\Modules\Audit\Enums\AuditAction;
 use App\Modules\Audit\Services\AuditLogger;
+use App\Modules\Billing\Services\SubscriptionService;
 use App\Modules\Organizations\Actions\CreateOrganizationForUser;
+use App\Modules\Organizations\Actions\DeleteOrganization;
+use App\Modules\Organizations\Actions\TransferOrganizationOwnership;
+use App\Modules\Organizations\Enums\MembershipStatus;
 use App\Modules\Organizations\Http\Resources\OrganizationResource;
+use App\Modules\Organizations\Models\Organization;
 use App\Modules\Organizations\Services\MembershipService;
 use App\Support\Http\ApiResponse;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class OrganizationController extends Controller
 {
@@ -40,6 +47,16 @@ class OrganizationController extends Controller
             'country' => ['nullable', 'string', 'size:2'],
             'timezone' => ['nullable', 'string', 'timezone'],
         ]);
+
+        // Cada organización nueva estrena periodo de prueba: tope por propietario.
+        $max = (int) config('platform.max_owned_organizations', 5);
+        if (Organization::query()->where('owner_user_id', $request->user()->id)->count() >= $max) {
+            return ApiResponse::error(
+                "Ya eres propietario de {$max} organizaciones, el máximo permitido. Escribe a soporte si necesitas más.",
+                'organization_limit',
+                status: 422,
+            );
+        }
 
         $organization = $create->handle($request->user(), $data['name'], $data);
 
@@ -78,16 +95,73 @@ class OrganizationController extends Controller
         return ApiResponse::success(new OrganizationResource($organization), 'Organización actualizada.');
     }
 
-    public function destroy(Request $request, TenantContext $context): JsonResponse
-    {
+    /**
+     * Elimina la Organization actual (sólo su propietario). Exige escribir su
+     * nombre y la contraseña, y que la pasarela ya no vaya a cobrar sola.
+     */
+    public function destroy(
+        Request $request,
+        TenantContext $context,
+        SubscriptionService $subscriptions,
+        DeleteOrganization $delete,
+    ): JsonResponse {
         $organization = $context->organization();
         $this->authorize('delete', $organization);
 
-        $this->audit->log(AuditAction::ORGANIZATION_DELETED, $organization, [
-            'name' => $organization->name,
-        ]);
-        $organization->delete();
+        $request->validate([
+            'confirm_name' => ['required', 'string', 'max:255'],
+            'password' => ['required', 'current_password'],
+        ], ['password.current_password' => 'La contraseña no es correcta.']);
+
+        if (mb_strtolower(trim($request->string('confirm_name')->toString())) !== mb_strtolower(trim($organization->name))) {
+            throw ValidationException::withMessages(['confirm_name' => 'Escribe el nombre exacto de la organización.']);
+        }
+
+        if ($subscriptions->hasAutomaticCharge($organization)) {
+            return ApiResponse::error(
+                'Cancela primero la suscripción en Facturación: la pasarela seguiría cobrando.',
+                'subscription_active',
+                status: 409,
+            );
+        }
+
+        $delete->handle($organization);
 
         return ApiResponse::message('Organización eliminada.');
+    }
+
+    /**
+     * Transfiere la propiedad a otro miembro activo (sólo el propietario actual,
+     * con su contraseña). El anterior propietario queda como ADMIN.
+     */
+    public function transferOwnership(
+        Request $request,
+        TenantContext $context,
+        TransferOrganizationOwnership $transfer,
+    ): JsonResponse {
+        $organization = $context->organization();
+        $this->authorize('transferOwnership', $organization);
+
+        $data = $request->validate([
+            'user' => ['required', 'string'],
+            'password' => ['required', 'current_password'],
+        ], ['password.current_password' => 'La contraseña no es correcta.']);
+
+        /** @var User|null $target */
+        $target = $organization->users()
+            ->where('users.public_id', $data['user'])
+            ->wherePivot('status', MembershipStatus::ACTIVE->value)
+            ->first();
+
+        if ($target === null || $target->id === $request->user()->id) {
+            throw ValidationException::withMessages(['user' => 'Elige a otro miembro activo de la organización.']);
+        }
+        if ($target->isBlocked()) {
+            throw ValidationException::withMessages(['user' => 'Esa cuenta está bloqueada.']);
+        }
+
+        $transfer->handle($organization, $request->user(), $target);
+
+        return ApiResponse::message("{$target->name} es ahora el propietario de la organización.");
     }
 }

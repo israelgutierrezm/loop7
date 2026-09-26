@@ -48,7 +48,7 @@ una organización completa se usa la suspensión de Organizaciones.
 - **caduca a los 60 minutos** (`GuardImpersonation`): la siguiente petición devuelve la
   sesión al administrador (`401 impersonation_expired`) y el SPA vuelve a `/platform`;
 - **acciones bloqueadas** mientras dura (`403 impersonation_blocked`): contraseña, MFA,
-  pagos/suscripción, API keys, claves de IA y borrado de la organización;
+  pagos/suscripción, API keys, claves de IA y crear, transferir o borrar organizaciones;
 - toda acción auditada durante la impersonación incluye `impersonated_by` (id público
   del administrador que actúa);
 - no revela secretos (las credenciales siguen cifradas y enmascaradas).

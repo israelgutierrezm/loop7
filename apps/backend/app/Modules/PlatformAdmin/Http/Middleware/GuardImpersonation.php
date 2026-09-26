@@ -15,7 +15,7 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Límites de la impersonación (docs/09): caduca a los 60 minutos y bloquea las
  * acciones que un administrador nunca debe hacer en nombre de otra persona
- * (credenciales, MFA, pagos, claves y borrado de la organización).
+ * (credenciales, MFA, pagos, claves, crear, transferir o borrar organizaciones).
  */
 class GuardImpersonation
 {
@@ -25,6 +25,8 @@ class GuardImpersonation
         ['POST', 'api/v1/me/two-factor/*'],
         ['DELETE', 'api/v1/me/two-factor'],
         ['DELETE', 'api/v1/organization'],
+        ['POST', 'api/v1/organization/transfer-ownership'],
+        ['POST', 'api/v1/organizations'],
         ['POST', 'api/v1/billing/*'],
         ['POST', 'api/v1/api-keys'],
         ['DELETE', 'api/v1/api-keys/*'],

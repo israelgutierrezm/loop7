@@ -31,6 +31,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'restablecer-contrasena', name: 'reset-password', component: () => import('@/views/auth/ResetPasswordView.vue'), meta: { guestOnly: true, title: 'Restablecer contraseña' } },
       { path: 'verificar-correo', name: 'verify-email', component: () => import('@/views/auth/VerifyEmailView.vue'), meta: { title: 'Verificar correo' } },
       { path: 'aceptar-invitacion', name: 'accept-invitation', component: () => import('@/views/auth/AcceptInvitationView.vue'), meta: { requiresAuth: true, title: 'Aceptar invitación' } },
+      { path: 'nueva-organizacion', name: 'new-organization', component: () => import('@/views/auth/NewOrganizationView.vue'), meta: { requiresAuth: true, title: 'Crear organización' } },
     ],
   },
 
@@ -109,6 +110,11 @@ router.beforeEach(async (to) => {
 
   if (to.meta.requiresPlatformAdmin && !auth.isPlatformAdmin) {
     return { name: 'dashboard' }
+  }
+
+  // Sin organizaciones (eliminó la suya, lo quitaron de su equipo…): crear una.
+  if (auth.isAuthenticated && to.path.startsWith('/app') && auth.organizations.length === 0) {
+    return auth.isPlatformAdmin ? { name: 'platform-dashboard' } : { name: 'new-organization' }
   }
 
   // Enlaces de correos y avisos (?org=…): cambia a esa organización si el usuario pertenece a ella.

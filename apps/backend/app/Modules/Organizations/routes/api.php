@@ -13,14 +13,16 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('auth:sanctum')->group(function (): void {
     // Sin contexto de tenant (operan sobre "mis" organizaciones).
     Route::get('/organizations', [OrganizationController::class, 'index']);
-    Route::post('/organizations', [OrganizationController::class, 'store']);
+    Route::post('/organizations', [OrganizationController::class, 'store'])->middleware('throttle:10,60');
     Route::post('/invitations/accept', [InvitationsController::class, 'accept']);
 
     // Contexto de la Organization actual (resuelto por el middleware tenant).
     Route::middleware('tenant')->group(function (): void {
         Route::get('/organization', [OrganizationController::class, 'show']);
         Route::patch('/organization', [OrganizationController::class, 'update']);
-        Route::delete('/organization', [OrganizationController::class, 'destroy']);
+        // Piden la contraseña: límite contra adivinarla.
+        Route::delete('/organization', [OrganizationController::class, 'destroy'])->middleware('throttle:6,1');
+        Route::post('/organization/transfer-ownership', [OrganizationController::class, 'transferOwnership'])->middleware('throttle:6,1');
         Route::get('/context', [ContextController::class, 'show']);
         Route::get('/dashboard', DashboardController::class);
 

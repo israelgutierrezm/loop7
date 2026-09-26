@@ -106,8 +106,19 @@ quitar a un miembro se borran sus asignaciones. Aplicación en el backend: ver d
 - `GET /roles` devuelve `assignable`: los roles que el usuario actual puede asignar.
 
 ## Reglas críticas
-- Solo OWNER puede transferir propiedad.
+- Solo OWNER puede transferir propiedad (`POST /organization/transfer-ownership`, con su
+  contraseña): el nuevo propietario debe ser un miembro activo, pasa a OWNER con acceso a
+  todas las marcas y el anterior queda como ADMIN. Auditado.
 - OWNER no puede eliminarse sin transferir propiedad.
+- Solo OWNER elimina la organización (`DELETE /organization`): escribe su nombre y su
+  contraseña, y se rechaza (`409 subscription_active`) mientras la pasarela siga cobrando
+  sola. El borrado es lógico y atómico con su limpieza (`OrganizationDeleted`): marcas
+  (publicaciones canceladas, cuentas desconectadas sin tokens, automatizaciones
+  pausadas), API keys e invitaciones revocadas y suscripción cancelada.
+- Cada usuario puede poseer como máximo `PLATFORM_MAX_OWNED_ORGANIZATIONS` (5)
+  organizaciones creadas desde la app (cada una estrena prueba). Quien se queda sin
+  organizaciones ve la pantalla «Crea tu organización».
+- Transferir, eliminar o crear organizaciones está bloqueado durante una impersonación.
 - Un usuario no puede conceder permisos superiores a los que puede administrar.
 - Roles de Organization nunca pueden recibir permisos `platform.*`.
 - Impersonación no concede acceso a secretos ni acciones reservadas (docs/09).

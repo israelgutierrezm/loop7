@@ -63,13 +63,19 @@
   .btn,
   .btn-primary,
   .btn-secondary,
-  .btn-ghost {
+  .btn-ghost,
+  .btn-danger {
     @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold
       transition-colors focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60;
   }
 
   .btn-primary {
     @apply bg-brand-600 text-white hover:bg-brand-700 active:bg-brand-800;
+  }
+
+  /* Acciones irreversibles (eliminar para siempre). */
+  .btn-danger {
+    @apply bg-rose-600 text-white hover:bg-rose-700 active:bg-rose-800;
   }
 
   .btn-secondary {

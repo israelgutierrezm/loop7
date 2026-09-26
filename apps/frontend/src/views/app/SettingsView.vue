@@ -9,6 +9,7 @@ import PageHeader from '@/components/ui/PageHeader.vue'
 import Spinner from '@/components/ui/Spinner.vue'
 import TimezoneSelect from '@/components/ui/TimezoneSelect.vue'
 import AppIcon from '@/components/AppIcon.vue'
+import OrganizationDangerZone from '@/components/settings/OrganizationDangerZone.vue'
 
 const auth = useAuthStore()
 const toasts = useToastStore()
@@ -263,5 +264,7 @@ onMounted(() => {
         </div>
       </form>
     </section>
+
+    <OrganizationDangerZone v-if="auth.currentOrganization?.is_owner && !auth.impersonating" />
   </div>
 </template>
