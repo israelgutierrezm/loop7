@@ -2,7 +2,12 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
-import { setAccountBlockedHandler, setImpersonationExpiredHandler, setUnauthorizedHandler } from '@/services/http'
+import {
+  setAccountBlockedHandler,
+  setImpersonationExpiredHandler,
+  setOrganizationSuspendedHandler,
+  setUnauthorizedHandler,
+} from '@/services/http'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toasts'
 import './assets/main.css'
@@ -35,6 +40,9 @@ setAccountBlockedHandler(() => {
   useToastStore(pinia).error('Tu cuenta está bloqueada. Escribe a soporte para más información.')
   router.push({ name: 'login' })
 })
+
+// La organización actual se suspendió: el panel pasa a mostrar el aviso (AdminLayout).
+setOrganizationSuspendedHandler(() => useAuthStore(pinia).markCurrentSuspended())
 
 // La impersonación caducó (60 min): la sesión ya es otra vez la del administrador.
 let returningFromImpersonation = false

@@ -104,9 +104,28 @@ export const useAuthStore = defineStore('auth', () => {
     setTenantHeaders(org?.id ?? null)
     persistOrg(org?.id ?? null)
 
-    if (org) {
+    if (org?.status === 'suspended') {
+      clearContext() // el backend rechaza su contexto; el panel muestra el aviso
+    } else if (org) {
       await loadContext()
     }
+  }
+
+  /** La organización actual se suspendió con la sesión abierta. */
+  function markCurrentSuspended(): void {
+    if (!currentOrganization.value) return
+    const id = currentOrganization.value.id
+    currentOrganization.value = { ...currentOrganization.value, status: 'suspended' }
+    organizations.value = organizations.value.map((o) => (o.id === id ? { ...o, status: 'suspended' } : o))
+    clearContext()
+  }
+
+  function clearContext(): void {
+    permissions.value = []
+    brands.value = []
+    entitlements.value = {}
+    subscription.value = null
+    branding.value = null
   }
 
   async function loadContext(): Promise<void> {
@@ -150,11 +169,7 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null
     organizations.value = []
     currentOrganization.value = null
-    permissions.value = []
-    brands.value = []
-    entitlements.value = {}
-    subscription.value = null
-    branding.value = null
+    clearContext()
     impersonating.value = false
     setTenantHeaders(null)
     persistOrg(null)
@@ -180,6 +195,7 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     fetchMe,
     selectOrganization,
+    markCurrentSuspended,
     loadContext,
     init,
     logout,

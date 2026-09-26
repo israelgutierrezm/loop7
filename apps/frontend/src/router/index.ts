@@ -128,7 +128,8 @@ router.beforeEach(async (to) => {
     return { path: to.path, query, hash: to.hash, replace: true }
   }
 
-  if (to.meta.permission && auth.currentOrganization && !auth.can(to.meta.permission)) {
+  // Una organización suspendida no tiene permisos cargados: el panel ya muestra el aviso.
+  if (to.meta.permission && auth.currentOrganization && auth.currentOrganization.status !== 'suspended' && !auth.can(to.meta.permission)) {
     useToastStore().error('Tu rol no tiene acceso a esa sección.')
     return { name: 'dashboard' }
   }

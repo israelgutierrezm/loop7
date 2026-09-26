@@ -85,6 +85,7 @@ async function select(id: string): Promise<void> {
           @click="select(org.id)"
         >
           <span class="min-w-0 flex-1 truncate">{{ org.name }}</span>
+          <span v-if="org.status === 'suspended'" class="shrink-0 rounded bg-rose-100 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700 dark:bg-rose-950/50 dark:text-rose-300">Suspendida</span>
           <AppIcon
             v-if="org.id === auth.currentOrganization?.id"
             name="check"

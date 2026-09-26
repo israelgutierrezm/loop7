@@ -23,6 +23,7 @@ Route::prefix('platform')->group(function (): void {
         Route::get('/organizations/{organization}', [PlatformOrganizationsController::class, 'show']);
         Route::post('/organizations/{organization}/suspend', [PlatformOrganizationsController::class, 'suspend']);
         Route::post('/organizations/{organization}/activate', [PlatformOrganizationsController::class, 'activate']);
+        Route::delete('/organizations/{organization}', [PlatformOrganizationsController::class, 'destroy']);
 
         Route::get('/users', [PlatformUsersController::class, 'index']);
         Route::post('/users/{user}/block', [PlatformUsersController::class, 'block']);

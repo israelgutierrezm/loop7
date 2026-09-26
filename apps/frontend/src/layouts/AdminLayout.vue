@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, watch } from 'vue'
+import { computed, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
@@ -23,13 +23,22 @@ const router = useRouter()
 // Marca blanca: paleta de la organización mientras se usa su panel.
 useBrandingTheme()
 
+// Suspendida por SUPERADMIN: el backend rechaza todo su contexto.
+const suspended = computed(() => auth.currentOrganization?.status === 'suspended')
+const otherOrganizations = computed(() => auth.organizations.filter((o) => o.id !== auth.currentOrganization?.id && o.status !== 'suspended'))
+
 // Los avisos son por organización: se reinicia el sondeo al cambiar de organización.
 watch(
-  () => auth.currentOrganization?.id,
-  (id) => (id ? notifications.start() : notifications.stop()),
+  () => [auth.currentOrganization?.id, suspended.value] as const,
+  ([id, isSuspended]) => (id && !isSuspended ? notifications.start() : notifications.stop()),
   { immediate: true },
 )
 onBeforeUnmount(() => notifications.stop())
+
+async function switchTo(id: string): Promise<void> {
+  await auth.selectOrganization(id)
+  router.push('/app')
+}
 
 async function stopImpersonation(): Promise<void> {
   try {
@@ -107,7 +116,30 @@ async function stopImpersonation(): Promise<void> {
 
       <main class="flex-1 overflow-y-auto">
         <div class="mx-auto w-full max-w-7xl px-4 py-6 lg:px-8">
-          <RouterView v-slot="{ Component }">
+          <section v-if="suspended" class="card mx-auto mt-10 max-w-lg p-8 text-center" aria-labelledby="suspended-title">
+            <span class="mx-auto grid h-14 w-14 place-items-center rounded-full bg-rose-100 text-rose-600 dark:bg-rose-950/40">
+              <AppIcon name="alert" :size="28" />
+            </span>
+            <h1 id="suspended-title" class="mt-5 text-xl font-bold text-slate-900 dark:text-white">
+              «{{ auth.currentOrganization?.name }}» está suspendida
+            </h1>
+            <p class="mt-2 text-sm text-slate-500">
+              Nadie del equipo puede usarla y no se publica nada mientras siga así. Escribe a soporte para conocer el motivo y reactivarla.
+            </p>
+            <div v-if="otherOrganizations.length" class="mt-6 space-y-2">
+              <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">Tus otras organizaciones</p>
+              <button
+                v-for="org in otherOrganizations"
+                :key="org.id"
+                type="button"
+                class="btn-secondary w-full justify-between"
+                @click="switchTo(org.id)"
+              >
+                {{ org.name }} <AppIcon name="chevron-right" :size="16" />
+              </button>
+            </div>
+          </section>
+          <RouterView v-else v-slot="{ Component }">
             <Transition
               mode="out-in"
               enter-active-class="transition duration-150 ease-out"

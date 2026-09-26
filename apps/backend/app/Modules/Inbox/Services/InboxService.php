@@ -11,6 +11,7 @@ use App\Modules\Inbox\Events\InboxMessageReceived;
 use App\Modules\Inbox\Jobs\SyncInboxConversations;
 use App\Modules\Inbox\Models\InboxConversation;
 use App\Modules\Inbox\Models\InboxMessage;
+use App\Modules\Organizations\Models\Organization;
 use App\Modules\SocialConnections\Contracts\InboxReplyResult;
 use App\Modules\SocialConnections\Contracts\InboxThread;
 use App\Modules\SocialConnections\Enums\ConnectionStatus;
@@ -69,6 +70,7 @@ class InboxService
 
         SocialConnectionDestination::query()->withoutGlobalScopes()
             ->where('is_active', true)
+            ->whereIn('organization_id', Organization::query()->operational()->select('id'))
             ->whereHas('connection', fn ($q) => $q->where('status', ConnectionStatus::CONNECTED->value))
             ->pluck('id')
             ->each(function (int $id) use (&$dispatched): void {

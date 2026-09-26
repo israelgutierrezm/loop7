@@ -13,7 +13,7 @@ webhooks fallidos, conexiones sociales que requieren atención).
 | Sección | Qué se gestiona |
 |---|---|
 | Dashboard | Métricas de negocio y operación |
-| Organizaciones | Listado, suspensión/activación y **detalle de facturación**: plan de cortesía o cambio de plan, ampliar prueba, cancelar, excepciones de límites (overrides), add-ons y facturas |
+| Organizaciones | Listado y **ficha de soporte**: miembros (rol, estado, último acceso, «Impersonar»), marcas con sus cuentas, suspensión con motivo / reactivación (ambas auditadas), eliminación a petición del cliente y **facturación**: plan de cortesía o cambio de plan, ampliar prueba, cancelar, excepciones de límites (overrides), add-ons y facturas |
 | Usuarios | Búsqueda paginada, filtro de bloqueados, bloquear/desbloquear, restablecer el doble factor e impersonación |
 | Suscripciones | Todas las suscripciones con filtro por estado |
 | Planes | Planes, precios por moneda/intervalo, límites y funciones, add-ons |
@@ -27,6 +27,17 @@ webhooks fallidos, conexiones sociales que requieren atención).
 
 Las "feature flags" se gestionan como funciones de plan (`feature.*`) y excepciones por
 organización; los avisos del sistema, como el aviso global de Configuración.
+
+## Organizaciones: suspensión y eliminación
+- **Suspender** (`POST /platform/organizations/{id}/suspend`, motivo opcional) corta todo:
+  las rutas de la organización responden `403 organization_suspended` (el panel muestra
+  el aviso y ofrece cambiar a otra organización), sus API keys dejan de autenticar, lo
+  programado falla con «La organización está suspendida.» y las sincronizaciones de
+  métricas e inbox la omiten (`Organization::operational()`). `activate` lo revierte.
+- **Eliminar** (`DELETE /platform/organizations/{id}`, escribiendo el nombre) reutiliza la
+  misma limpieza que cuando la elimina su propietario (`DeleteOrganization` →
+  `OrganizationDeleted`); se rechaza (`409`) mientras la pasarela siga cobrando: primero
+  se cancela la suscripción.
 
 ## Usuarios: acciones de soporte
 Ninguna se aplica a otros administradores de plataforma (`403`) ni a la propia cuenta

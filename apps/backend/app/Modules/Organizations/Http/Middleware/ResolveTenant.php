@@ -45,6 +45,14 @@ class ResolveTenant
             );
         }
 
+        if ($organization->isSuspended()) {
+            return ApiResponse::error(
+                'Esta organización está suspendida. Escribe a soporte para más información.',
+                'organization_suspended',
+                status: 403,
+            );
+        }
+
         /** @var TenantContext $context */
         $context = app(TenantContext::class);
         $context->setOrganization($organization);

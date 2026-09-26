@@ -40,6 +40,9 @@ class AuthenticateApiKey
         }
 
         $organization = Organization::query()->find($key->organization_id);
+        if ($organization !== null && $organization->isSuspended()) {
+            return ApiResponse::error('La organización está suspendida.', 'organization_suspended', status: 403);
+        }
         if ($organization === null || ! $this->entitlements->allows($organization, Entitlement::FEATURE_API)) {
             return ApiResponse::error('El plan de la organización no incluye acceso a la API.', 'plan_limit_reached', status: 403);
         }

@@ -11,6 +11,7 @@ use App\Modules\Analytics\Models\PostMetricSnapshot;
 use App\Modules\Brands\Models\Brand;
 use App\Modules\Content\Enums\TargetStatus;
 use App\Modules\Content\Models\PublicationTarget;
+use App\Modules\Organizations\Models\Organization;
 use App\Modules\SocialConnections\Enums\ConnectionStatus;
 use App\Modules\SocialConnections\Exceptions\SocialTokenExpiredException;
 use App\Modules\SocialConnections\Models\SocialConnection;
@@ -163,9 +164,12 @@ class MetricsSyncService
     public function syncDue(): int
     {
         $dispatched = 0;
+        // Las organizaciones suspendidas no se sincronizan (las eliminadas ya no tienen conexiones).
+        $operational = Organization::query()->operational()->select('id');
 
         SocialConnectionDestination::query()->withoutGlobalScopes()
             ->where('is_active', true)
+            ->whereIn('organization_id', $operational)
             ->whereHas('connection', fn ($q) => $q->where('status', ConnectionStatus::CONNECTED->value))
             ->pluck('id')
             ->each(function (int $id) use (&$dispatched): void {
@@ -174,6 +178,7 @@ class MetricsSyncService
             });
 
         PublicationTarget::query()->withoutGlobalScopes()
+            ->whereIn('organization_id', $operational)
             ->where('status', TargetStatus::PUBLISHED->value)
             ->whereNotNull('remote_id')
             ->where('published_at', '>=', Carbon::now()->subDays(30))

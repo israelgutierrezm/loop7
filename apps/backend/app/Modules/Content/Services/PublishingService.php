@@ -95,8 +95,10 @@ class PublishingService
         }
 
         $organization = Organization::query()->find($target->organization_id);
-        if ($organization === null || ! $this->entitlements->hasAccess($organization)) {
-            $this->markFailed($target, 'La suscripción de la organización no está activa.');
+        if ($organization === null || $organization->isSuspended() || ! $this->entitlements->hasAccess($organization)) {
+            $this->markFailed($target, $organization?->isSuspended()
+                ? 'La organización está suspendida.'
+                : 'La suscripción de la organización no está activa.');
             $this->rollup($target);
 
             return;

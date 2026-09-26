@@ -1,17 +1,29 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import http from '@/services/http'
+import { useAuthStore } from '@/stores/auth'
 import { useConfirmStore } from '@/stores/confirm'
 import { useToastStore } from '@/stores/toasts'
-import { apiErrorMessage } from '@/utils/errors'
-import { date, dateLong, limit, money } from '@/utils/format'
+import { apiErrorMessage, apiValidationErrors } from '@/utils/errors'
+import { date, dateLong, limit, money, relativeTime } from '@/utils/format'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import ErrorState from '@/components/ui/ErrorState.vue'
+import ModalDialog from '@/components/ui/ModalDialog.vue'
+import Spinner from '@/components/ui/Spinner.vue'
 import StatusBadge, { type BadgeTone } from '@/components/ui/StatusBadge.vue'
 import AppIcon from '@/components/AppIcon.vue'
 
-interface OrgSummary { id: string; name: string; slug: string; status: string; billing_email: string | null; members_count: number | null; brands_count: number | null; created_at: string | null }
+interface OrgMember {
+  id: string; name: string; email: string; role: string | null; status: string
+  is_owner: boolean; blocked: boolean; is_platform_admin: boolean; last_login_at: string | null
+}
+interface OrgBrand { id: string; name: string; connections_count: number; created_at: string | null }
+interface OrgSummary {
+  id: string; name: string; slug: string; status: string; billing_email: string | null
+  members_count: number | null; brands_count: number | null; created_at: string | null
+  members: OrgMember[]; brands: OrgBrand[]
+}
 interface Billing {
   subscription: {
     plan: string | null; plan_name: string | null; status: string; status_label: string; interval: string | null
@@ -26,6 +38,8 @@ interface Billing {
 interface EntitlementDef { key: string; type: 'limit' | 'bool'; label: string }
 
 const route = useRoute()
+const router = useRouter()
+const auth = useAuthStore()
 const toasts = useToastStore()
 const confirmDialog = useConfirmStore()
 const orgId = route.params.organization as string
@@ -98,19 +112,66 @@ async function run(action: () => Promise<{ data: { message?: string | null } }>,
   }
 }
 
+// --- Suspensión (con motivo para la auditoría) ---
+const suspendOpen = ref(false)
+const suspendReason = ref('')
+
 async function toggleStatus(): Promise<void> {
   if (!org.value) return
-  const suspend = org.value.status !== 'suspended'
-  if (suspend) {
-    const ok = await confirmDialog.ask({
-      title: 'Suspender organización',
-      message: `${org.value.name} y sus miembros perderán el acceso hasta que la reactives.`,
-      confirmText: 'Suspender',
-      danger: true,
-    })
-    if (!ok) return
+  if (org.value.status !== 'suspended') {
+    suspendReason.value = ''
+    suspendOpen.value = true
+    return
   }
-  await run(() => http.post(`/platform/organizations/${orgId}/${suspend ? 'suspend' : 'activate'}`))
+  await run(() => http.post(`/platform/organizations/${orgId}/activate`))
+}
+
+async function confirmSuspend(): Promise<void> {
+  suspendOpen.value = false
+  await run(() => http.post(`/platform/organizations/${orgId}/suspend`, { reason: suspendReason.value.trim() || null }))
+}
+
+// --- Soporte: entrar como un miembro ---
+async function impersonate(member: OrgMember): Promise<void> {
+  const ok = await confirmDialog.ask({
+    title: `Entrar como ${member.name}`,
+    message: 'Verás la aplicación como esta persona durante un máximo de 60 minutos. Las acciones sensibles están bloqueadas y todo queda auditado.',
+    confirmText: 'Impersonar',
+  })
+  if (!ok) return
+  try {
+    await http.post(`/platform/impersonate/${member.id}`)
+    await auth.fetchMe()
+    toasts.success(`Estás viendo la aplicación como ${member.name}.`)
+    router.push({ path: '/app', query: { org: orgId } })
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  }
+}
+
+function canImpersonate(member: OrgMember): boolean {
+  return member.status === 'active' && !member.blocked && !member.is_platform_admin
+}
+
+// --- Eliminación a petición del cliente ---
+const deleteOpen = ref(false)
+const deleteName = ref('')
+const deleteErrors = ref<Record<string, string[]>>({})
+const deleting = ref(false)
+
+async function deleteOrganization(): Promise<void> {
+  deleting.value = true
+  deleteErrors.value = {}
+  try {
+    await http.delete(`/platform/organizations/${orgId}`, { data: { confirm_name: deleteName.value } })
+    toasts.success('Organización eliminada.')
+    router.push('/platform/organizations')
+  } catch (e) {
+    deleteErrors.value = apiValidationErrors(e)
+    if (!Object.keys(deleteErrors.value).length) toasts.error(apiErrorMessage(e))
+  } finally {
+    deleting.value = false
+  }
 }
 
 async function changePlan(): Promise<void> {
@@ -191,6 +252,41 @@ onMounted(load)
       </PageHeader>
 
       <div class="grid gap-6 lg:grid-cols-3">
+        <!-- Miembros -->
+        <section class="card overflow-hidden lg:col-span-2" aria-labelledby="members-title">
+          <h2 id="members-title" class="border-b border-slate-100 px-5 py-4 font-semibold text-slate-900 dark:border-slate-800 dark:text-white">
+            Miembros <span class="font-normal text-slate-400">({{ org.members.length }})</span>
+          </h2>
+          <ul class="divide-y divide-slate-100 dark:divide-slate-800">
+            <li v-for="m in org.members" :key="m.id" class="flex flex-wrap items-center gap-3 px-5 py-3 text-sm">
+              <div class="min-w-0 flex-1">
+                <p class="flex flex-wrap items-center gap-1.5 font-medium text-slate-900 dark:text-white">
+                  {{ m.name }}
+                  <StatusBadge v-if="m.is_owner" tone="brand">Propietario</StatusBadge>
+                  <StatusBadge v-if="m.blocked" tone="danger">Cuenta bloqueada</StatusBadge>
+                  <StatusBadge v-if="m.status !== 'active'" tone="neutral">{{ m.status }}</StatusBadge>
+                </p>
+                <p class="truncate text-xs text-slate-400">{{ m.email }} · {{ m.role ?? 'sin rol' }} · último acceso {{ m.last_login_at ? relativeTime(m.last_login_at) : 'nunca' }}</p>
+              </div>
+              <button v-if="canImpersonate(m)" type="button" class="btn-ghost px-3 py-1 text-xs" @click="impersonate(m)">Impersonar</button>
+            </li>
+          </ul>
+        </section>
+
+        <!-- Marcas -->
+        <section class="card overflow-hidden" aria-labelledby="brands-title">
+          <h2 id="brands-title" class="border-b border-slate-100 px-5 py-4 font-semibold text-slate-900 dark:border-slate-800 dark:text-white">
+            Marcas <span class="font-normal text-slate-400">({{ org.brands.length }})</span>
+          </h2>
+          <p v-if="org.brands.length === 0" class="p-5 text-sm text-slate-500">Aún no tiene marcas.</p>
+          <ul v-else class="divide-y divide-slate-100 dark:divide-slate-800">
+            <li v-for="b in org.brands" :key="b.id" class="flex items-center justify-between gap-3 px-5 py-3 text-sm">
+              <span class="min-w-0 truncate font-medium text-slate-800 dark:text-slate-100">{{ b.name }}</span>
+              <span class="shrink-0 text-xs text-slate-400">{{ b.connections_count }} {{ b.connections_count === 1 ? 'cuenta' : 'cuentas' }}</span>
+            </li>
+          </ul>
+        </section>
+
         <!-- Suscripción -->
         <section class="card p-5" aria-labelledby="sub-title">
           <h2 id="sub-title" class="font-semibold text-slate-900 dark:text-white">Suscripción</h2>
@@ -335,7 +431,56 @@ onMounted(load)
             </table>
           </div>
         </section>
+
+        <!-- Eliminar a petición del cliente -->
+        <section class="card border-rose-200 p-5 lg:col-span-3 dark:border-rose-900/60" aria-labelledby="org-delete-title">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="min-w-0 flex-1">
+              <h2 id="org-delete-title" class="font-semibold text-rose-700 dark:text-rose-400">Eliminar organización</h2>
+              <p class="text-sm text-slate-500">
+                Sólo a petición verificada del cliente (p. ej. perdió el acceso de su propietario). Se cancelan publicaciones,
+                se desconectan cuentas, se revocan API keys e invitaciones y se cancela la suscripción.
+              </p>
+            </div>
+            <button type="button" class="btn-secondary text-sm text-rose-600" @click="deleteName = ''; deleteErrors = {}; deleteOpen = true">
+              Eliminar…
+            </button>
+          </div>
+        </section>
       </div>
+
+      <ModalDialog :open="suspendOpen" title="Suspender organización" size="sm" @close="suspendOpen = false">
+        <form class="space-y-4" @submit.prevent="confirmSuspend">
+          <p class="text-sm text-slate-600 dark:text-slate-300">
+            Nadie de {{ org.name }} podrá usar la organización, no se publicará nada, sus API keys dejarán de responder y
+            se pausan sus sincronizaciones hasta que la reactives.
+          </p>
+          <div>
+            <label class="label" for="suspend-reason">Motivo <span class="text-slate-400">(queda en la auditoría)</span></label>
+            <textarea id="suspend-reason" v-model="suspendReason" rows="2" maxlength="500" class="input" placeholder="Spam, fraude, petición del cliente…" />
+          </div>
+          <div class="flex justify-end gap-2">
+            <button type="button" class="btn-secondary" @click="suspendOpen = false">Cancelar</button>
+            <button type="submit" class="btn-danger" :disabled="busy">Suspender</button>
+          </div>
+        </form>
+      </ModalDialog>
+
+      <ModalDialog :open="deleteOpen" title="Eliminar organización" size="sm" @close="deleteOpen = false">
+        <form class="space-y-4" @submit.prevent="deleteOrganization">
+          <div>
+            <label class="label" for="platform-delete-name">Escribe <strong>{{ org.name }}</strong> para confirmar</label>
+            <input id="platform-delete-name" v-model="deleteName" required autocomplete="off" class="input" />
+            <p v-if="deleteErrors.confirm_name" class="mt-1 text-xs text-rose-600">{{ deleteErrors.confirm_name[0] }}</p>
+          </div>
+          <div class="flex justify-end gap-2">
+            <button type="button" class="btn-secondary" @click="deleteOpen = false">Cancelar</button>
+            <button type="submit" class="btn-danger" :disabled="deleting || deleteName.trim().toLowerCase() !== org.name.trim().toLowerCase()">
+              <Spinner v-if="deleting" :size="18" /> Eliminar para siempre
+            </button>
+          </div>
+        </form>
+      </ModalDialog>
     </template>
   </div>
 </template>

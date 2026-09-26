@@ -9,6 +9,7 @@ use App\Modules\Brands\Models\Brand;
 use App\Modules\Organizations\Database\Factories\OrganizationFactory;
 use App\Modules\Organizations\Enums\OrganizationStatus;
 use App\Support\Concerns\HasPublicId;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -104,6 +105,24 @@ class Organization extends Model
     public function invitations(): HasMany
     {
         return $this->hasMany(OrganizationInvitation::class);
+    }
+
+    /** Suspendida por SUPERADMIN: nadie opera en ella hasta que se reactive. */
+    public function isSuspended(): bool
+    {
+        return $this->status === OrganizationStatus::SUSPENDED;
+    }
+
+    /**
+     * Organizaciones en las que se trabaja con normalidad (no suspendidas; las
+     * eliminadas ya las excluye SoftDeletes). Para los procesos programados.
+     *
+     * @param  Builder<Organization>  $query
+     * @return Builder<Organization>
+     */
+    public function scopeOperational(Builder $query): Builder
+    {
+        return $query->where('status', OrganizationStatus::ACTIVE->value);
     }
 
     protected static function newFactory(): Factory
