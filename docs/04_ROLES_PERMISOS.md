@@ -103,6 +103,12 @@ quitar a un miembro se borran sus asignaciones. Aplicación en el backend: ver d
   OWNER y ADMIN). Un `MANAGER` con `roles.assign`/`members.invite` asigna de MANAGER hacia
   abajo y no puede cambiar el rol de un ADMIN.
 - Nadie cambia su propio rol ni su acceso a marcas.
+- Suspender el acceso de un miembro (`PATCH /organization/members/{user}` con
+  `status: suspended|active`) exige `members.remove` y la misma jerarquía que los roles
+  (un MANAGER no suspende a un ADMIN). Conserva rol y marcas, pierde el acceso
+  (`403 organization_not_resolved`) y deja de recibir avisos y asignaciones. Auditado
+  (`member.suspended` / `member.reactivated`). Si le quitan o suspenden con la sesión
+  abierta, el SPA recarga sus organizaciones.
 - `GET /roles` devuelve `assignable`: los roles que el usuario actual puede asignar.
 
 ## Reglas críticas

@@ -13,6 +13,7 @@ use App\Modules\Audit\Services\AuditLogger;
 use App\Modules\Brands\Models\Brand;
 use App\Modules\Brands\Services\BrandAccess;
 use App\Modules\Identity\Http\Resources\UserResource;
+use App\Modules\Organizations\Enums\MembershipStatus;
 use App\Modules\Organizations\Models\Organization;
 use App\Modules\Organizations\Services\MembershipService;
 use App\Support\Http\ApiResponse;
@@ -62,7 +63,7 @@ class MembersController extends Controller
 
         if ($member->id === $organization->owner_user_id) {
             throw ValidationException::withMessages([
-                'user' => 'No se puede modificar al propietario. Transfiere la propiedad primero.',
+                'user' => 'No se puede modificar al propietario. Puede transferir la propiedad desde Configuración.',
             ]);
         }
         if ($member->id === $actor->id) {
@@ -73,10 +74,15 @@ class MembersController extends Controller
 
         $data = $request->validate([
             'role' => ['sometimes', 'required', 'string', Rule::in(OrganizationRole::values())],
+            'status' => ['sometimes', 'required', Rule::in([MembershipStatus::ACTIVE->value, MembershipStatus::SUSPENDED->value])],
             'all_brands_access' => ['sometimes', 'boolean'],
             'brands' => ['sometimes', 'array', 'max:500'],
             'brands.*' => ['string'],
         ]);
+
+        if (array_key_exists('status', $data)) {
+            $this->updateStatus($organization, $actor, $member, MembershipStatus::from($data['status']));
+        }
 
         if (array_key_exists('role', $data)) {
             $this->updateRole($organization, $actor, $member, $data['role']);
@@ -122,6 +128,29 @@ class MembersController extends Controller
         });
 
         return ApiResponse::message('Miembro eliminado de la organización.');
+    }
+
+    /**
+     * Suspende o reactiva el acceso de un miembro sin quitarlo (conserva rol y
+     * marcas). Mismo poder que quitarlo y misma jerarquía que los roles: un
+     * MANAGER no suspende a un ADMIN.
+     */
+    private function updateStatus(Organization $organization, User $actor, User $member, MembershipStatus $status): void
+    {
+        $this->authorize('removeMember', $organization);
+
+        $assignable = $this->memberships->assignableRoles($actor, $organization);
+        if (array_diff($this->memberships->rolesFor($member, $organization), $assignable) !== []) {
+            abort(403, 'No puedes suspender a este miembro.');
+        }
+
+        $organization->users()->updateExistingPivot($member->id, ['status' => $status->value]);
+
+        $this->audit->log(
+            $status === MembershipStatus::SUSPENDED ? AuditAction::MEMBER_SUSPENDED : AuditAction::MEMBER_REACTIVATED,
+            $member,
+            ['email' => $member->email],
+        );
     }
 
     private function updateRole(Organization $organization, User $actor, User $member, string $role): void

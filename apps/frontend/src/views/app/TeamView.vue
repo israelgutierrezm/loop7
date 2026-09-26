@@ -63,6 +63,34 @@ function canEditAccess(member: MemberEntry): boolean {
   return canManageBrandAccess && !member.membership.is_owner && !isSelf(member)
 }
 
+/** Suspender exige el mismo poder que quitar y la misma jerarquía que los roles. */
+function canSuspend(member: MemberEntry): boolean {
+  return auth.can('members.remove')
+    && !member.membership.is_owner
+    && !isSelf(member)
+    && member.roles.every((r) => assignable.value.includes(r))
+}
+
+async function toggleSuspension(member: MemberEntry): Promise<void> {
+  const suspend = member.membership.status !== 'suspended'
+  if (suspend) {
+    const ok = await confirmDialog.ask({
+      title: `Suspender a ${member.user.name}`,
+      message: 'Perderá el acceso a la organización hasta que lo reactives. Conserva su rol y sus marcas, y deja de recibir avisos.',
+      confirmText: 'Suspender acceso',
+      danger: true,
+    })
+    if (!ok) return
+  }
+  try {
+    const { data } = await http.patch(`/organization/members/${member.user.id}`, { status: suspend ? 'suspended' : 'active' })
+    Object.assign(member.membership, data.data.membership)
+    toasts.success(suspend ? `${member.user.name} ya no tiene acceso.` : `${member.user.name} vuelve a tener acceso.`)
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  }
+}
+
 function accessSummary(member: MemberEntry): string {
   if (member.membership.is_owner || member.membership.all_brands_access) return 'Todas las marcas'
   const names = member.membership.brands.map((id) => brandNames.value[id]).filter(Boolean)
@@ -200,7 +228,11 @@ onMounted(load)
         </div>
         <ul class="divide-y divide-slate-100 dark:divide-slate-800">
           <li v-for="member in members" :key="member.user.id" class="flex flex-wrap items-center gap-3 px-5 py-4">
-            <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-600 text-sm font-bold text-white" aria-hidden="true">
+            <span
+              class="grid h-10 w-10 shrink-0 place-items-center rounded-full text-sm font-bold text-white"
+              :class="member.membership.status === 'suspended' ? 'bg-slate-400 dark:bg-slate-600' : 'bg-brand-600'"
+              aria-hidden="true"
+            >
               {{ member.user.name.charAt(0).toUpperCase() }}
             </span>
             <div class="min-w-0 flex-1">
@@ -208,6 +240,9 @@ onMounted(load)
                 {{ member.user.name }}
                 <span v-if="member.membership.is_owner" class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-amber-700">
                   Propietario
+                </span>
+                <span v-if="member.membership.status === 'suspended'" class="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-rose-700 dark:bg-rose-950/50 dark:text-rose-300">
+                  Suspendido
                 </span>
                 <span v-if="isSelf(member)" class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-slate-500 dark:bg-slate-800">Tú</span>
               </p>
@@ -239,6 +274,15 @@ onMounted(load)
               {{ member.membership.is_owner ? 'Propietario' : (roleLabels[member.roles[0] ?? ''] ?? member.roles[0] ?? '—') }}
             </span>
 
+            <button
+              v-if="canSuspend(member)"
+              type="button"
+              class="btn-ghost px-2.5 py-1 text-xs"
+              :aria-label="`${member.membership.status === 'suspended' ? 'Reactivar' : 'Suspender'} el acceso de ${member.user.name}`"
+              @click="toggleSuspension(member)"
+            >
+              {{ member.membership.status === 'suspended' ? 'Reactivar' : 'Suspender' }}
+            </button>
             <button
               v-if="auth.can('members.remove') && !member.membership.is_owner && !isSelf(member)"
               class="btn-ghost px-2 text-rose-600"

@@ -5,6 +5,7 @@ import router from './router'
 import {
   setAccountBlockedHandler,
   setImpersonationExpiredHandler,
+  setOrganizationLostHandler,
   setOrganizationSuspendedHandler,
   setUnauthorizedHandler,
 } from '@/services/http'
@@ -43,6 +44,23 @@ setAccountBlockedHandler(() => {
 
 // La organización actual se suspendió: el panel pasa a mostrar el aviso (AdminLayout).
 setOrganizationSuspendedHandler(() => useAuthStore(pinia).markCurrentSuspended())
+
+// Ya no es miembro activo de la organización actual: se recarga su lista (otra
+// organización o «Crea tu organización»). Una sola vez aunque fallen varias peticiones.
+let reloadingOrganizations = false
+setOrganizationLostHandler(async () => {
+  const auth = useAuthStore(pinia)
+  if (reloadingOrganizations || !auth.isAuthenticated) return
+  reloadingOrganizations = true
+  try {
+    const lost = auth.currentOrganization?.name
+    await auth.fetchMe()
+    if (lost) useToastStore(pinia).error(`Ya no tienes acceso a «${lost}».`)
+    await router.push('/app')
+  } finally {
+    reloadingOrganizations = false
+  }
+})
 
 // La impersonación caducó (60 min): la sesión ya es otra vez la del administrador.
 let returningFromImpersonation = false

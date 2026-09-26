@@ -120,4 +120,35 @@ class TeamManagementTest extends TestCase
 
         $this->assertDatabaseMissing('brand_user_access', ['user_id' => $member->id]);
     }
+
+    public function test_suspender_un_miembro_le_quita_el_acceso_sin_quitarlo(): void
+    {
+        [$owner, $org] = $this->createOwnerWithOrganization();
+        $member = $this->addMember($org, OrganizationRole::CONTENT_CREATOR->value);
+        $admin = $this->addMember($org, OrganizationRole::ADMIN->value);
+        $manager = $this->addMember($org, OrganizationRole::MANAGER->value);
+
+        $this->actingInOrganization($owner, $org)
+            ->patchJson("/api/v1/organization/members/{$member->public_id}", ['status' => 'suspended'])
+            ->assertOk()->assertJsonPath('data.membership.status', 'suspended');
+        $this->assertDatabaseHas('audit_logs', ['action' => 'member.suspended']);
+
+        // Sin acceso a la organización, pero conserva su rol para cuando vuelva.
+        $this->actingInOrganization($member, $org)->getJson('/api/v1/context')
+            ->assertForbidden()->assertJsonPath('code', 'organization_not_resolved');
+        $this->assertDatabaseHas('organization_user', ['user_id' => $member->id, 'status' => 'suspended']);
+
+        // Un MANAGER no suspende a un ADMIN; nadie se suspende a sí mismo ni al propietario.
+        $this->actingInOrganization($manager, $org)
+            ->patchJson("/api/v1/organization/members/{$admin->public_id}", ['status' => 'suspended'])->assertForbidden();
+        $this->actingInOrganization($admin, $org)
+            ->patchJson("/api/v1/organization/members/{$admin->public_id}", ['status' => 'suspended'])->assertStatus(422);
+        $this->actingInOrganization($admin, $org)
+            ->patchJson("/api/v1/organization/members/{$owner->public_id}", ['status' => 'suspended'])->assertStatus(422);
+
+        $this->actingInOrganization($owner, $org)
+            ->patchJson("/api/v1/organization/members/{$member->public_id}", ['status' => 'active'])->assertOk();
+        $this->assertDatabaseHas('audit_logs', ['action' => 'member.reactivated']);
+        $this->actingInOrganization($member->fresh(), $org)->getJson('/api/v1/context')->assertOk();
+    }
 }

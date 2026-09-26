@@ -34,6 +34,8 @@ final class AuditAction
     public const MEMBER_INVITATION_REVOKED = 'member.invitation_revoked';
     public const MEMBER_JOINED = 'member.joined';
     public const MEMBER_REMOVED = 'member.removed';
+    public const MEMBER_SUSPENDED = 'member.suspended';
+    public const MEMBER_REACTIVATED = 'member.reactivated';
     public const MEMBER_ROLE_ASSIGNED = 'member.role_assigned';
     public const MEMBER_ROLE_REVOKED = 'member.role_revoked';
     public const MEMBER_BRAND_ACCESS_UPDATED = 'member.brand_access_updated';
