@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toasts'
 import type { Brand } from '@/types/models'
 import { apiErrorMessage, apiValidationErrors } from '@/utils/errors'
+import { useQueryAction } from '@/composables/useQueryAction'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import ErrorState from '@/components/ui/ErrorState.vue'
@@ -82,6 +83,10 @@ async function create(): Promise<void> {
 }
 
 onMounted(load)
+// Buscador de comandos → «Nueva marca».
+useQueryAction('crear', () => {
+  if (auth.can('brands.create')) showCreate.value = true
+})
 </script>
 
 <template>

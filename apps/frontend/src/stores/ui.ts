@@ -14,6 +14,17 @@ export const useUiStore = defineStore('ui', () => {
 
   const sidebarCollapsed = ref(readCollapsed())
   const mobileDrawerOpen = ref(false)
+  /** Buscador de comandos (Ctrl/⌘+K). */
+  const commandPaletteOpen = ref(false)
+
+  function openCommandPalette(): void {
+    mobileDrawerOpen.value = false
+    commandPaletteOpen.value = true
+  }
+
+  function closeCommandPalette(): void {
+    commandPaletteOpen.value = false
+  }
 
   function toggleSidebar(): void {
     sidebarCollapsed.value = !sidebarCollapsed.value
@@ -32,5 +43,14 @@ export const useUiStore = defineStore('ui', () => {
     mobileDrawerOpen.value = false
   }
 
-  return { sidebarCollapsed, mobileDrawerOpen, toggleSidebar, openMobileDrawer, closeMobileDrawer }
+  return {
+    sidebarCollapsed,
+    mobileDrawerOpen,
+    commandPaletteOpen,
+    toggleSidebar,
+    openMobileDrawer,
+    closeMobileDrawer,
+    openCommandPalette,
+    closeCommandPalette,
+  }
 })

@@ -24,5 +24,6 @@ return [
     App\Modules\Notifications\NotificationsServiceProvider::class,
     App\Modules\Api\ApiServiceProvider::class,
     App\Modules\Compliance\ComplianceServiceProvider::class,
+    App\Modules\Search\SearchServiceProvider::class,
     App\Modules\PlatformAdmin\PlatformAdminServiceProvider::class,
 ];

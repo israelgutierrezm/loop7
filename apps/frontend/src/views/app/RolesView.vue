@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import http from '@/services/http'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toasts'
@@ -15,6 +16,8 @@ import RoleEditorDialog from '@/components/team/RoleEditorDialog.vue'
 const auth = useAuthStore()
 const toasts = useToastStore()
 const confirmDialog = useConfirmStore()
+const route = useRoute()
+const router = useRouter()
 
 const roles = ref<RoleDefinition[]>([])
 const groups = ref<PermissionGroup[]>([])
@@ -87,7 +90,14 @@ async function remove(role: RoleDefinition): Promise<void> {
   }
 }
 
-onMounted(load)
+onMounted(async () => {
+  await load()
+  // Buscador de comandos → «Nuevo rol personalizado» (tras saber si el plan lo incluye).
+  if (route.query.crear === '1') {
+    if (canCreate.value) openEditor(null)
+    void router.replace({ query: {} })
+  }
+})
 </script>
 
 <template>

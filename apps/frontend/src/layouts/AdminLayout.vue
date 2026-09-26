@@ -13,6 +13,7 @@ import OrgSwitcher from '@/components/layout/OrgSwitcher.vue'
 import SidebarNav from '@/components/layout/SidebarNav.vue'
 import TopBar from '@/components/layout/TopBar.vue'
 import AppBanners from '@/components/layout/AppBanners.vue'
+import CommandPalette from '@/components/layout/CommandPalette.vue'
 
 const auth = useAuthStore()
 const ui = useUiStore()
@@ -54,6 +55,8 @@ async function stopImpersonation(): Promise<void> {
 
 <template>
   <div class="flex h-full bg-slate-50 dark:bg-slate-950">
+    <CommandPalette />
+
     <!-- Sidebar escritorio -->
     <aside
       class="hidden shrink-0 flex-col border-r border-slate-200 bg-white transition-[width] duration-200 lg:flex dark:border-slate-800 dark:bg-slate-900"

@@ -6,6 +6,8 @@ import { useToastStore } from '@/stores/toasts'
 import { useConfirmStore } from '@/stores/confirm'
 import { apiErrorMessage, apiValidationErrors } from '@/utils/errors'
 import { date } from '@/utils/format'
+import { useRoute } from 'vue-router'
+import { useQueryAction } from '@/composables/useQueryAction'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import ErrorState from '@/components/ui/ErrorState.vue'
@@ -39,7 +41,19 @@ const auth = useAuthStore()
 const toasts = useToastStore()
 const confirmDialog = useConfirmStore()
 
-const brandId = ref<string | null>(auth.brands[0]?.id ?? null)
+// ?brand=… (enlace del buscador de comandos) si el usuario accede a esa marca.
+const route = useRoute()
+const queryBrand = typeof route.query.brand === 'string' ? route.query.brand : null
+const brandId = ref<string | null>(
+  (queryBrand && auth.brands.some((b) => b.id === queryBrand) ? queryBrand : null) ?? auth.brands[0]?.id ?? null,
+)
+// También si ya estaba en Campañas y el buscador enlaza otra marca.
+watch(
+  () => route.query.brand,
+  (brand) => {
+    if (typeof brand === 'string' && auth.brands.some((b) => b.id === brand)) brandId.value = brand
+  },
+)
 const statusFilter = ref('')
 const campaigns = ref<Campaign[]>([])
 const loading = ref(false)
@@ -143,6 +157,10 @@ async function remove(c: Campaign): Promise<void> {
 
 watch(brandId, load)
 onMounted(load)
+// Buscador de comandos → «Nueva campaña».
+useQueryAction('crear', () => {
+  if (auth.can('campaigns.create') && brandId.value) openCreate()
+})
 </script>
 
 <template>

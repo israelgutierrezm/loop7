@@ -50,6 +50,17 @@ const crumbs = computed<string[]>(() => {
     </nav>
 
     <div class="ml-auto flex items-center gap-1">
+      <button
+        type="button"
+        class="flex h-9 items-center gap-2 rounded-lg border border-slate-200 px-2.5 text-sm text-slate-400 transition hover:border-slate-300 hover:text-slate-600 dark:border-slate-700 dark:hover:border-slate-600 dark:hover:text-slate-300"
+        aria-label="Buscar (Ctrl+K)"
+        aria-keyshortcuts="Control+K Meta+K"
+        @click="ui.openCommandPalette()"
+      >
+        <AppIcon name="search" :size="16" />
+        <span class="hidden md:inline">Buscar…</span>
+        <kbd class="hidden rounded border border-slate-200 px-1 text-[10px] md:inline dark:border-slate-700">Ctrl K</kbd>
+      </button>
       <NotificationsBell />
       <UserMenu />
     </div>

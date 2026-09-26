@@ -7,6 +7,7 @@ import { useConfirmStore } from '@/stores/confirm'
 import type { Invitation, MemberEntry } from '@/types/models'
 import { apiErrorMessage, apiValidationErrors } from '@/utils/errors'
 import { date } from '@/utils/format'
+import { useQueryAction } from '@/composables/useQueryAction'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import ErrorState from '@/components/ui/ErrorState.vue'
 import ModalDialog from '@/components/ui/ModalDialog.vue'
@@ -199,6 +200,10 @@ async function revokeInvitation(inv: Invitation): Promise<void> {
 }
 
 onMounted(load)
+// Buscador de comandos → «Invitar a alguien al equipo».
+useQueryAction('invitar', () => {
+  if (auth.can('members.invite')) showInvite.value = true
+})
 </script>
 
 <template>
