@@ -7,6 +7,7 @@ namespace App\Modules\SocialConnections\Contracts;
 /**
  * Carga de una publicación, independiente del proveedor. `mediaTypes` es
  * paralelo a `mediaUrls` ('image' | 'video'); si falta, se asume imagen.
+ * `checkpoint` conserva el progreso entre reintentos del mismo target.
  */
 final class PublishPayload
 {
@@ -20,6 +21,7 @@ final class PublishPayload
         public readonly string $format = 'text',
         public readonly string $idempotencyKey = '',
         public readonly array $mediaTypes = [],
+        public readonly PublishCheckpoint $checkpoint = new PublishCheckpoint(),
     ) {
     }
 

@@ -10,6 +10,7 @@ use App\Modules\SocialConnections\Contracts\InboxReplyResult;
 use App\Modules\SocialConnections\Contracts\InboxThread;
 use App\Modules\SocialConnections\Contracts\OAuthTokens;
 use App\Modules\SocialConnections\Contracts\PostMetrics;
+use App\Modules\SocialConnections\Contracts\PublishCheckpoint;
 use App\Modules\SocialConnections\Contracts\PublishPayload;
 use App\Modules\SocialConnections\Contracts\PublishResult;
 use App\Modules\SocialConnections\Contracts\RemoteDestination;
@@ -39,6 +40,12 @@ class InstagramProvider extends AbstractMetaProvider
      */
     public const STATUS_CHECKS = 40;
     private const STATUS_INTERVAL_SECONDS = 3;
+
+    /** Meta caduca los contenedores a las 24 h: se reutilizan hasta las 23. */
+    private const CONTAINER_TTL_SECONDS = 23 * 3600;
+
+    private const CHECKPOINT_CONTAINERS = 'instagram.containers';
+    private const CHECKPOINT_MEDIA = 'instagram.media_id';
 
     public function key(): string
     {
@@ -119,40 +126,45 @@ class InstagramProvider extends AbstractMetaProvider
         $graph = MetaGraph::fromCredentials($credentials);
         $token = $this->destinationToken($tokens);
         $account = $destinationExternalId;
+        $checkpoint = $payload->checkpoint;
+
+        // Publicado en un intento anterior que no llegó a registrarlo: no se duplica.
+        $publishedId = (string) $checkpoint->get(self::CHECKPOINT_MEDIA, '');
+        if ($publishedId !== '') {
+            return new PublishResult($publishedId, $this->permalink($graph, $publishedId, $token));
+        }
+
         $urls = array_slice($payload->mediaUrls, 0, self::CAROUSEL_MAX);
         $checksLeft = self::STATUS_CHECKS;
 
         if (count($urls) === 1) {
-            $container = $this->createContainer($graph, $account, $token, $payload->isVideo(0)
+            $container = $this->prepare($graph, $account, $token, $checkpoint, 'main', $payload->isVideo(0)
                 ? ['media_type' => 'REELS', 'video_url' => $urls[0], 'caption' => $payload->body]
                 : ['image_url' => $urls[0], 'caption' => $payload->body]);
             if ($payload->isVideo(0)) {
-                $this->waitUntilReady($graph, $container, $token, $checksLeft);
+                $this->waitUntilReady($graph, $container, $token, $checksLeft, $checkpoint, 'main');
             }
         } else {
-            // Primero se crean todos los hijos: Meta procesa los videos en paralelo
-            // y la espera total es la del más lento, no la suma.
+            // Primero se crean (o retoman) todos los hijos: Meta procesa los videos en
+            // paralelo y la espera total es la del más lento, no la suma.
             $children = [];
-            $videos = [];
             foreach ($urls as $i => $url) {
-                $child = $this->createContainer($graph, $account, $token, $payload->isVideo($i)
+                $children[$i] = $this->prepare($graph, $account, $token, $checkpoint, "child:{$i}", $payload->isVideo($i)
                     ? ['media_type' => 'VIDEO', 'video_url' => $url, 'is_carousel_item' => 'true']
                     : ['image_url' => $url, 'is_carousel_item' => 'true']);
-                $children[] = $child;
+            }
+            foreach ($children as $i => $child) {
                 if ($payload->isVideo($i)) {
-                    $videos[] = $child;
+                    $this->waitUntilReady($graph, $child, $token, $checksLeft, $checkpoint, "child:{$i}");
                 }
             }
-            foreach ($videos as $video) {
-                $this->waitUntilReady($graph, $video, $token, $checksLeft);
-            }
 
-            $container = $this->createContainer($graph, $account, $token, [
+            $container = $this->prepare($graph, $account, $token, $checkpoint, 'main', [
                 'media_type' => 'CAROUSEL',
                 'children' => implode(',', $children),
                 'caption' => $payload->body,
             ]);
-            $this->waitUntilReady($graph, $container, $token, $checksLeft);
+            $this->waitUntilReady($graph, $container, $token, $checksLeft, $checkpoint, 'main');
         }
 
         $media = $graph->post($account . '/media_publish', [
@@ -160,6 +172,8 @@ class InstagramProvider extends AbstractMetaProvider
             'access_token' => $token,
         ], 'publicar en Instagram');
         $mediaId = (string) ($media['id'] ?? '');
+        // Antes que nada: si el worker muere ahora, el reintento no lo publica otra vez.
+        $checkpoint->put(self::CHECKPOINT_MEDIA, $mediaId);
 
         return new PublishResult($mediaId, $this->permalink($graph, $mediaId, $token));
     }
@@ -270,6 +284,66 @@ class InstagramProvider extends AbstractMetaProvider
     }
 
     /**
+     * Contenedor de un hueco de la publicación ('main' o 'child:N'). En un
+     * reintento reutiliza el del intento anterior (quizá aún procesándose en
+     * Meta) en lugar de volver a subir el archivo; si caducó, falló o cambió lo
+     * que se publica, crea otro y lo guarda en el checkpoint al momento.
+     *
+     * @param  array<string, string>  $params
+     */
+    private function prepare(
+        MetaGraph $graph,
+        string $account,
+        string $token,
+        PublishCheckpoint $checkpoint,
+        string $slot,
+        array $params,
+    ): string {
+        // Las URLs de los archivos son firmadas y cambian en cada intento: no cuentan.
+        $signature = sha1((string) json_encode(array_diff_key($params, ['image_url' => true, 'video_url' => true])));
+        $containers = (array) $checkpoint->get(self::CHECKPOINT_CONTAINERS, []);
+        $saved = is_array($containers[$slot] ?? null) ? $containers[$slot] : null;
+
+        if ($saved !== null
+            && ($saved['signature'] ?? null) === $signature
+            && Carbon::now()->getTimestamp() - (int) ($saved['created_at'] ?? 0) < self::CONTAINER_TTL_SECONDS) {
+            $id = (string) ($saved['id'] ?? '');
+            $code = $id !== '' ? $this->statusCode($graph, $id, $token) : '';
+            if ($code === 'PUBLISHED') {
+                throw new SocialProviderException(
+                    'Instagram indica que este contenido ya se publicó en un intento anterior: compruébalo en el perfil.',
+                );
+            }
+            if ($code === 'FINISHED' || $code === 'IN_PROGRESS') {
+                return $id;
+            }
+        }
+
+        $id = $this->createContainer($graph, $account, $token, $params);
+        $containers[$slot] = ['id' => $id, 'signature' => $signature, 'created_at' => Carbon::now()->getTimestamp()];
+        $checkpoint->put(self::CHECKPOINT_CONTAINERS, $containers);
+
+        return $id;
+    }
+
+    private function forgetContainer(PublishCheckpoint $checkpoint, string $slot): void
+    {
+        $containers = (array) $checkpoint->get(self::CHECKPOINT_CONTAINERS, []);
+        unset($containers[$slot]);
+        $checkpoint->put(self::CHECKPOINT_CONTAINERS, $containers);
+    }
+
+    private function statusCode(MetaGraph $graph, string $container, string $token): string
+    {
+        $status = $graph->get($container, [
+            'fields' => 'status_code,status',
+            'access_token' => $token,
+        ], 'consultar el procesamiento del archivo');
+
+        return (string) ($status['status_code'] ?? '');
+    }
+
+    /**
      * @param  array<string, string>  $params
      */
     private function createContainer(MetaGraph $graph, string $account, string $token, array $params): string
@@ -290,10 +364,17 @@ class InstagramProvider extends AbstractMetaProvider
     /**
      * Los videos se procesan de forma asíncrona: se consulta `status_code` hasta
      * FINISHED, consumiendo el presupuesto de consultas de la publicación. Si se
-     * agota, el job de publicación reintentará.
+     * agota, el job reintentará y retomará este mismo contenedor (checkpoint);
+     * si Meta lo da por fallido o caducado, se olvida para crear otro.
      */
-    private function waitUntilReady(MetaGraph $graph, string $container, string $token, int &$checksLeft): void
-    {
+    private function waitUntilReady(
+        MetaGraph $graph,
+        string $container,
+        string $token,
+        int &$checksLeft,
+        PublishCheckpoint $checkpoint,
+        string $slot,
+    ): void {
         while ($checksLeft > 0) {
             $checksLeft--;
             $status = $graph->get($container, [
@@ -306,6 +387,8 @@ class InstagramProvider extends AbstractMetaProvider
                 return;
             }
             if ($code === 'ERROR' || $code === 'EXPIRED') {
+                $this->forgetContainer($checkpoint, $slot);
+
                 throw new SocialProviderException(
                     'Instagram no pudo procesar el archivo: ' . (string) ($status['status'] ?? $code),
                 );
@@ -316,7 +399,7 @@ class InstagramProvider extends AbstractMetaProvider
             }
         }
 
-        throw new SocialProviderException('Instagram sigue procesando el video; se reintentará la publicación.');
+        throw new SocialProviderException('Instagram sigue procesando el video; el reintento retomará el mismo archivo.');
     }
 
     private function permalink(MetaGraph $graph, string $mediaId, string $token): string

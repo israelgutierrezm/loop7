@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\SocialConnections;
 
 use App\Modules\SocialConnections\Contracts\OAuthTokens;
+use App\Modules\SocialConnections\Contracts\PublishCheckpoint;
 use App\Modules\SocialConnections\Contracts\PublishPayload;
 use App\Modules\SocialConnections\Exceptions\SocialProviderException;
 use App\Modules\SocialConnections\Providers\InstagramProvider;
@@ -199,6 +200,90 @@ class InstagramProviderTest extends TestCase
 
         Http::assertSentCount(1 + InstagramProvider::STATUS_CHECKS);
         Sleep::assertSleptTimes(InstagramProvider::STATUS_CHECKS - 1);
+    }
+
+    public function test_un_reintento_retoma_el_video_que_meta_estaba_procesando(): void
+    {
+        $ready = false;
+        Http::fake(function (Request $r) use (&$ready) {
+            $u = $r->url();
+            if (str_ends_with($u, '/IG1/media')) {
+                return Http::response(['id' => 'REEL1']);
+            }
+            if (str_contains($u, 'status_code')) {
+                return Http::response(['status_code' => $ready ? 'FINISHED' : 'IN_PROGRESS']);
+            }
+            if (str_ends_with($u, '/IG1/media_publish')) {
+                return Http::response(['id' => 'MEDIA_REEL']);
+            }
+
+            return Http::response(['permalink' => 'https://www.instagram.com/reel/r/']);
+        });
+        $checkpoint = new PublishCheckpoint();
+        $payload = fn () => new PublishPayload('Tutorial', ['https://cdn.test/v.mp4?firma=' . uniqid()], mediaTypes: ['video'], checkpoint: $checkpoint);
+
+        // 1er intento: Meta no termina a tiempo.
+        try {
+            $this->provider()->publish($this->tokens(), 'IG1', $payload(), self::CREDENTIALS);
+            $this->fail('Se esperaba que siguiera procesando.');
+        } catch (SocialProviderException) {
+        }
+
+        // 2º intento (otra URL firmada): retoma REEL1 sin volver a subir el video.
+        $ready = true;
+        $result = $this->provider()->publish($this->tokens(), 'IG1', $payload(), self::CREDENTIALS);
+
+        $this->assertSame('MEDIA_REEL', $result->remoteId);
+        $this->assertCount(1, Http::recorded(fn (Request $r) => str_ends_with($r->url(), '/IG1/media')));
+        Http::assertSent(fn (Request $r) => str_ends_with($r->url(), '/IG1/media_publish') && $r['creation_id'] === 'REEL1');
+        $this->assertSame('MEDIA_REEL', $checkpoint->get('instagram.media_id'));
+    }
+
+    public function test_si_ya_se_publico_no_se_publica_otra_vez(): void
+    {
+        Http::fake(['*' => Http::response(['permalink' => 'https://www.instagram.com/p/ya/'])]);
+        $checkpoint = new PublishCheckpoint(['instagram.media_id' => 'MEDIA_YA']);
+
+        $result = $this->provider()->publish($this->tokens(), 'IG1', new PublishPayload('x', ['https://cdn.test/1.jpg'], checkpoint: $checkpoint), self::CREDENTIALS);
+
+        $this->assertSame('MEDIA_YA', $result->remoteId);
+        Http::assertNotSent(fn (Request $r) => str_contains($r->url(), '/IG1/media'));
+    }
+
+    public function test_un_contenedor_fallido_o_de_otro_contenido_se_vuelve_a_crear(): void
+    {
+        $created = 0;
+        Http::fake(function (Request $r) use (&$created) {
+            $u = $r->url();
+            if (str_ends_with($u, '/IG1/media')) {
+                $created++;
+
+                return Http::response(['id' => 'NUEVO' . $created]);
+            }
+            if (str_contains($u, '/VIEJO?') && str_contains($u, 'status_code')) {
+                return Http::response(['status_code' => 'ERROR', 'status' => 'Formato no admitido']);
+            }
+            if (str_ends_with($u, '/IG1/media_publish')) {
+                return Http::response(['id' => 'MEDIA_OK']);
+            }
+
+            return Http::response(['status_code' => 'FINISHED', 'permalink' => 'https://www.instagram.com/p/ok/']);
+        });
+
+        // Contenedor guardado que Meta dio por fallido: se crea otro.
+        $signature = sha1((string) json_encode(['caption' => 'Hola']));
+        $checkpoint = new PublishCheckpoint(['instagram.containers' => [
+            'main' => ['id' => 'VIEJO', 'signature' => $signature, 'created_at' => now()->getTimestamp()],
+        ]]);
+        $this->provider()->publish($this->tokens(), 'IG1', new PublishPayload('Hola', ['https://cdn.test/1.jpg'], checkpoint: $checkpoint), self::CREDENTIALS);
+        Http::assertSent(fn (Request $r) => str_ends_with($r->url(), '/IG1/media_publish') && $r['creation_id'] === 'NUEVO1');
+
+        // Contenedor de un texto distinto (se editó el post): tampoco se reutiliza.
+        $checkpoint = new PublishCheckpoint(['instagram.containers' => [
+            'main' => ['id' => 'OTRO', 'signature' => sha1('otro'), 'created_at' => now()->getTimestamp()],
+        ]]);
+        $this->provider()->publish($this->tokens(), 'IG1', new PublishPayload('Hola', ['https://cdn.test/1.jpg'], checkpoint: $checkpoint), self::CREDENTIALS);
+        Http::assertSent(fn (Request $r) => str_ends_with($r->url(), '/IG1/media_publish') && $r['creation_id'] === 'NUEVO2');
     }
 
     public function test_sin_imagen_ni_video_no_publica(): void

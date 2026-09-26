@@ -69,7 +69,20 @@ de forma **independiente e idempotente**:
 
 El timeout cubre la espera al procesamiento de videos de Instagram: hasta 40 consultas
 de estado cada 3 s (2 min) por publicación, compartidas por todos sus contenedores (en un
-carrusel se crean primero todos los hijos y Meta los procesa en paralelo). Por eso
+carrusel se crean primero todos los hijos y Meta los procesa en paralelo).
+
+**Reintentos que retoman (checkpoint).** Cada intento recibe un `PublishCheckpoint`
+(`PublishPayload::checkpoint`) que se guarda al momento en
+`publication_targets.provider_state`, junto con una huella de la variante (texto, formato
+y medios): si se edita entre intentos, se empieza de cero. Instagram guarda ahí cada
+contenedor creado (`main` o `child:N`, con su firma y fecha) y, en cuanto Meta devuelve
+el post, su id. Así un reintento:
+- **retoma** el contenedor que Meta seguía procesando (tras consultar su estado) en vez
+  de subir otra vez el video; si Meta lo dio por fallido/caducado (o pasaron 23 h, porque
+  caducan a las 24) crea otro;
+- **no duplica**: si el post ya se publicó y el worker murió antes de registrarlo,
+  devuelve ese post sin volver a publicar.
+Al publicarse con éxito, `provider_state` se limpia. Por eso
 `retry_after` de las colas `database` y `redis` es 330 s (`DB_QUEUE_RETRY_AFTER` /
 `REDIS_QUEUE_RETRY_AFTER`): siempre mayor que el timeout más largo, o un segundo worker
 retomaría un trabajo que sigue en curso.

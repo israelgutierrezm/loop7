@@ -17,6 +17,7 @@ use App\Modules\Content\Models\PostVariant;
 use App\Modules\Content\Models\PublicationTarget;
 use App\Modules\MediaLibrary\Services\MediaService;
 use App\Modules\Organizations\Models\Organization;
+use App\Modules\SocialConnections\Contracts\PublishCheckpoint;
 use App\Modules\SocialConnections\Contracts\PublishPayload;
 use App\Modules\SocialConnections\Enums\ConnectionStatus;
 use App\Modules\SocialConnections\Exceptions\SocialTokenExpiredException;
@@ -115,6 +116,7 @@ class PublishingService
                 format: $variant->format,
                 idempotencyKey: $target->public_id,
                 mediaTypes: $variant->media->map(fn ($m) => $m->isVideo() ? 'video' : 'image')->values()->all(),
+                checkpoint: $this->checkpoint($target, $variant),
             );
 
             $result = $adapter->publish(
@@ -130,6 +132,7 @@ class PublishingService
                 'remote_url' => $result->remoteUrl,
                 'published_at' => now(),
                 'error' => null,
+                'provider_state' => null,
             ]);
             $this->recordAttempt($target, $attemptNumber, 'published', ['remote_id' => $result->remoteId]);
             $this->rollup($target);
@@ -259,6 +262,27 @@ class PublishingService
         } else {
             event(new ContentPublished($content, $status->value));
         }
+    }
+
+    /**
+     * Progreso guardado de este target, válido mientras la variante no cambie
+     * (texto, formato y medios): si se edita entre intentos, se empieza de cero.
+     * Cada cambio del proveedor se guarda al momento en provider_state.
+     */
+    private function checkpoint(PublicationTarget $target, PostVariant $variant): PublishCheckpoint
+    {
+        $fingerprint = sha1(json_encode([
+            $variant->body,
+            $variant->format,
+            $variant->media->pluck('public_id')->values()->all(),
+        ], JSON_THROW_ON_ERROR));
+
+        $state = $target->provider_state ?? [];
+        $data = ($state['fingerprint'] ?? null) === $fingerprint ? (array) ($state['data'] ?? []) : [];
+
+        return new PublishCheckpoint($data, function (array $data) use ($target, $fingerprint): void {
+            $target->forceFill(['provider_state' => ['fingerprint' => $fingerprint, 'data' => $data]])->saveQuietly();
+        });
     }
 
     private function markFailed(PublicationTarget $target, string $message, ?int $attemptNumber = null): void

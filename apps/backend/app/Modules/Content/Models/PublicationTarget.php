@@ -21,6 +21,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $remote_id
  * @property string|null $remote_url
  * @property string|null $error
+ * @property array{fingerprint?: string, data?: array<string, mixed>}|null $provider_state
  * @property \Illuminate\Support\Carbon|null $scheduled_at
  * @property \Illuminate\Support\Carbon|null $published_at
  * @property-read SocialConnectionDestination|null $destination
@@ -32,7 +33,7 @@ class PublicationTarget extends Model
 
     protected $fillable = [
         'organization_id', 'post_variant_id', 'social_connection_destination_id',
-        'status', 'remote_id', 'remote_url', 'scheduled_at', 'published_at', 'error',
+        'status', 'remote_id', 'remote_url', 'scheduled_at', 'published_at', 'error', 'provider_state',
     ];
 
     protected function casts(): array
@@ -41,6 +42,7 @@ class PublicationTarget extends Model
             'status' => TargetStatus::class,
             'scheduled_at' => 'datetime',
             'published_at' => 'datetime',
+            'provider_state' => 'array',
         ];
     }
 
