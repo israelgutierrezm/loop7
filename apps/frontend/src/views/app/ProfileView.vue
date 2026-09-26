@@ -81,16 +81,35 @@ async function savePassword(): Promise<void> {
   savingPw.value = true
   pwErrors.value = {}
   try {
-    await http.put('/me/password', { ...pwForm })
+    const { data } = await http.put('/me/password', { ...pwForm })
     pwForm.current_password = ''
     pwForm.password = ''
     pwForm.password_confirmation = ''
-    toasts.success('Contraseña actualizada.')
+    toasts.success(data.message ?? 'Contraseña actualizada.')
   } catch (e) {
     pwErrors.value = apiValidationErrors(e)
     if (!Object.keys(pwErrors.value).length) toasts.error(apiErrorMessage(e))
   } finally {
     savingPw.value = false
+  }
+}
+
+// --- Sesiones en otros dispositivos ---
+const sessionsPassword = ref('')
+const sessionsError = ref('')
+const closingSessions = ref(false)
+
+async function logoutOtherSessions(): Promise<void> {
+  closingSessions.value = true
+  sessionsError.value = ''
+  try {
+    const { data } = await http.post('/me/sessions/logout-others', { password: sessionsPassword.value })
+    sessionsPassword.value = ''
+    toasts.success(data.message ?? 'Se cerraron las demás sesiones.')
+  } catch (e) {
+    sessionsError.value = apiValidationErrors(e).password?.[0] ?? apiErrorMessage(e)
+  } finally {
+    closingSessions.value = false
   }
 }
 
@@ -235,11 +254,30 @@ async function disableMfa(): Promise<void> {
           <input id="ncp" v-model="pwForm.password_confirmation" type="password" autocomplete="new-password" class="input" />
         </div>
       </div>
+      <p class="mt-4 text-xs text-slate-500">Al cambiarla se cierra la sesión en todos tus demás dispositivos.</p>
       <div class="mt-6 flex justify-end">
         <button type="submit" class="btn-primary" :disabled="savingPw">
           <Spinner v-if="savingPw" :size="18" /> Actualizar contraseña
         </button>
       </div>
+    </form>
+
+    <!-- Sesiones -->
+    <form class="card p-6" @submit.prevent="logoutOtherSessions">
+      <h2 class="font-semibold text-slate-900 dark:text-white">Sesiones en otros dispositivos</h2>
+      <p class="mt-1 text-sm text-slate-500">
+        ¿Entraste desde un equipo ajeno o perdiste un dispositivo? Cierra todas tus sesiones salvo esta.
+      </p>
+      <div class="mt-4 flex flex-wrap items-end gap-3">
+        <div class="min-w-0 flex-1">
+          <label class="label" for="sessions-password">Tu contraseña</label>
+          <input id="sessions-password" v-model="sessionsPassword" type="password" required autocomplete="current-password" class="input" />
+        </div>
+        <button type="submit" class="btn-secondary" :disabled="closingSessions || !sessionsPassword">
+          <Spinner v-if="closingSessions" :size="18" /> Cerrar las demás sesiones
+        </button>
+      </div>
+      <p v-if="sessionsError" class="mt-1 text-xs text-rose-600">{{ sessionsError }}</p>
     </form>
 
     <!-- MFA -->

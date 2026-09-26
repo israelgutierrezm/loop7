@@ -31,6 +31,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', [ProfileController::class, 'show']);
     Route::patch('/me', [ProfileController::class, 'update']);
     Route::put('/me/password', [ProfileController::class, 'updatePassword']);
+    Route::post('/me/sessions/logout-others', [ProfileController::class, 'logoutOtherSessions'])->middleware('throttle:6,1');
 
     Route::post('/email/verification-notification', [EmailVerificationController::class, 'resend'])
         ->middleware('throttle:6,1');

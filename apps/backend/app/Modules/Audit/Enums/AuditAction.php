@@ -17,6 +17,7 @@ final class AuditAction
     public const AUTH_EMAIL_VERIFIED = 'auth.email_verified';
     public const AUTH_PASSWORD_RESET = 'auth.password_reset';
     public const AUTH_PASSWORD_CHANGED = 'auth.password_changed';
+    public const AUTH_OTHER_SESSIONS_REVOKED = 'auth.other_sessions_revoked';
 
     // MFA
     public const MFA_ENABLED = 'mfa.enabled';

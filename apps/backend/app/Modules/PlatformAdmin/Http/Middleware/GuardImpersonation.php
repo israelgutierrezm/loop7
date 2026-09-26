@@ -22,6 +22,7 @@ class GuardImpersonation
     /** @var list<array{0: string, 1: string}> método y patrón de ruta */
     private const BLOCKED = [
         ['PUT', 'api/v1/me/password'],
+        ['POST', 'api/v1/me/sessions/*'],
         ['POST', 'api/v1/me/two-factor/*'],
         ['DELETE', 'api/v1/me/two-factor'],
         ['DELETE', 'api/v1/organization'],

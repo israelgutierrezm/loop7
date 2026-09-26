@@ -64,7 +64,11 @@ redirecciones.
   caducó (`/verificar-correo?status=invalid`, con botón para pedir otro). Mientras no se
   verifica, el panel muestra un aviso con «Enviar enlace» y Mi perfil indica el estado
   (`POST /email/verification-notification`, 6/min).
-- gestión y revocación de sesiones.
+- gestión y revocación de sesiones: Sanctum guarda el hash de la contraseña en la sesión
+  (`AuthenticateSession`), así que cambiar o restablecer la contraseña cierra las demás
+  sesiones; «Cerrar las demás sesiones» en Mi perfil
+  (`POST /me/sessions/logout-others`, con contraseña, 6/min, auditado) lo hace sin
+  cambiarla. Bloqueado durante una impersonación.
 
 ## Uploads
 - validar MIME real y extensión;
