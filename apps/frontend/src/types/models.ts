@@ -64,15 +64,6 @@ export interface Branding {
   logo_url: string | null
 }
 
-export interface OrganizationContext {
-  organization: Organization
-  permissions: string[]
-  brands: Brand[]
-  entitlements: Record<string, number | boolean>
-  subscription: SubscriptionSummary | null
-  branding: Branding | null
-}
-
 export interface MemberEntry {
   user: User
   /** brands: marcas con acceso explícito (sólo cuenta si all_brands_access es false). */

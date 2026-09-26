@@ -47,7 +47,3 @@ export function limit(value: number | boolean | undefined): string {
   if (typeof value === 'boolean') return value ? 'Sí' : 'No'
   return String(value ?? 0)
 }
-
-export function intervalLabel(interval: string | null | undefined): string {
-  return interval === 'year' ? 'anual' : interval === 'month' ? 'mensual' : '—'
-}

@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Modules\Audit\Enums\AuditAction;
 use App\Modules\Audit\Services\AuditLogger;
 use App\Modules\Billing\Entitlements\Entitlement;
+use App\Modules\Billing\Enums\BillingInterval;
 use App\Modules\Billing\Models\AddOn;
 use App\Modules\Billing\Models\OrganizationAddOn;
 use App\Modules\Billing\Models\OrganizationEntitlementOverride;
@@ -124,7 +125,7 @@ class PlatformBillingController extends Controller
         $org = $this->resolveOrganization($organization);
         $data = $request->validate([
             'plan' => ['required', 'string', Rule::exists('plans', 'key')],
-            'interval' => ['required', Rule::in(['month', 'year'])],
+            'interval' => ['required', Rule::enum(BillingInterval::class)],
         ]);
 
         $plan = Plan::query()->where('key', $data['plan'])->firstOrFail();

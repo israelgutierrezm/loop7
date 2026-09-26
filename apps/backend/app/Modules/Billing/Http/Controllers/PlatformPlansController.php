@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Modules\Audit\Enums\AuditAction;
 use App\Modules\Audit\Services\AuditLogger;
 use App\Modules\Billing\Entitlements\Entitlement;
+use App\Modules\Billing\Enums\BillingInterval;
 use App\Modules\Billing\Enums\SubscriptionStatus;
 use App\Modules\Billing\Models\AddOn;
 use App\Modules\Billing\Models\Plan;
@@ -173,7 +174,7 @@ class PlatformPlansController extends Controller
             'sort_order' => ['sometimes', 'integer', 'min:0', 'max:1000'],
             'trial_days' => ['sometimes', 'integer', 'min:0', 'max:365'],
             'prices' => ['sometimes', 'array', 'max:20'],
-            'prices.*.interval' => ['required', Rule::in(['month', 'year'])],
+            'prices.*.interval' => ['required', Rule::enum(BillingInterval::class)],
             'prices.*.currency' => ['required', 'string', 'size:3', 'alpha'],
             'prices.*.amount_cents' => ['required', 'integer', 'min:0', 'max:100000000'],
             'entitlements' => ['sometimes', 'array'],

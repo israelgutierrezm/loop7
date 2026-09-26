@@ -6,6 +6,7 @@ namespace App\Modules\Billing\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Billing\Entitlements\Entitlement;
+use App\Modules\Billing\Enums\BillingInterval;
 use App\Modules\Billing\Models\OrganizationAddOn;
 use App\Modules\Billing\Models\Plan;
 use App\Modules\Billing\Services\CheckoutService;
@@ -123,7 +124,7 @@ class BillingController extends Controller
 
         $data = $request->validate([
             'plan' => ['required', 'string', Rule::exists('plans', 'key')->where('is_active', true)],
-            'interval' => ['required', Rule::in(['month', 'year'])],
+            'interval' => ['required', Rule::enum(BillingInterval::class)],
             'gateway' => ['required', 'string'],
         ]);
 
