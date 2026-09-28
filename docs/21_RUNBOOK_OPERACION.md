@@ -115,7 +115,7 @@ docker run -d --name loop7-web -p 8080:8080 --env-file .env.production \
 ```bash
 docker run -d --name loop7-worker --env-file .env.production \
   --entrypoint php ghcr.io/israelgutierrezm/loop7:latest artisan queue:work \
-  --queue=publishing,default,inbox,analytics,automations --sleep=2 --tries=3 --max-time=3600
+  --queue=publishing,default,inbox,analytics,automations,webhooks --sleep=2 --tries=3 --max-time=3600
 
 docker run -d --name loop7-scheduler --env-file .env.production \
   --entrypoint php ghcr.io/israelgutierrezm/loop7:latest artisan schedule:work
@@ -134,6 +134,7 @@ Redis (`QUEUE_CONNECTION=redis`; la imagen incluye phpredis) con uno o más work
 | `inbox` | Sincronización de conversaciones |
 | `analytics` | Métricas de cuentas y publicaciones |
 | `automations` | Ejecución de reglas |
+| `webhooks` | Entrega de webhooks salientes firmados (reintentos propios, hasta 7 en ~21 h) |
 
 | Tarea programada | Frecuencia |
 |---|---|
@@ -143,6 +144,7 @@ Redis (`QUEUE_CONNECTION=redis`; la imagen incluye phpredis) con uno o más work
 | `inbox:sync-due` | Cada 15 minutos |
 | `analytics:sync-due` | Diaria, 05:00 |
 | `notifications:prune` (leídos > 90 días, no leídos > 180) | Diaria, 03:30 |
+| `webhooks:prune` (entregas resueltas > 30 días) | Diaria, 03:45 |
 
 ## Notas de cumplimiento del checklist
 - Tokens OAuth, credenciales e IA (BYOK) cifrados at-rest (`encrypted`/`encrypted:array`).

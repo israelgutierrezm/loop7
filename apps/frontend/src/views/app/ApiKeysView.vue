@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import http from '@/services/http'
 import { useToastStore } from '@/stores/toasts'
 import { useConfirmStore } from '@/stores/confirm'
@@ -9,6 +10,7 @@ import EmptyState from '@/components/ui/EmptyState.vue'
 import ErrorState from '@/components/ui/ErrorState.vue'
 import ModalDialog from '@/components/ui/ModalDialog.vue'
 import AppIcon from '@/components/AppIcon.vue'
+import WebhooksPanel from '@/components/integrations/WebhooksPanel.vue'
 
 interface ApiKey {
   id: string
@@ -23,6 +25,22 @@ interface ApiKey {
 
 const toasts = useToastStore()
 const confirmDialog = useConfirmStore()
+const route = useRoute()
+const router = useRouter()
+
+type Tab = 'keys' | 'webhooks'
+const tabs: { key: Tab; label: string }[] = [
+  { key: 'keys', label: 'API keys' },
+  { key: 'webhooks', label: 'Webhooks' },
+]
+const activeTab = ref<Tab>(route.query.tab === 'webhooks' ? 'webhooks' : 'keys')
+// La pestaña queda en la URL (los avisos enlazan directamente a Webhooks).
+watch(activeTab, (tab) => {
+  router.replace({ query: { ...route.query, tab: tab === 'keys' ? undefined : tab } })
+})
+watch(() => route.query.tab, (tab) => {
+  activeTab.value = tab === 'webhooks' ? 'webhooks' : 'keys'
+})
 const keys = ref<ApiKey[]>([])
 const scopeCatalog = ref<Record<string, string>>({})
 const loading = ref(true)
@@ -106,56 +124,76 @@ onMounted(load)
 
 <template>
   <div>
-    <PageHeader title="API y accesos" description="Claves de API con permisos (scopes) para integraciones y MCP.">
-      <template #actions>
+    <PageHeader title="API y accesos" description="Claves de API para integraciones y MCP, y webhooks firmados hacia tus servidores.">
+      <template v-if="activeTab === 'keys'" #actions>
         <button class="btn-primary text-sm" @click="openCreate"><AppIcon name="plus" :size="16" /> Nueva API key</button>
       </template>
     </PageHeader>
 
-    <div v-if="loading" class="card p-6"><div class="skeleton h-40 w-full" /></div>
-    <ErrorState v-else-if="failed" @retry="load" />
-    <EmptyState
-      v-else-if="keys.length === 0"
-      icon="key"
-      title="Sin API keys"
-      description="Crea una clave para conectar herramientas externas o un cliente MCP."
-    >
-      <template #action>
-        <button class="btn-primary text-sm" @click="openCreate">Nueva API key</button>
-      </template>
-    </EmptyState>
-
-    <div v-else class="space-y-3">
-      <div v-for="k in keys" :key="k.id" class="card flex flex-wrap items-center justify-between gap-3 p-4">
-        <div class="min-w-0">
-          <div class="flex items-center gap-2">
-            <span class="grid h-9 w-9 place-items-center rounded-lg bg-brand-50 text-brand-600 dark:bg-brand-950/50">
-              <AppIcon name="key" :size="18" />
-            </span>
-            <div class="min-w-0">
-              <p class="truncate font-semibold text-slate-900 dark:text-white">{{ k.name }}</p>
-              <p class="truncate font-mono text-xs text-slate-400">{{ k.prefix }}••••</p>
-            </div>
-          </div>
-          <div class="mt-2 flex flex-wrap gap-1">
-            <span v-for="s in k.scopes" :key="s" class="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">{{ s }}</span>
-          </div>
-        </div>
-        <div class="flex items-center gap-4">
-          <div class="text-right text-xs text-slate-400">
-            <p>Último uso: {{ fmt(k.last_used_at) }}</p>
-            <p>Creada: {{ fmt(k.created_at) }}</p>
-          </div>
-          <button class="btn-secondary text-xs text-rose-600" @click="revoke(k)">Revocar</button>
-        </div>
-      </div>
+    <div class="mb-5 flex gap-1 overflow-x-auto border-b border-slate-200 dark:border-slate-800" role="tablist">
+      <button
+        v-for="tab in tabs"
+        :key="tab.key"
+        role="tab"
+        :aria-selected="activeTab === tab.key"
+        class="whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition-colors"
+        :class="activeTab === tab.key
+          ? 'border-brand-600 text-brand-700 dark:text-brand-300'
+          : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'"
+        @click="activeTab = tab.key"
+      >
+        {{ tab.label }}
+      </button>
     </div>
 
-    <p class="mt-6 text-xs text-slate-400">
-      Base de la API pública: <code class="rounded bg-slate-100 px-1 dark:bg-slate-800">/api/public/v1</code> ·
-      Autentícate con <code class="rounded bg-slate-100 px-1 dark:bg-slate-800">Authorization: Bearer &lt;api-key&gt;</code> ·
-      Endpoint MCP: <code class="rounded bg-slate-100 px-1 dark:bg-slate-800">POST /api/public/v1/mcp</code>
-    </p>
+    <WebhooksPanel v-if="activeTab === 'webhooks'" />
+
+    <template v-else>
+      <div v-if="loading" class="card p-6"><div class="skeleton h-40 w-full" /></div>
+      <ErrorState v-else-if="failed" @retry="load" />
+      <EmptyState
+        v-else-if="keys.length === 0"
+        icon="key"
+        title="Sin API keys"
+        description="Crea una clave para conectar herramientas externas o un cliente MCP."
+      >
+        <template #action>
+          <button class="btn-primary text-sm" @click="openCreate">Nueva API key</button>
+        </template>
+      </EmptyState>
+
+      <div v-else class="space-y-3">
+        <div v-for="k in keys" :key="k.id" class="card flex flex-wrap items-center justify-between gap-3 p-4">
+          <div class="min-w-0">
+            <div class="flex items-center gap-2">
+              <span class="grid h-9 w-9 place-items-center rounded-lg bg-brand-50 text-brand-600 dark:bg-brand-950/50">
+                <AppIcon name="key" :size="18" />
+              </span>
+              <div class="min-w-0">
+                <p class="truncate font-semibold text-slate-900 dark:text-white">{{ k.name }}</p>
+                <p class="truncate font-mono text-xs text-slate-400">{{ k.prefix }}••••</p>
+              </div>
+            </div>
+            <div class="mt-2 flex flex-wrap gap-1">
+              <span v-for="s in k.scopes" :key="s" class="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">{{ s }}</span>
+            </div>
+          </div>
+          <div class="flex items-center gap-4">
+            <div class="text-right text-xs text-slate-400">
+              <p>Último uso: {{ fmt(k.last_used_at) }}</p>
+              <p>Creada: {{ fmt(k.created_at) }}</p>
+            </div>
+            <button class="btn-secondary text-xs text-rose-600" @click="revoke(k)">Revocar</button>
+          </div>
+        </div>
+      </div>
+
+      <p class="mt-6 text-xs text-slate-400">
+        Base de la API pública: <code class="rounded bg-slate-100 px-1 dark:bg-slate-800">/api/public/v1</code> ·
+        Autentícate con <code class="rounded bg-slate-100 px-1 dark:bg-slate-800">Authorization: Bearer &lt;api-key&gt;</code> ·
+        Endpoint MCP: <code class="rounded bg-slate-100 px-1 dark:bg-slate-800">POST /api/public/v1/mcp</code>
+      </p>
+    </template>
 
     <ModalDialog :open="modalOpen" title="Nueva API key" @close="modalOpen = false">
       <!-- Secreto recién creado -->

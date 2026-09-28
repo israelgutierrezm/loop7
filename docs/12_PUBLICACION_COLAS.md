@@ -109,7 +109,7 @@ API con el page token del destino; requieren las credenciales de la app de Meta
 
 ### Operación
 - **Producción / Linux:** Redis, el contenedor `worker` (`queue:work
-  --queue=publishing,default,inbox,analytics,automations`, necesita `ext-pcntl` para
+  --queue=publishing,default,inbox,analytics,automations,webhooks`, necesita `ext-pcntl` para
   hacer cumplir los timeouts) y el `scheduler` (`schedule:work`). Ver
   [21_RUNBOOK_OPERACION.md](21_RUNBOOK_OPERACION.md).
 - **Desarrollo / Windows:** driver `database` con `php artisan queue:work` y

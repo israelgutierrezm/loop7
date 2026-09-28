@@ -16,6 +16,7 @@ enum NotificationCategory: string
     case BILLING = 'billing';
     case INBOX = 'inbox';
     case AUTOMATIONS = 'automations';
+    case INTEGRATIONS = 'integrations';
 
     public function label(): string
     {
@@ -26,6 +27,7 @@ enum NotificationCategory: string
             self::BILLING => 'Suscripción y pagos',
             self::INBOX => 'Conversaciones asignadas',
             self::AUTOMATIONS => 'Automatizaciones',
+            self::INTEGRATIONS => 'Integraciones',
         };
     }
 
@@ -38,6 +40,7 @@ enum NotificationCategory: string
             self::BILLING => 'Fin de la prueba, pagos no recibidos, suspensión y cambios de plan.',
             self::INBOX => 'Cuando alguien te asigna una conversación.',
             self::AUTOMATIONS => 'Avisos que envían tus automatizaciones.',
+            self::INTEGRATIONS => 'Webhooks que se desactivaron porque su servidor dejó de responder.',
         };
     }
 

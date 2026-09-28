@@ -24,6 +24,7 @@ return [
     App\Modules\Automations\AutomationsServiceProvider::class,
     App\Modules\Notifications\NotificationsServiceProvider::class,
     App\Modules\Api\ApiServiceProvider::class,
+    App\Modules\Webhooks\WebhooksServiceProvider::class,
     App\Modules\Compliance\ComplianceServiceProvider::class,
     App\Modules\Search\SearchServiceProvider::class,
     App\Modules\PlatformAdmin\PlatformAdminServiceProvider::class,

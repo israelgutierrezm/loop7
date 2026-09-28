@@ -24,7 +24,7 @@ La API queda en `http://127.0.0.1:8000/api/v1`. Health check: `GET /api/v1/healt
 El motor de publicación usa jobs y un scheduler. En desarrollo, con el driver
 `database`, ejecuta en terminales aparte:
 ```bash
-php artisan queue:work --queue=publishing,default,inbox,analytics,automations
+php artisan queue:work --queue=publishing,default,inbox,analytics,automations,webhooks
 php artisan schedule:work   # publica lo vencido, sincroniza métricas/inbox, renueva tokens, vence suscripciones
 ```
 En producción se usa Redis con los contenedores `worker` y `scheduler` de

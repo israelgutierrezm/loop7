@@ -115,6 +115,11 @@ final class AuditAction
     // API pública
     public const API_KEY_CREATED = 'api.key_created';
     public const API_KEY_REVOKED = 'api.key_revoked';
+    public const WEBHOOK_ENDPOINT_CREATED = 'webhook.endpoint_created';
+    public const WEBHOOK_ENDPOINT_UPDATED = 'webhook.endpoint_updated';
+    public const WEBHOOK_ENDPOINT_DELETED = 'webhook.endpoint_deleted';
+    public const WEBHOOK_ENDPOINT_DISABLED = 'webhook.endpoint_disabled';
+    public const WEBHOOK_SECRET_ROTATED = 'webhook.secret_rotated';
 
     // Inbox
     public const INBOX_REPLIED = 'inbox.replied';

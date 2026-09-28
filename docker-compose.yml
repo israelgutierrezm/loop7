@@ -33,7 +33,7 @@ services:
   # Procesa publicaciones, sincronizaciones, webhooks y automatizaciones.
   worker:
     <<: *app
-    entrypoint: ["php", "artisan", "queue:work", "--queue=publishing,default,inbox,analytics,automations", "--sleep=2", "--tries=3", "--max-time=3600"]
+    entrypoint: ["php", "artisan", "queue:work", "--queue=publishing,default,inbox,analytics,automations,webhooks", "--sleep=2", "--tries=3", "--max-time=3600"]
     healthcheck:
       disable: true
 

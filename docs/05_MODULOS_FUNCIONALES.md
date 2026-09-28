@@ -209,11 +209,12 @@ activos con el permiso indicado y acceso a la marca (`MembershipService`):
 | Suscripción (fin de prueba próximo, pago no recibido, suspensión, prueba vencida, cancelación, plan activado) | `billing.view` | Sí (renovación/reanudación sólo app) |
 | Conversación asignada | La persona asignada | Según preferencia |
 | Automatización "Avisar al equipo" | Audiencia elegida | Según preferencia |
+| Webhook desactivado por fallos repetidos | `api.manage` | Sí |
 
 ### Preferencias y retención
 En **Mi perfil → Notificaciones** cada usuario elige qué categorías recibe además por
 correo (aprobaciones, publicaciones con errores, cuentas sociales, facturación, inbox,
-automatizaciones); en la app llegan siempre. `notifications:prune` borra a diario los
+automatizaciones, integraciones); en la app llegan siempre. `notifications:prune` borra a diario los
 avisos leídos de más de 90 días y los no leídos de más de 180. Los enlaces de los
 correos incluyen `?org=` para abrir la organización correcta; con marca blanca, el
 correo usa el nombre de la organización como remitente.
