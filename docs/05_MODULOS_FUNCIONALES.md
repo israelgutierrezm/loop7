@@ -145,7 +145,29 @@ que esos módulos conozcan a Automations.
 - `inbox.message_received` ← evento `InboxMessageReceived` (emitido por
   `InboxService` al llegar un mensaje entrante nuevo).
 
-RSS/webhooks entrantes quedan previstos para una fase posterior.
+### Disparadores externos
+- `webhook.received` — **webhook entrante**: al guardar la regla se genera una URL
+  secreta `POST /api/v1/hooks/automations/{token}` (48 caracteres aleatorios; en BD el
+  token va **cifrado** y se busca por su hash SHA-256). Sólo quien puede editar la
+  regla ve la URL; «Renovar URL» invalida la anterior al momento (auditado). Acepta
+  JSON o formulario (≤ 64 KB) y responde `202`; los campos se aplanan con puntos
+  (`{cliente.nombre}`; listas simples → «a, b»; máx. 4 niveles, 100 campos y 2000
+  caracteres por valor) para condiciones y variables. Respuestas: `404` token
+  desconocido, `409` regla pausada, `402` plan sin automatizaciones, `413` cuerpo
+  grande. **Idempotente** con `Idempotency-Key` (o `webhook-id`) durante 24 h. Límite
+  por URL: 60/min y 5000/día.
+- `rss.item_published` — **feed RSS/Atom** (`trigger_config.feed_url`):
+  `automations:poll-feeds` (cada 5 min) encola `PollRssFeed` para los feeds con más de
+  15 min sin revisar (60 min tras 4 errores seguidos). `FeedReader` lee RSS 2.0,
+  RSS 1.0 (RDF) y Atom: anti-SSRF en cada salto (máx. 3 redirecciones revalidadas),
+  10 s, 2 MB, petición condicional (`ETag`/`Last-Modified` → 304) y XML sin entidades
+  ni DTD externas. La **primera lectura sólo memoriza** las entradas existentes; en las
+  siguientes, cada entrada nueva dispara la regla (máx. 5 por lectura, de la más
+  antigua a la más reciente). Variables: `title`, `link`, `summary` (texto plano),
+  `author`, `published_at`, `image`, `feed_title`. El error de la última lectura se
+  muestra en la regla; cambiar de feed empieza de cero. «Probar feed»
+  (`POST /automations/feed-preview`, 10/min) enseña el título y las últimas entradas
+  antes de guardar.
 
 ### Condiciones y acciones
 - Condiciones: lista de `{field, operator, value}` (operadores equals/not_equals/
@@ -159,7 +181,12 @@ RSS/webhooks entrantes quedan previstos para una fase posterior.
     CGNAT, metadatos de la nube, credenciales embebidas y dominios internos. Se valida
     al guardar y al ejecutar, la conexión se fija a la IP validada y no sigue
     redirecciones.
-  - `inbox_reply` (respuesta automática vía `InboxService`), `inbox_tag` (etiquetar).
+  - `create_draft` — **Crear borrador** en la marca de la regla (obligatoria) con título
+    y texto a partir de las variables (p. ej. cada entrada del blog → borrador). Usa
+    `ContentService` (auditado con `via: automation`); exige `content.create` a quien
+    guarda la regla, para que no sea una vía de escalada.
+  - `inbox_reply` (respuesta automática vía `InboxService`), `inbox_tag` (etiquetar):
+    sólo con el disparador del inbox (se valida al guardar).
 - La configuración de cada acción se valida al guardar (errores por campo).
 - El contexto incluye los identificadores públicos `content_id`/`conversation_id` y
   `brand_id` (útiles para enlazar avisos y para integraciones por webhook).
@@ -168,20 +195,29 @@ RSS/webhooks entrantes quedan previstos para una fase posterior.
 ### Ejecución y trazabilidad
 Los listeners traducen el evento a `AutomationEngine::dispatchForTrigger`, que
 verifica el plan (`feature.automations`), busca reglas activas que coinciden y
-despacha un job `RunAutomation` por regla (cola `automations`, aísla fallos). El
-motor evalúa condiciones y ejecuta acciones, registrando cada intento en
-`automation_runs` (success/failed/skipped) y actualizando `run_count`/`last_run_at`.
+despacha un job `RunAutomation` por regla (cola `automations`, aísla fallos). Los
+disparadores externos usan `dispatchDirect` con su regla. El motor evalúa
+condiciones y ejecuta acciones, registrando cada intento en `automation_runs`
+(success/failed/skipped) y actualizando `run_count`/`last_run_at`. Crear, editar,
+eliminar y renovar la URL de una regla queda en la auditoría (`automation.*`, sin la
+URL ni el token).
 
 ### Endpoints
-CRUD `GET|POST /automations`, `GET|PUT|DELETE /automations/{automation}` y
-`GET /automations/meta` (catálogo de triggers/acciones/operadores/audiencias para la
-UI). Requieren permisos `automations.*` + entitlement `feature.automations` (402).
+CRUD `GET|POST /automations`, `GET|PUT|DELETE /automations/{automation}`,
+`POST /automations/{automation}/rotate-inbound-url`, `POST /automations/feed-preview`
+y `GET /automations/meta` (catálogo de triggers con descripción/campos, acciones con
+los disparadores admitidos, operadores y audiencias). Requieren permisos
+`automations.*` + entitlement `feature.automations` (402). Público:
+`POST /hooks/automations/{token}`.
 
 ### Frontend
 Vista **Automatizaciones** (`/app/automations`): listado con activar/pausar y
-eliminar, y un editor (modal) con disparador, marca, condiciones y acciones
-dinámicas según el tipo (mensaje y audiencia del aviso, URL del webhook…), con la
-lista de variables disponibles del disparador.
+eliminar, y un editor (modal) con disparador (y su explicación), marca, condiciones
+y acciones dinámicas según el tipo (mensaje y audiencia del aviso, URL del webhook,
+título y texto del borrador…), con la lista de variables disponibles del disparador.
+Según el disparador: URL del feed con «Probar feed» y el estado de la última lectura,
+o la URL secreta del webhook entrante con copiar y «Renovar URL». Al editar muestra
+las últimas ejecuciones con su resultado.
 
 ---
 

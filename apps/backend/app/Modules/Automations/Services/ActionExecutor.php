@@ -7,12 +7,15 @@ namespace App\Modules\Automations\Services;
 use App\Modules\Automations\Enums\AutomationActionType;
 use App\Modules\Automations\Enums\NotifyAudience;
 use App\Modules\Automations\Models\Automation;
+use App\Modules\Brands\Models\Brand;
+use App\Modules\Content\Services\ContentService;
 use App\Modules\Inbox\Models\InboxConversation;
 use App\Modules\Inbox\Services\InboxService;
 use App\Modules\Notifications\Enums\NotificationCategory;
 use App\Modules\Notifications\Notifications\OrganizationNotice;
 use App\Modules\Notifications\Services\Notifier;
 use App\Support\Security\OutboundUrl;
+use App\Support\Tenancy\OrganizationScope;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
@@ -20,14 +23,15 @@ use RuntimeException;
 
 /**
  * Ejecuta una acción de automatización reutilizando los módulos existentes
- * (avisos, inbox) o realizando efectos externos (webhook). Devuelve un mensaje
- * del resultado.
+ * (avisos, inbox, contenido) o realizando efectos externos (webhook). Devuelve
+ * un mensaje del resultado.
  */
 class ActionExecutor
 {
     public function __construct(
         private readonly InboxService $inbox,
         private readonly Notifier $notifier,
+        private readonly ContentService $content,
     ) {
     }
 
@@ -44,6 +48,7 @@ class ActionExecutor
         return match ($type) {
             AutomationActionType::NOTIFY => $this->notify($config, $context, $automation, $brandId ?? $automation->brand_id),
             AutomationActionType::WEBHOOK => $this->webhook($config, $context),
+            AutomationActionType::CREATE_DRAFT => $this->createDraft($config, $context, $automation, $brandId ?? $automation->brand_id),
             AutomationActionType::INBOX_REPLY => $this->inboxReply($config, $context),
             AutomationActionType::INBOX_TAG => $this->inboxTag($config, $context),
             null => throw new RuntimeException('Acción desconocida: ' . $action['type']),
@@ -137,6 +142,40 @@ class ActionExecutor
     }
 
     /**
+     * Borrador en la marca de la regla (o del evento) con título y texto a
+     * partir de las variables del disparador, p. ej. una entrada de RSS.
+     *
+     * @param  array<string, mixed>  $config
+     * @param  array<string, mixed>  $context
+     */
+    private function createDraft(array $config, array $context, Automation $automation, ?int $brandId): string
+    {
+        $brand = $brandId !== null
+            ? Brand::query()->withoutGlobalScope(OrganizationScope::class)
+                ->where('organization_id', $automation->organization_id)
+                ->find($brandId)
+            : null;
+        if ($brand === null) {
+            throw new RuntimeException('Para crear borradores la automatización necesita una marca.');
+        }
+
+        $title = trim($this->interpolate((string) ($config['title'] ?? ''), $context));
+        if ($title === '') {
+            throw new RuntimeException('El borrador necesita un título.');
+        }
+        $body = trim($this->interpolate((string) ($config['body'] ?? ''), $context));
+
+        $content = $this->content->create(
+            $brand,
+            ['title' => Str::limit($title, 250), 'body' => $body !== '' ? Str::limit($body, 20000) : null],
+            null,
+            ['via' => 'automation', 'automation_id' => $automation->public_id, 'automation_name' => $automation->name],
+        );
+
+        return 'Borrador creado: ' . $content->title;
+    }
+
+    /**
      * @param  array<string, mixed>  $config
      * @param  array<string, mixed>  $context
      */
@@ -185,13 +224,14 @@ class ActionExecutor
     }
 
     /**
-     * Sustituye tokens {campo} por valores del contexto.
+     * Sustituye tokens {campo} por valores del contexto (admite los campos
+     * anidados de un webhook entrante: {cliente.nombre}).
      *
      * @param  array<string, mixed>  $context
      */
     private function interpolate(string $template, array $context): string
     {
-        return preg_replace_callback('/\{(\w+)\}/', function (array $m) use ($context): string {
+        return preg_replace_callback('/\{([\w.-]+)\}/u', function (array $m) use ($context): string {
             return (string) ($context[$m[1]] ?? $m[0]);
         }, $template) ?? $template;
     }

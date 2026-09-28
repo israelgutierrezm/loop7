@@ -47,7 +47,13 @@ class ContentService
                 $this->addVariant($content, $variant);
             }
 
-            $this->audit->log(AuditAction::CONTENT_CREATED, $content, ['title' => $content->title] + $auditContext);
+            // Organización explícita: también se crea desde jobs (automatizaciones), sin tenant en contexto.
+            $this->audit->log(
+                AuditAction::CONTENT_CREATED,
+                $content,
+                ['title' => $content->title] + $auditContext,
+                organizationId: $brand->organization_id,
+            );
 
             return $content;
         });

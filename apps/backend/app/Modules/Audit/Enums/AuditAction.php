@@ -121,6 +121,12 @@ final class AuditAction
     public const WEBHOOK_ENDPOINT_DISABLED = 'webhook.endpoint_disabled';
     public const WEBHOOK_SECRET_ROTATED = 'webhook.secret_rotated';
 
+    // Automatizaciones
+    public const AUTOMATION_CREATED = 'automation.created';
+    public const AUTOMATION_UPDATED = 'automation.updated';
+    public const AUTOMATION_DELETED = 'automation.deleted';
+    public const AUTOMATION_INBOUND_URL_ROTATED = 'automation.inbound_url_rotated';
+
     // Inbox
     public const INBOX_REPLIED = 'inbox.replied';
     public const INBOX_NOTE_ADDED = 'inbox.note_added';

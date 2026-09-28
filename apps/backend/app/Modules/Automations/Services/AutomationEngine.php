@@ -63,6 +63,22 @@ class AutomationEngine
     }
 
     /**
+     * Despacha una automatización concreta con un disparador externo (webhook
+     * entrante o entrada de RSS). Quien llama ya verificó el plan.
+     *
+     * @param  array<string, mixed>  $context
+     */
+    public function dispatchDirect(Automation $automation, array $context): void
+    {
+        if (! $automation->is_enabled) {
+            return;
+        }
+
+        $context['trigger'] = $automation->trigger->value;
+        RunAutomation::dispatch($automation->id, $context, $automation->brand_id);
+    }
+
+    /**
      * @param  array<string, mixed>  $context
      * @param  int|null  $brandId  Brand del evento (acota a quién avisar)
      */
