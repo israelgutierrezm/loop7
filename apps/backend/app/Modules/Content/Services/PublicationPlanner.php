@@ -13,6 +13,9 @@ use App\Modules\Content\Models\ContentItem;
 use App\Modules\Content\Models\PostVariant;
 use App\Modules\Content\Models\PublicationTarget;
 use App\Modules\Organizations\Models\Organization;
+use App\Modules\SocialConnections\Contracts\CountsText;
+use App\Modules\SocialConnections\Contracts\HasPublishingLimits;
+use App\Modules\SocialConnections\Contracts\ProvidesPublishOptions;
 use App\Modules\SocialConnections\Enums\Capability;
 use App\Modules\SocialConnections\Enums\ConnectionStatus;
 use App\Modules\SocialConnections\Models\SocialConnectionDestination;
@@ -66,14 +69,41 @@ class PublicationPlanner
             $withDestinations++;
 
             $name = $this->manager->record($variant->provider)->name ?? $variant->provider;
-            $capabilities = $this->manager->adapter($variant->provider)?->capabilities() ?? [];
+            $adapter = $this->manager->adapter($variant->provider);
+            $capabilities = $adapter?->capabilities() ?? [];
+            $videos = $variant->media->filter(fn ($m) => $m->isVideo())->count();
+            $images = $variant->media->count() - $videos;
 
             if (($capabilities[Capability::TEXT] ?? true) === false && $variant->media->isEmpty()) {
-                $errors[] = "{$name} exige al menos una imagen o un video.";
+                $errors[] = ($capabilities[Capability::IMAGE] ?? true) === false
+                    ? "{$name} exige un video."
+                    : "{$name} exige al menos una imagen o un video.";
             }
-            if (($capabilities[Capability::VIDEO] ?? false) === false
-                && $variant->media->contains(fn ($m) => $m->isVideo())) {
+            if (($capabilities[Capability::VIDEO] ?? false) === false && $videos > 0) {
                 $errors[] = "{$name} no admite video.";
+            }
+            if (($capabilities[Capability::IMAGE] ?? true) === false && $images > 0) {
+                $errors[] = "{$name} no admite imágenes: sólo video.";
+            }
+
+            $limits = $adapter instanceof HasPublishingLimits ? $adapter->publishingLimits() : [];
+            $length = $adapter instanceof CountsText ? $adapter->textLength((string) $variant->body) : mb_strlen((string) $variant->body);
+            if (isset($limits['text']) && $length > $limits['text']) {
+                $errors[] = "El texto para {$name} supera los {$limits['text']} caracteres.";
+            }
+            if (isset($limits['media']) && $variant->media->count() > $limits['media']) {
+                $errors[] = "{$name} admite hasta {$limits['media']} archivo(s) por publicación.";
+            }
+            if (isset($limits['images']) && $images > $limits['images']) {
+                $errors[] = "{$name} admite hasta {$limits['images']} imagen(es) por publicación.";
+            }
+            if (isset($limits['videos']) && $videos > $limits['videos']) {
+                $errors[] = "{$name} admite hasta {$limits['videos']} video(s) por publicación.";
+            }
+
+            // Opciones que la red obliga a elegir (privacidad en TikTok, «para niños» en YouTube…).
+            if ($adapter instanceof ProvidesPublishOptions) {
+                array_push($errors, ...$adapter->optionErrors($variant->options ?? []));
             }
         }
 
@@ -130,11 +160,14 @@ class PublicationPlanner
     }
 
     /**
+     * Destinos activos de la marca para la red de la variante.
+     *
      * @return Collection<int, SocialConnectionDestination>
      */
-    private function destinationsFor(ContentItem $content, PostVariant $variant): Collection
+    public function destinationsFor(ContentItem $content, PostVariant $variant): Collection
     {
         return SocialConnectionDestination::query()->withoutGlobalScopes()
+            ->with('connection')
             ->where('organization_id', $content->organization_id)
             ->where('is_active', true)
             ->whereHas('connection', fn ($q) => $q

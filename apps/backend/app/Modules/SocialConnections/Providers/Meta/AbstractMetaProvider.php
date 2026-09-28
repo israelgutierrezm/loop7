@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Modules\SocialConnections\Providers\Meta;
 
+use App\Modules\SocialConnections\Contracts\HasApiVersion;
+use App\Modules\SocialConnections\Contracts\HasPublishingLimits;
 use App\Modules\SocialConnections\Contracts\OAuthTokens;
 use App\Modules\SocialConnections\Contracts\RemoteAccount;
 use App\Modules\SocialConnections\Contracts\SocialProviderInterface;
@@ -18,11 +20,23 @@ use Illuminate\Support\Carbon;
  * larga duración (~60 días); los page tokens obtenidos con él no caducan y se
  * guardan cifrados por destino, así la conexión no expira a las pocas horas.
  */
-abstract class AbstractMetaProvider implements SocialProviderInterface
+abstract class AbstractMetaProvider implements HasApiVersion, HasPublishingLimits, SocialProviderInterface
 {
     public function usesPkce(): bool
     {
         return false;
+    }
+
+    public function apiVersionSetting(): array
+    {
+        return [
+            'key' => 'graph_version',
+            'label' => 'Versión de Graph API',
+            'default' => (string) config('services.meta.graph_version', 'v25.0'),
+            'pattern' => '/^v\d+\.\d+$/',
+            'example' => 'v25.0',
+            'hint' => 'Meta retira cada versión ~2 años después de publicarla.',
+        ];
     }
 
     public function authorizeUrl(

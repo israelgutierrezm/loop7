@@ -163,7 +163,7 @@ class InboxService
 
         try {
             return $adapter->fetchConversations(
-                $connection->toTokens($destination),
+                $this->connections->freshTokens($connection, $destination),
                 $destination->external_id,
                 $this->manager->credentials($connection->provider),
             );
@@ -193,7 +193,7 @@ class InboxService
 
         try {
             return $adapter->replyToConversation(
-                $connection->toTokens($destination),
+                $this->connections->freshTokens($connection, $destination),
                 $conversation->external_id,
                 $body,
                 $this->manager->credentials($connection->provider),

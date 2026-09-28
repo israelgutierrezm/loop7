@@ -47,6 +47,12 @@ class FacebookProvider extends AbstractMetaProvider
         ];
     }
 
+    public function publishingLimits(): array
+    {
+        // Un video por publicación (se publica como video de la página).
+        return ['text' => 63206, 'videos' => 1];
+    }
+
     public function defaultScopes(): array
     {
         return [

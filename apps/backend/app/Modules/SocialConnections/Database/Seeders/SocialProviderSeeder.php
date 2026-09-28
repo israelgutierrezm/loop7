@@ -22,6 +22,11 @@ class SocialProviderSeeder extends Seeder
             ['key' => 'fake', 'name' => 'Proveedor de prueba', 'is_enabled' => $fakeEnabled],
             ['key' => 'facebook', 'name' => 'Facebook', 'is_enabled' => false],
             ['key' => 'instagram', 'name' => 'Instagram', 'is_enabled' => false],
+            ['key' => 'linkedin', 'name' => 'LinkedIn', 'is_enabled' => false],
+            ['key' => 'youtube', 'name' => 'YouTube', 'is_enabled' => false],
+            ['key' => 'x', 'name' => 'X', 'is_enabled' => false],
+            ['key' => 'tiktok', 'name' => 'TikTok', 'is_enabled' => false],
+            ['key' => 'threads', 'name' => 'Threads', 'is_enabled' => false],
         ];
 
         foreach ($providers as $provider) {

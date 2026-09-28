@@ -68,6 +68,12 @@ class InstagramProvider extends AbstractMetaProvider
         ];
     }
 
+    public function publishingLimits(): array
+    {
+        // Pie de foto de 2200 caracteres; carrusel de hasta 10 imágenes o videos.
+        return ['text' => 2200, 'media' => 10];
+    }
+
     public function defaultScopes(): array
     {
         return [

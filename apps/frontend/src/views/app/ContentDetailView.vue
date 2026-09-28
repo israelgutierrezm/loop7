@@ -14,6 +14,8 @@ import StatusBadge, { type BadgeTone } from '@/components/ui/StatusBadge.vue'
 import Spinner from '@/components/ui/Spinner.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import ProviderIcon from '@/components/social/ProviderIcon.vue'
+import TikTokPostSettings from '@/components/content/TikTokPostSettings.vue'
+import YouTubePostSettings from '@/components/content/YouTubePostSettings.vue'
 import MediaPicker, { type PickedMedia } from '@/components/media/MediaPicker.vue'
 import type { SocialProviderOption } from '@/types/models'
 
@@ -27,7 +29,15 @@ interface Target {
   remote_url: string | null
   error: string | null
 }
-interface Variant { id: string; provider: string; body: string | null; format: string; media: PickedMedia[]; targets: Target[] }
+interface Variant {
+  id: string
+  provider: string
+  body: string | null
+  format: string
+  options: Record<string, unknown> | null
+  media: PickedMedia[]
+  targets: Target[]
+}
 interface Comment { id: string; body: string; author: string | null; created_at: string | null }
 interface Content {
   id: string
@@ -85,6 +95,29 @@ function providerName(key: string): string {
 function needsMedia(v: Variant): boolean {
   const caps = providers.value.find((p) => p.key === v.provider)?.capabilities
   return caps?.text === false && v.media.length === 0
+}
+
+function textLimit(v: Variant): number | null {
+  return providers.value.find((p) => p.key === v.provider)?.limits?.text ?? null
+}
+
+/** Avisos de lo que la red no admitirá (el servidor lo vuelve a validar al programar). */
+function variantWarnings(v: Variant): string[] {
+  const provider = providers.value.find((p) => p.key === v.provider)
+  if (!provider) return []
+  const caps = provider.capabilities ?? {}
+  const limits = provider.limits ?? {}
+  const videos = v.media.filter((m) => !m.is_image).length
+  const images = v.media.length - videos
+  const name = provider.name
+  const warnings: string[] = []
+  if (caps.image === false && images > 0) warnings.push(`${name} no admite imágenes: sólo video.`)
+  if (caps.video === false && videos > 0) warnings.push(`${name} no admite video.`)
+  if (limits.text && (v.body ?? '').length > limits.text) warnings.push(`El texto supera los ${limits.text} caracteres de ${name}.`)
+  if (limits.media && v.media.length > limits.media) warnings.push(`${name} admite hasta ${limits.media} archivos por publicación.`)
+  if (limits.images && images > limits.images) warnings.push(`${name} admite hasta ${limits.images} imágenes por publicación.`)
+  if (limits.videos && videos > limits.videos) warnings.push(`${name} admite ${limits.videos === 1 ? 'un video' : `hasta ${limits.videos} videos`} por publicación.`)
+  return warnings
 }
 
 const targetTone: Record<string, BadgeTone> = {
@@ -464,6 +497,13 @@ onUnmounted(stopPolling)
               <form v-if="editingVariant === v.id" class="space-y-2" @submit.prevent="saveVariant(v)">
                 <label :for="`vb-${v.id}`" class="sr-only">Texto para {{ providerName(v.provider) }}</label>
                 <textarea :id="`vb-${v.id}`" v-model="variantDraft" rows="4" class="input" />
+                <p
+                  v-if="textLimit(v)"
+                  class="text-right text-xs"
+                  :class="variantDraft.length > (textLimit(v) ?? 0) ? 'text-rose-600' : 'text-slate-400'"
+                >
+                  {{ variantDraft.length }} / {{ textLimit(v) }}
+                </p>
                 <div class="flex justify-end gap-2">
                   <button type="button" class="btn-ghost text-xs" @click="editingVariant = null">Cancelar</button>
                   <button type="submit" class="btn-primary text-xs" :disabled="busy">Guardar</button>
@@ -493,6 +533,30 @@ onUnmounted(stopPolling)
               <p v-if="needsMedia(v)" class="mt-2 flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-300">
                 <AppIcon name="alert" :size="14" /> {{ providerName(v.provider) }} necesita al menos una imagen o un video.
               </p>
+              <p
+                v-for="w in variantWarnings(v)"
+                :key="w"
+                class="mt-1 flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-300"
+              >
+                <AppIcon name="alert" :size="14" /> {{ w }}
+              </p>
+
+              <!-- Opciones que la red obliga a elegir -->
+              <TikTokPostSettings
+                v-if="v.provider === 'tiktok'"
+                :variant-id="v.id"
+                :options="v.options"
+                :editable="canEdit"
+                @saved="load(true)"
+              />
+              <YouTubePostSettings
+                v-else-if="v.provider === 'youtube'"
+                :variant-id="v.id"
+                :options="v.options"
+                :editable="canEdit"
+                :default-title="content.title"
+                @saved="load(true)"
+              />
 
               <!-- Estado por cuenta -->
               <ul v-if="v.targets.length" class="mt-3 space-y-1.5 border-t border-slate-100 pt-3 dark:border-slate-800">

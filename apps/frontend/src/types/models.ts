@@ -102,6 +102,8 @@ export interface SocialProviderOption {
   key: string
   name: string
   capabilities?: Record<string, boolean>
+  /** Límites de publicación declarados por la red (caracteres y archivos). */
+  limits?: { text?: number; media?: number; images?: number; videos?: number }
 }
 
 export interface SocialDestination {

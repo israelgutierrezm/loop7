@@ -4,11 +4,17 @@ declare(strict_types=1);
 
 namespace App\Modules\SocialConnections\Services;
 
+use App\Modules\SocialConnections\Contracts\HasPublishingLimits;
 use App\Modules\SocialConnections\Contracts\SocialProviderInterface;
 use App\Modules\SocialConnections\Models\SocialProvider;
 use App\Modules\SocialConnections\Providers\FacebookProvider;
 use App\Modules\SocialConnections\Providers\FakeSocialProvider;
 use App\Modules\SocialConnections\Providers\InstagramProvider;
+use App\Modules\SocialConnections\Providers\LinkedInProvider;
+use App\Modules\SocialConnections\Providers\ThreadsProvider;
+use App\Modules\SocialConnections\Providers\TikTokProvider;
+use App\Modules\SocialConnections\Providers\XProvider;
+use App\Modules\SocialConnections\Providers\YouTubeProvider;
 use Illuminate\Support\Collection;
 
 class SocialProviderManager
@@ -20,7 +26,7 @@ class SocialProviderManager
     private const SHARED_APP = ['instagram' => 'facebook'];
 
     /** Ajustes no secretos del catálogo que se pasan al adaptador. */
-    private const ADAPTER_SETTINGS = ['graph_version'];
+    private const ADAPTER_SETTINGS = ['graph_version', 'api_version'];
 
     /** @var array<string, SocialProviderInterface> */
     private array $adapters;
@@ -31,6 +37,11 @@ class SocialProviderManager
             'fake' => new FakeSocialProvider(),
             'facebook' => new FacebookProvider(),
             'instagram' => new InstagramProvider(),
+            'linkedin' => new LinkedInProvider(),
+            'youtube' => new YouTubeProvider(),
+            'x' => new XProvider(),
+            'tiktok' => new TikTokProvider(),
+            'threads' => new ThreadsProvider(),
         ];
     }
 
@@ -45,6 +56,18 @@ class SocialProviderManager
     public function all(): array
     {
         return $this->adapters;
+    }
+
+    /**
+     * Límites de publicación del proveedor (texto, archivos), si los declara.
+     *
+     * @return array{text?: int, media?: int, images?: int, videos?: int}
+     */
+    public function limits(string $key): array
+    {
+        $adapter = $this->adapter($key);
+
+        return $adapter instanceof HasPublishingLimits ? $adapter->publishingLimits() : [];
     }
 
     public function record(string $key): ?SocialProvider

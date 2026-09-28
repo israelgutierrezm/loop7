@@ -17,9 +17,11 @@ use App\Modules\SocialConnections\Contracts\SocialProviderInterface;
 use App\Modules\SocialConnections\Enums\ConnectionStatus;
 use App\Modules\SocialConnections\Events\SocialConnectionExpired;
 use App\Modules\SocialConnections\Exceptions\InvalidOAuthStateException;
+use App\Modules\SocialConnections\Exceptions\SocialTokenExpiredException;
 use App\Modules\SocialConnections\Models\SocialConnection;
 use App\Modules\SocialConnections\Models\SocialConnectionDestination;
 use App\Modules\SocialConnections\Models\SocialTokenEvent;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -30,6 +32,12 @@ use Throwable;
 class SocialConnectionService
 {
     private const STATE_TTL_MINUTES = 10;
+
+    /** Se renueva antes de usarlo si caduca en menos de estos minutos. */
+    private const REFRESH_MARGIN_MINUTES = 10;
+
+    /** El sondeo periódico no renueva lo que se comprobó hace menos de esto. */
+    private const REFRESH_CHECK_HOURS = 12;
 
     public function __construct(
         private readonly SocialProviderManager $manager,
@@ -173,11 +181,47 @@ class SocialConnectionService
     }
 
     /**
+     * Tokens listos para usar: si el de acceso caduca en unos minutos y hay
+     * refresh token, se renueva antes (redes con tokens de 1–24 h: X, YouTube,
+     * TikTok). Publicar, métricas e inbox pasan siempre por aquí.
+     */
+    public function freshTokens(SocialConnection $connection, ?SocialConnectionDestination $destination = null): OAuthTokens
+    {
+        if ($connection->refresh_token !== null
+            && $connection->token_expires_at !== null
+            && $connection->token_expires_at->lte(now()->addMinutes(self::REFRESH_MARGIN_MINUTES))
+        ) {
+            $this->refresh($connection);
+            if ($connection->status === ConnectionStatus::EXPIRED) {
+                throw new SocialTokenExpiredException('No se pudo renovar el acceso a la red social.');
+            }
+        }
+
+        return $connection->toTokens($destination);
+    }
+
+    /**
      * Renueva los tokens con el refresh token del proveedor. Si falla, la
      * conexión queda marcada como expirada para que el usuario la reconecte.
+     *
+     * Con bloqueo por conexión: algunos proveedores (X) rotan el refresh token
+     * y dos renovaciones simultáneas con el mismo invalidarían la conexión.
      */
     public function refresh(SocialConnection $connection): SocialConnection
     {
+        try {
+            return Cache::lock('social-token-refresh:' . $connection->id, 60)
+                ->block(30, fn (): SocialConnection => $this->refreshLocked($connection));
+        } catch (LockTimeoutException) {
+            // Otro proceso lo está renovando: se usan los tokens que haya.
+            return $connection->refresh();
+        }
+    }
+
+    private function refreshLocked(SocialConnection $connection): SocialConnection
+    {
+        // Relee: quien tenía el bloqueo pudo renovarlo (y rotar el refresh token).
+        $connection->refresh();
         $adapter = $this->manager->adapter($connection->provider);
 
         if ($adapter === null || $connection->refresh_token === null) {
@@ -228,6 +272,11 @@ class SocialConnectionService
             ->where('token_expires_at', '<=', now()->addDay())
             ->each(function (SocialConnection $connection) use (&$refreshed, &$expired): void {
                 if ($connection->refresh_token !== null) {
+                    // Tokens cortos (1–24 h): se renuevan al usarlos; aquí basta
+                    // comprobar cada pocas horas que el refresh token sigue siendo válido.
+                    if ($connection->last_health_check_at?->gt(now()->subHours(self::REFRESH_CHECK_HOURS))) {
+                        return;
+                    }
                     $this->refresh($connection);
                     $connection->status === ConnectionStatus::CONNECTED ? $refreshed++ : $expired++;
                 } elseif ($connection->isExpired()) {

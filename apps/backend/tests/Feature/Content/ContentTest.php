@@ -112,7 +112,7 @@ class ContentTest extends TestCase
 
         // Redes sin adaptador no se aceptan.
         $this->actingInOrganization($owner, $org)
-            ->postJson("/api/v1/content/{$content->public_id}/variants", ['provider' => 'linkedin'])
+            ->postJson("/api/v1/content/{$content->public_id}/variants", ['provider' => 'pinterest'])
             ->assertStatus(422);
 
         // Aprobado: ya no se modifican variantes ni multimedia.

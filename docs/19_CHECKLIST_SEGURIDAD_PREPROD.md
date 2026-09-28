@@ -18,9 +18,13 @@ Ver runbook: [21_RUNBOOK_OPERACION.md](21_RUNBOOK_OPERACION.md).
 - [x] ✅ tokens OAuth cifrados (`encrypted` at-rest)
 - [x] ✅ API keys cifradas — sólo hash SHA-256 en BD
 - [x] ✅ logs sin secretos — `AuditLogger` redacta claves sensibles (test)
-- [x] ✅ errores de red de Meta sin tokens — Graph recibe el token en la query y el mensaje de cURL incluye la URL: `MetaGraph` lo sustituye por un mensaje propio y `SecretRedactor` limpia errores de publicación y trabajos fallidos (`FacebookProviderTest`)
+- [x] ✅ errores de red de Meta sin tokens — Graph recibe el token en la query y el mensaje de cURL incluye la URL: `MetaGraph` lo sustituye por un mensaje propio y `SecretRedactor` limpia errores de publicación y trabajos fallidos (`FacebookProviderTest`); lo mismo en Threads, LinkedIn, X, YouTube y TikTok (`AbstractOAuth2Provider::send`)
+- [x] ✅ refresh tokens de un solo uso (X) sin carreras — renovación con bloqueo por conexión y relectura (`NewProvidersIntegrationTest`)
 - [x] ✅ webhooks firmados/verificados — Stripe (HMAC), Mercado Pago (x-signature + consulta a la API), Openpay (Basic auth)
-- [x] ✅ webhooks salientes sin SSRF — `OutboundUrl` (sólo IPs públicas, IP fijada, sin redirecciones)
+- [x] ✅ webhooks salientes sin SSRF — `OutboundUrl` (sólo IPs públicas, IP fijada, sin redirecciones); los webhooks de «API y accesos» además sólo https
+- [x] ✅ webhooks salientes firmados — Standard Webhooks (HMAC-SHA256 con `webhook-id` y marca de tiempo), secreto cifrado y mostrado una vez, rotación con doble firma 24 h (`WebhooksTest`)
+- [x] ✅ webhooks entrantes de automatizaciones — URL con token de 48 caracteres (cifrado; búsqueda por hash), límite por URL, 64 KB, idempotencia con `Idempotency-Key` (`InboundTriggersTest`)
+- [x] ✅ feeds RSS sin SSRF ni XXE — cada redirección revalidada, 2 MB, 10 s, XML sin entidades ni DTD externas (`InboundTriggersTest`)
 - [x] ✅ idempotencia — publicación (consolidación idempotente), webhooks de pago, créditos IA
 - [x] ✅ tests IDOR/tenant isolation — en cada módulo
 - [x] ✅ Brand Access — recursos hijos verifican acceso a su marca (`BrandAccessTest`)
@@ -37,6 +41,7 @@ Ver runbook: [21_RUNBOOK_OPERACION.md](21_RUNBOOK_OPERACION.md).
 - [ ] ⚙️ incident response básico — documentado (runbook)
 - [x] ✅ revisión permisos OAuth mínimos — `defaultScopes` por proveedor
 - [ ] ⚙️ revisión de políticas oficiales de cada proveedor (antes de habilitar cada red)
+- [ ] ⚙️ revisiones de las apps de cada red antes de abrirlas a clientes (docs/06): Meta App Review (Facebook, Instagram y la app propia de Threads), LinkedIn Community Management API (páginas), verificación OAuth de Google + auditoría de YouTube API Services (sin ella los videos quedan privados y hay 100 subidas/día), auditoría de TikTok Content Posting (sin ella todo queda «Solo yo»), y saldo de pago por uso en X
 
 ## Correlation ID / observabilidad
 - [x] ✅ `X-Request-Id` por request en contexto de logs y respuesta (`RequestId`).

@@ -10,12 +10,18 @@ use App\Modules\Content\Http\Resources\VariantPresenter;
 use App\Modules\Content\Models\ContentItem;
 use App\Modules\Content\Models\PostVariant;
 use App\Modules\Content\Services\ContentService;
+use App\Modules\Content\Services\PublicationPlanner;
+use App\Modules\SocialConnections\Contracts\ProvidesPublishOptions;
+use App\Modules\SocialConnections\Exceptions\SocialTokenExpiredException;
+use App\Modules\SocialConnections\Services\SocialConnectionService;
 use App\Modules\SocialConnections\Services\SocialProviderManager;
 use App\Support\Http\ApiResponse;
+use App\Support\Security\SecretRedactor;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class ContentVariantsController extends Controller
 {
@@ -40,7 +46,7 @@ class ContentVariantsController extends Controller
             'provider' => ['required', 'string', Rule::in(array_keys($this->providers->all()))],
             'body' => ['nullable', 'string', 'max:20000'],
             'format' => ['nullable', 'string', 'max:24'],
-            'options' => ['nullable', 'array'],
+            'options' => ['nullable', 'array', 'max:20'],
             'media' => ['nullable', 'array', 'max:10'],
             'media.*' => ['string'],
         ], [
@@ -61,12 +67,52 @@ class ContentVariantsController extends Controller
         $data = $request->validate([
             'body' => ['sometimes', 'nullable', 'string', 'max:20000'],
             'format' => ['sometimes', 'string', 'max:24'],
-            'options' => ['sometimes', 'nullable', 'array'],
+            'options' => ['sometimes', 'nullable', 'array', 'max:20'],
         ]);
 
         $model->update($data);
 
         return ApiResponse::success($this->presenter->present($model->load('media')), 'Variante actualizada.');
+    }
+
+    /**
+     * Estado y opciones de publicación de cada cuenta de la marca en la red de
+     * la variante, consultados en vivo (TikTok obliga a mostrarlos al publicar).
+     */
+    public function publishOptions(
+        Request $request,
+        string $variant,
+        PublicationPlanner $planner,
+        SocialConnectionService $connections,
+    ): JsonResponse {
+        $model = $this->resolveVariant($variant);
+        abort_unless($request->user()->can('content.view'), 403);
+
+        $adapter = $this->providers->adapter($model->provider);
+        if (! $adapter instanceof ProvidesPublishOptions || $model->contentItem === null) {
+            return ApiResponse::success(['accounts' => []]);
+        }
+
+        $credentials = $this->providers->credentials($model->provider);
+        $accounts = [];
+        foreach ($planner->destinationsFor($model->contentItem, $model) as $destination) {
+            $account = ['destination' => $destination->public_id, 'name' => $destination->name, 'options' => null, 'error' => null];
+            try {
+                $account['options'] = $adapter->publishOptions(
+                    $connections->freshTokens($destination->connection, $destination),
+                    $destination->external_id,
+                    $credentials,
+                );
+            } catch (SocialTokenExpiredException $e) {
+                $connections->markExpired($destination->connection, $e->getMessage());
+                $account['error'] = 'La conexión con la cuenta caducó: reconéctala en Redes sociales.';
+            } catch (Throwable $e) {
+                $account['error'] = SecretRedactor::redact($e->getMessage());
+            }
+            $accounts[] = $account;
+        }
+
+        return ApiResponse::success(['accounts' => $accounts]);
     }
 
     public function syncMedia(Request $request, string $variant): JsonResponse

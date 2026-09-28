@@ -49,7 +49,7 @@ class MetricsSyncService
 
         try {
             $metrics = $adapter->fetchAccountMetrics(
-                $connection->toTokens($destination),
+                $this->connections->freshTokens($connection, $destination),
                 $destination->external_id,
                 $this->manager->credentials($connection->provider),
             );
@@ -102,7 +102,7 @@ class MetricsSyncService
 
         try {
             $metrics = $adapter->fetchPostMetrics(
-                $connection->toTokens($destination),
+                $this->connections->freshTokens($connection, $destination),
                 $target->remote_id,
                 $this->manager->credentials($connection->provider),
             );

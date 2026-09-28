@@ -15,8 +15,10 @@ use App\Modules\Content\Jobs\PublishSocialPost;
 use App\Modules\Content\Models\ContentItem;
 use App\Modules\Content\Models\PostVariant;
 use App\Modules\Content\Models\PublicationTarget;
+use App\Modules\MediaLibrary\Models\MediaAsset;
 use App\Modules\MediaLibrary\Services\MediaService;
 use App\Modules\Organizations\Models\Organization;
+use App\Modules\SocialConnections\Contracts\MediaFile;
 use App\Modules\SocialConnections\Contracts\PublishCheckpoint;
 use App\Modules\SocialConnections\Contracts\PublishPayload;
 use App\Modules\SocialConnections\Enums\ConnectionStatus;
@@ -26,6 +28,7 @@ use App\Modules\SocialConnections\Services\SocialConnectionService;
 use App\Modules\SocialConnections\Services\SocialProviderManager;
 use App\Support\Security\SecretRedactor;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -61,6 +64,7 @@ class PublishingService
         $variant = PostVariant::query()->withoutGlobalScopes()->with('media')->find($target->post_variant_id);
 
         // El contenido se eliminó con el job ya en cola: no se publica.
+        $content = null;
         if ($variant !== null) {
             $content = ContentItem::query()->withoutGlobalScopes()->find($variant->content_item_id);
             if ($content === null || $content->trashed()) {
@@ -109,18 +113,27 @@ class PublishingService
         $target->update(['status' => TargetStatus::PUBLISHING->value]);
 
         try {
+            // Minutos suficientes para que la red descargue (y procese) el archivo.
+            $urls = $variant->media->map(fn (MediaAsset $m) => $this->media->temporaryUrl($m, 120))->values()->all();
             $payload = new PublishPayload(
                 body: $variant->body ?? '',
-                // Minutos suficientes para que la red descargue (y procese) el archivo.
-                mediaUrls: $variant->media->map(fn ($m) => $this->media->temporaryUrl($m, 120))->values()->all(),
+                mediaUrls: $urls,
                 format: $variant->format,
                 idempotencyKey: $target->public_id,
-                mediaTypes: $variant->media->map(fn ($m) => $m->isVideo() ? 'video' : 'image')->values()->all(),
+                mediaTypes: $variant->media->map(fn (MediaAsset $m) => $m->isVideo() ? 'video' : 'image')->values()->all(),
                 checkpoint: $this->checkpoint($target, $variant),
+                mediaFiles: $variant->media->values()->map(fn (MediaAsset $m, int $i) => new MediaFile(
+                    url: $urls[$i],
+                    mimeType: $m->mime_type,
+                    sizeBytes: $m->size_bytes,
+                    opener: fn () => Storage::disk($m->disk)->readStream($m->path),
+                ))->all(),
+                title: $content->title,
+                options: $variant->options ?? [],
             );
 
             $result = $adapter->publish(
-                $connection->toTokens($destination),
+                $this->connections->freshTokens($connection, $destination),
                 $destination->external_id,
                 $payload,
                 $this->manager->credentials($connection->provider),

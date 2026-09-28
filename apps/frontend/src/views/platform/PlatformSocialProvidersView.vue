@@ -18,12 +18,13 @@ interface Provider {
   configured_credentials: string[]
   shares_app_with: string | null
   uses_shared_credentials: boolean
-  graph_version: string | null
-  default_graph_version: string | null
+  api_version: { label: string; value: string | null; default: string; example: string; hint: string } | null
+  credential_labels: { client_id: string; client_secret: string }
   scopes: string[]
   default_scopes: string[]
   setup: {
     redirect_uri: string
+    redirect_hint: string
     data_deletion_url: string | null
     privacy_url: string
     terms_url: string
@@ -36,7 +37,7 @@ const toasts = useToastStore()
 const providers = ref<Provider[]>([])
 const loading = ref(true)
 const failed = ref(false)
-const forms = reactive<Record<string, { client_id: string; client_secret: string; graph_version: string; scopes: string }>>({})
+const forms = reactive<Record<string, { client_id: string; client_secret: string; api_version: string; scopes: string }>>({})
 const saving = ref<string | null>(null)
 const testing = ref<string | null>(null)
 const results = reactive<Record<string, TestResult | undefined>>({})
@@ -46,7 +47,7 @@ function fill(p: Provider): void {
   forms[p.key] = {
     client_id: '',
     client_secret: '',
-    graph_version: p.graph_version ?? '',
+    api_version: p.api_version?.value ?? '',
     scopes: p.scopes.join(', '),
   }
 }
@@ -86,7 +87,7 @@ async function saveCredentials(p: Provider): Promise<void> {
   if (form.client_id.trim()) credentials.client_id = form.client_id.trim()
   if (form.client_secret.trim()) credentials.client_secret = form.client_secret.trim()
   if (Object.keys(credentials).length === 0) {
-    toasts.error('Introduce el App ID o el App Secret.')
+    toasts.error(`Introduce el ${p.credential_labels.client_id} o el ${p.credential_labels.client_secret}.`)
     return
   }
   saving.value = p.key
@@ -112,7 +113,7 @@ async function saveAdvanced(p: Provider): Promise<void> {
     const payload: Record<string, unknown> = {
       scopes: scopes.join(',') === p.default_scopes.join(',') ? null : scopes,
     }
-    if (p.default_graph_version !== null) payload.graph_version = form.graph_version.trim() || null
+    if (p.api_version !== null) payload.api_version = form.api_version.trim() || null
     const { data } = await http.put(`/platform/social-providers/${p.key}`, payload)
     replace(data.data)
     fill(data.data)
@@ -172,7 +173,7 @@ onMounted(load)
                   {{ p.is_enabled ? 'Habilitado' : 'Deshabilitado' }}
                 </StatusBadge>
                 <span>{{ credentialsLabel(p) }}</span>
-                <span v-if="p.default_graph_version">· Graph API {{ p.graph_version ?? p.default_graph_version }}</span>
+                <span v-if="p.api_version">· {{ p.api_version.label }} {{ p.api_version.value ?? p.api_version.default }}</span>
               </p>
             </div>
           </div>
@@ -214,7 +215,7 @@ onMounted(load)
               {{ p.name }} usa la misma app de Meta que Facebook: si dejas esto vacío se usan sus credenciales.
             </p>
             <div>
-              <label :for="`cid-${p.key}`" class="label">App ID (client_id)</label>
+              <label :for="`cid-${p.key}`" class="label">{{ p.credential_labels.client_id }}</label>
               <input
                 :id="`cid-${p.key}`"
                 v-model="forms[p.key].client_id"
@@ -225,7 +226,7 @@ onMounted(load)
               />
             </div>
             <div>
-              <label :for="`csec-${p.key}`" class="label">App Secret (client_secret)</label>
+              <label :for="`csec-${p.key}`" class="label">{{ p.credential_labels.client_secret }}</label>
               <input
                 :id="`csec-${p.key}`"
                 v-model="forms[p.key].client_secret"
@@ -246,7 +247,7 @@ onMounted(load)
             <CopyField
               label="URI de redireccionamiento OAuth válido"
               :value="p.setup.redirect_uri"
-              hint="Regístrala en Inicio de sesión con Facebook → Configuración."
+              :hint="p.setup.redirect_hint"
             />
             <template v-if="p.setup.data_deletion_url">
               <CopyField label="URL de devolución de llamada de eliminación de datos" :value="p.setup.data_deletion_url" />
@@ -268,18 +269,17 @@ onMounted(load)
             <span aria-hidden="true">{{ expanded[p.key] ? '−' : '+' }}</span>
           </button>
           <form v-if="expanded[p.key]" class="grid gap-4 px-5 pb-5 lg:grid-cols-3" @submit.prevent="saveAdvanced(p)">
-            <div v-if="p.default_graph_version">
-              <label :for="`gv-${p.key}`" class="label">Versión de Graph API</label>
+            <div v-if="p.api_version">
+              <label :for="`gv-${p.key}`" class="label">{{ p.api_version.label }}</label>
               <input
                 :id="`gv-${p.key}`"
-                v-model="forms[p.key].graph_version"
+                v-model="forms[p.key].api_version"
                 class="input"
-                :placeholder="`${p.default_graph_version} (por defecto)`"
-                pattern="v\d+\.\d+"
+                :placeholder="`${p.api_version.default} (por defecto)`"
               />
-              <p class="mt-1 text-xs text-slate-400">Meta retira cada versión ~2 años después de publicarla.</p>
+              <p class="mt-1 text-xs text-slate-400">{{ p.api_version.hint }}</p>
             </div>
-            <div :class="p.default_graph_version ? 'lg:col-span-2' : 'lg:col-span-3'">
+            <div :class="p.api_version ? 'lg:col-span-2' : 'lg:col-span-3'">
               <label :for="`sc-${p.key}`" class="label">Permisos (scopes) solicitados</label>
               <textarea :id="`sc-${p.key}`" v-model="forms[p.key].scopes" rows="2" class="input font-mono text-xs" />
               <p class="mt-1 text-xs text-slate-400">

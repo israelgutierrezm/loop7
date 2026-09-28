@@ -6,6 +6,7 @@ namespace App\Modules\SocialConnections\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Brands\Http\Concerns\ResolvesBrand;
+use App\Modules\SocialConnections\Contracts\ProvidesPublishOptions;
 use App\Modules\SocialConnections\Models\SocialConnection;
 use App\Modules\SocialConnections\Services\SocialConnectionService;
 use App\Modules\SocialConnections\Services\SocialProviderManager;
@@ -35,6 +36,9 @@ class SocialConnectionsController extends Controller
                 'key' => $p->key,
                 'name' => $p->name,
                 'capabilities' => $this->manager->adapter($p->key)?->capabilities() ?? [],
+                'limits' => (object) $this->manager->limits($p->key),
+                // La red pide opciones propias antes de publicar (TikTok, YouTube).
+                'publish_options' => $this->manager->adapter($p->key) instanceof ProvidesPublishOptions,
             ])
             ->all();
 
