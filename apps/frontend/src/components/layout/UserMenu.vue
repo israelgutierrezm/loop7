@@ -34,7 +34,11 @@ async function logout(): Promise<void> {
 <template>
   <div ref="root" class="relative">
     <button
+      type="button"
       class="flex items-center gap-2 rounded-full p-1 pr-2 transition hover:bg-slate-100 dark:hover:bg-slate-800"
+      aria-label="Menú de usuario"
+      aria-haspopup="menu"
+      :aria-expanded="open"
       @click="open = !open"
     >
       <span class="grid h-8 w-8 place-items-center rounded-full bg-brand-600 text-xs font-bold text-white">

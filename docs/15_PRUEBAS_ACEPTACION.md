@@ -33,3 +33,23 @@ post con su variante, enviarlo a revisión (la creadora no puede aprobar), aprob
 un APPROVER, programarlo y que el scheduler lo publique (target y contenido
 `published`, auditado). Se ejecuta con el resto de la suite:
 `XDEBUG_MODE=off php artisan test`.
+
+## Pruebas E2E en navegador (Playwright)
+`apps/frontend/e2e` recorre la **interfaz real** en Chrome/Chromium contra un backend
+aislado, como lo haría una persona:
+- `auth.spec.ts`: registro con organización (queda como actual), cierre de sesión,
+  redirección al login conservando el destino, nuevo inicio de sesión y credenciales
+  incorrectas.
+- `main-journey.spec.ts`: crear marca → conectar la cuenta simulada (`fake`, vuelve
+  directo al callback OAuth) → crear contenido → añadir la variante → enviar a revisión
+  y aprobar (o «Marcar como listo» si el plan no tiene aprobaciones) → programar para
+  mañana → verlo «Programado» en el listado → encontrarlo con el buscador de comandos
+  (Ctrl+K); y «Publicar ahora» hasta «Publicado».
+
+Cada prueba crea su propia cuenta (no dependen entre sí). Entorno (`playwright.config.ts`
++ `e2e/start-backend.mjs`): escribe `apps/backend/.env.e2e` (ignorado por git), recrea
+`database/e2e.sqlite` (WAL + `synchronous=OFF`) con migraciones y datos base, sirve
+Laravel en **8002** y un Vite propio en **5174** (proxy a 8002): no toca la base ni los
+puertos de desarrollo. En local usa el Chrome instalado (`E2E_BROWSER_CHANNEL=msedge`
+para Edge) y en CI el Chromium de Playwright (job `e2e`, que guarda el informe si
+falla). `npm run test:e2e` (o `test:e2e:ui` para depurar).

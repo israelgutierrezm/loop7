@@ -77,3 +77,58 @@ jobs:
 
       - name: Dependency audit (npm)
         run: npm audit --omit=dev --audit-level=high
+
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, pdo_sqlite, sqlite3, intl, bcmath, gd, zip, openssl
+          coverage: none
+          tools: composer:v2
+
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: apps/backend/vendor
+          key: composer-${{ hashFiles('apps/backend/composer.lock') }}
+
+      - name: Install backend dependencies
+        working-directory: apps/backend
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: apps/frontend
+        run: npm ci
+
+      - name: Install Chromium
+        working-directory: apps/frontend
+        run: npx playwright install --with-deps chromium
+
+      # El backend E2E (SQLite propio, puerto 8002) y Vite (5174) los arranca Playwright.
+      - name: Run E2E tests
+        working-directory: apps/frontend
+        run: npx playwright test
+
+      - name: Upload report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            apps/frontend/playwright-report
+            apps/frontend/test-results
+          retention-days: 7

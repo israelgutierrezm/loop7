@@ -58,7 +58,11 @@ VITE_API_PROXY_TARGET=http://127.0.0.1:8001
 ```bash
 npm run type-check   # vue-tsc
 npm run build        # build de producción
+npm run test:e2e     # Playwright (backend aislado en 8002 + Vite en 5174)
 ```
+Las E2E usan el Chrome instalado (o Edge con `E2E_BROWSER_CHANNEL=msedge`) y una base
+SQLite propia (`apps/backend/database/e2e.sqlite`); pueden correr con el entorno de
+desarrollo encendido. Detalle en [15_PRUEBAS_ACEPTACION.md](15_PRUEBAS_ACEPTACION.md).
 
 ## Notas de entorno (Windows)
 - El proxy de Vite usa `127.0.0.1` (no `localhost`) para evitar que resuelva a
