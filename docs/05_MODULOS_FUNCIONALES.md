@@ -274,6 +274,30 @@ publicadas y con errores en la última semana, próximas publicaciones, contenid
 requiere atención, cuentas por reconectar, uso del plan y equipo. Cada bloque depende
 del rol y el contenido se limita a las marcas accesibles.
 
+## Calendario
+Vistas **Mes**, **Semana**, **Día** y **Lista** (`/app/calendar`). La vista y el día de
+referencia viven en la URL (`?vista=mes|semana|dia|lista&fecha=AAAA-MM-DD`): un enlace o
+«Atrás» vuelven al mismo punto. Las flechas avanzan un mes, una semana (de lunes a
+domingo) o un día, y «Hoy» vuelve a la fecha actual.
+
+- **Semana y Día**: una fila por hora con la línea de «ahora»; al abrir se desplaza a la
+  primera publicación del rango (o a las 7:00). La cabecera de cada día (o su número en
+  el Mes) abre su vista Día, que muestra además redes, estado y campaña. En móvil la
+  semana se desplaza dentro de su tarjeta.
+- **Filtros** por red y por estado, sobre lo ya cargado (no consultan de nuevo).
+- **Arrastrar para programar** (con `content.schedule`): lo programado se reprograma y lo
+  aprobado («Listos para programar») se programa. En el Mes se conserva la hora (lo
+  aprobado sale a las 10:00); en Semana y Día se usa la hora de la celda conservando los
+  minutos. Si esa fecha ya pasó pero la celda (o el día) aún no termina, sale en la
+  siguiente hora en punto; en una celda pasada no se programa. Usa
+  `POST /content/{content}/schedule`, con su validación, cupos del plan y de cada red, y
+  auditoría. Sin arrastre, se programa desde el detalle del contenido.
+- **Zona horaria**: las horas se muestran en la del navegador, indicada en pantalla (si
+  la marca tiene otra, se avisa al pasar el cursor).
+- `GET /brands/{brand}/calendar?from=&to=` (ISO 8601, `content.view`, rango de hasta 62
+  días): contenido con fecha de la marca, con estado, redes y campaña. Se consulta sólo el
+  rango visible (las semanas del mes, 7 días o 1 día).
+
 ## Biblioteca de medios
 Por marca: subida (MIME real, tamaño y límite de almacenamiento del plan; sin SVG),
 archivos privados servidos por URL firmada, **carpetas** (un nivel; al borrar una

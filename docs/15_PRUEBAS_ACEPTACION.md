@@ -45,8 +45,15 @@ aislado, como lo haría una persona:
   y aprobar (o «Marcar como listo» si el plan no tiene aprobaciones) → programar para
   mañana → verlo «Programado» en el listado → encontrarlo con el buscador de comandos
   (Ctrl+K); y «Publicar ahora» hasta «Publicado».
+- `calendar.spec.ts`: con una publicación programada, la vista Semana abierta desde la
+  URL la muestra en su hora → la cabecera del día abre la vista Día → arrastrarla a otra
+  hora la reprograma → filtro por estado → navegación por días → en móvil la página no
+  se desborda. El arrastre nativo no se emula de forma fiable en Chrome sin interfaz: la
+  prueba emite los eventos HTML5 (`dragstart`, `dragover`, `drop`…) sobre los elementos
+  reales.
 
-Cada prueba crea su propia cuenta (no dependen entre sí). Entorno (`playwright.config.ts`
+Los pasos comunes (registro, marca, cuenta simulada, contenido, aprobación, programar)
+están en `e2e/support.ts`. Cada prueba crea su propia cuenta (no dependen entre sí). Entorno (`playwright.config.ts`
 + `e2e/start-backend.mjs`): escribe `apps/backend/.env.e2e` (ignorado por git), recrea
 `database/e2e.sqlite` (WAL + `synchronous=OFF`) con migraciones y datos base, sirve
 Laravel en **8002** y un Vite propio en **5174** (proxy a 8002): no toca la base ni los
