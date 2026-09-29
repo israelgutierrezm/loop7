@@ -9,8 +9,10 @@ import { expectToast, register } from './support'
 async function createBrand(page: Page, name: string): Promise<void> {
   await page.goto('/app/brands')
   await page.getByRole('button', { name: 'Nueva marca' }).first().click()
-  await page.getByLabel('Nombre').fill(name)
-  await page.getByRole('button', { name: 'Crear marca' }).click()
+  // Sin marcas, el estado vacío también tiene un botón «Crear marca»: se actúa en el diálogo.
+  const dialog = page.getByRole('dialog', { name: 'Nueva marca' })
+  await dialog.getByLabel('Nombre').fill(name)
+  await dialog.getByRole('button', { name: 'Crear marca' }).click()
   await expectToast(page, 'Marca creada.')
 }
 
