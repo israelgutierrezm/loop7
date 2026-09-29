@@ -21,10 +21,13 @@ enum ContentStatus: string
     case FAILED = 'failed';
     case CANCELLED = 'cancelled';
     case EXPIRED = 'expired';
+    /** Todo lo publicado se borró después de las redes. */
+    case UNPUBLISHED = 'unpublished';
 
     public function label(): string
     {
         return match ($this) {
+            self::UNPUBLISHED => 'Retirado',
             self::IDEA => 'Idea',
             self::DRAFT => 'Borrador',
             self::IN_REVIEW => 'En revisión',

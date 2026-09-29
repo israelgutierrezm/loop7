@@ -16,6 +16,8 @@ enum TargetStatus: string
     case PUBLISHED = 'published';
     case FAILED = 'failed';
     case CANCELLED = 'cancelled';
+    /** Publicado y después borrado de la red desde Loop7. */
+    case DELETED = 'deleted';
 
     public function label(): string
     {
@@ -26,6 +28,7 @@ enum TargetStatus: string
             self::PUBLISHED => 'Publicado',
             self::FAILED => 'Fallido',
             self::CANCELLED => 'Cancelado',
+            self::DELETED => 'Borrado de la red',
         };
     }
 }

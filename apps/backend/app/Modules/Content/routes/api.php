@@ -6,6 +6,7 @@ use App\Modules\Content\Http\Controllers\CalendarController;
 use App\Modules\Content\Http\Controllers\ContentController;
 use App\Modules\Content\Http\Controllers\ContentVariantsController;
 use App\Modules\Content\Http\Controllers\ContentWorkflowController;
+use App\Modules\Content\Http\Controllers\PublicationTargetsController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth:sanctum', 'tenant'])->group(function (): void {
@@ -32,4 +33,8 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function (): void {
     Route::post('/content/{content}/comments', [ContentWorkflowController::class, 'comment']);
     Route::post('/content/{content}/schedule', [ContentWorkflowController::class, 'schedule']);
     Route::post('/content/{content}/publish-now', [ContentWorkflowController::class, 'publishNow']);
+
+    // Publicaciones ya hechas: borrarlas de su red.
+    Route::delete('/publication-targets/{target}/remote', [PublicationTargetsController::class, 'destroyRemote'])
+        ->middleware('throttle:20,1');
 });

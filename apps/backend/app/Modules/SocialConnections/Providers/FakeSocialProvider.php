@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\SocialConnections\Providers;
 
 use App\Modules\SocialConnections\Contracts\AccountMetrics;
+use App\Modules\SocialConnections\Contracts\DeletesRemotePosts;
 use App\Modules\SocialConnections\Contracts\InboxMessageData;
 use App\Modules\SocialConnections\Contracts\InboxReplyResult;
 use App\Modules\SocialConnections\Contracts\InboxThread;
@@ -16,6 +17,7 @@ use App\Modules\SocialConnections\Contracts\RemoteAccount;
 use App\Modules\SocialConnections\Contracts\RemoteDestination;
 use App\Modules\SocialConnections\Contracts\SocialProviderInterface;
 use App\Modules\SocialConnections\Enums\Capability;
+use App\Modules\SocialConnections\Exceptions\SocialProviderException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -24,7 +26,7 @@ use RuntimeException;
  * Proveedor social simulado. Implementa el flujo completo sin depender de una
  * API externa: sirve para desarrollo y pruebas end-to-end del framework OAuth.
  */
-class FakeSocialProvider implements SocialProviderInterface
+class FakeSocialProvider implements DeletesRemotePosts, SocialProviderInterface
 {
     public function key(): string
     {
@@ -133,6 +135,14 @@ class FakeSocialProvider implements SocialProviderInterface
             : Str::random(10));
 
         return new PublishResult($remoteId, "https://fake.social/{$destinationExternalId}/{$remoteId}");
+    }
+
+    public function deleteRemotePost(OAuthTokens $tokens, string $remoteId, array $credentials): void
+    {
+        // Permite simular que la red rechaza el borrado incluyendo [[FAIL]] en el id.
+        if (str_contains($remoteId, '[[FAIL]]')) {
+            throw new SocialProviderException('El proveedor de prueba no permitió borrar la publicación.');
+        }
     }
 
     public function fetchAccountMetrics(

@@ -1,7 +1,9 @@
 # Motor de publicación y colas
 
 ## Estados
-IDEA, DRAFT, IN_REVIEW, CHANGES_REQUESTED, APPROVED, SCHEDULED, PUBLISHING, PUBLISHED, PARTIAL, FAILED, CANCELLED, EXPIRED.
+IDEA, DRAFT, IN_REVIEW, CHANGES_REQUESTED, APPROVED, SCHEDULED, PUBLISHING, PUBLISHED, PARTIAL, FAILED, CANCELLED, EXPIRED
+y UNPUBLISHED («Retirado»: todo lo publicado se borró después de las redes). Cada target:
+PENDING, SCHEDULED, PUBLISHING, PUBLISHED, FAILED, CANCELLED y DELETED («Borrado de la red»).
 
 ## Granularidad
 Un Content Item puede tener múltiples `PostVariant` y múltiples `PublicationTarget`. Cada target mantiene su propio estado e identificador remoto.
@@ -98,6 +100,24 @@ Comando `content:publish-due` (registrado en `ContentServiceProvider`) programad
 ### Endpoint
 `POST /api/v1/content/{content}/publish-now` — permiso `content.publish_now`.
 Sólo permite publicar contenido en estado `APPROVED` o `SCHEDULED`.
+
+### Borrar de las redes lo publicado
+`DELETE /api/v1/publication-targets/{target}/remote` — permiso `content.delete`, acceso a
+la marca, 20 por minuto. Borra de su red una publicación ya hecha (`RemotePostDeletion`):
+- **Síncrono**, como responder en el inbox: la persona ve el resultado al momento. Con
+  un bloqueo por destino e **idempotente** (repetirlo no vuelve a llamar a la red ni a
+  auditar).
+- Sólo targets `PUBLISHED` con id remoto, en redes que implementan `DeletesRemotePosts`
+  (ver docs/06). Si la red lo rechaza, el target no cambia y se responde 422 con el
+  motivo; si el token caducó, la conexión queda expirada y se pide reconectar.
+- Al borrar: target `DELETED` con `remote_deleted_at` (el id remoto se conserva para la
+  auditoría y la analítica ya no lo sincroniza). Si ya no queda nada publicado ni por
+  publicar, el contenido pasa a `UNPUBLISHED`. Se audita `publication.remote_deleted` y se
+  emite `PublicationDeletedRemotely` (webhook `publication.deleted`).
+- Al consolidar el estado tras publicar, un target borrado cuenta como publicado.
+- En el detalle del contenido: «Borrar de la red» en cada publicación que lo permite,
+  «Retirar de las redes» para todas, y el aviso al eliminar el contenido de que lo
+  publicado sigue en las redes. El listado y el calendario muestran «Retirado».
 
 ### Proveedores
 `SocialProviderInterface::publish(OAuthTokens, destinationExternalId, PublishPayload, credentials): PublishResult`.

@@ -81,6 +81,43 @@ final class MetaGraph
     }
 
     /**
+     * @param  array<string, mixed>  $query
+     * @return array<string, mixed>
+     */
+    public function delete(string $path, array $query, string $action): array
+    {
+        return $this->check($this->send(
+            fn () => Http::timeout(self::TIMEOUT_SECONDS)->delete($this->url($path) . '?' . http_build_query($query)),
+            $path,
+            $action,
+        ), $action);
+    }
+
+    /**
+     * ¿Sigue existiendo el objeto? Graph dice «no existe» con 404 o con el código
+     * 100 (subcódigo 33). Los errores de token se propagan y cualquier otra
+     * respuesta cuenta como que existe: no se da por borrado lo que no se sabe.
+     */
+    public function exists(string $objectId, string $token): bool
+    {
+        $response = $this->send(
+            fn () => Http::timeout(self::TIMEOUT_SECONDS)->get($this->url($objectId), ['fields' => 'id', 'access_token' => $token]),
+            $objectId,
+            'comprobar la publicación',
+        );
+        if ($response->successful()) {
+            return true;
+        }
+
+        $code = (int) $response->json('error.code', 0);
+        if ($code === 190 || $code === 102 || $response->status() === 401) {
+            throw new SocialTokenExpiredException('Meta rechazó el token de acceso: ' . (string) $response->json('error.message', ''));
+        }
+
+        return ! ($response->status() === 404 || ($code === 100 && (int) $response->json('error.error_subcode', 0) === 33));
+    }
+
+    /**
      * @param  callable(): Response  $request
      */
     private function send(callable $request, string $path, string $action): Response

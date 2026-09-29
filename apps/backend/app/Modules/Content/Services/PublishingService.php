@@ -255,7 +255,8 @@ class PublishingService
             ->whereIn('post_variant_id', $variantIds)->get();
 
         $total = $targets->count();
-        $published = $targets->where('status', TargetStatus::PUBLISHED)->count();
+        // Lo borrado después de las redes también se publicó (y ya terminó).
+        $published = $targets->whereIn('status', [TargetStatus::PUBLISHED, TargetStatus::DELETED])->count();
         $failed = $targets->where('status', TargetStatus::FAILED)->count();
 
         if ($published + $failed < $total) {

@@ -15,6 +15,7 @@ enum WebhookEvent: string
     case CONTENT_CHANGES_REQUESTED = 'content.changes_requested';
     case CONTENT_PUBLISHED = 'content.published';
     case CONTENT_FAILED = 'content.failed';
+    case PUBLICATION_DELETED = 'publication.deleted';
     case INBOX_MESSAGE_RECEIVED = 'inbox.message_received';
     case SOCIAL_CONNECTION_EXPIRED = 'social.connection_expired';
     case TEST = 'webhook.test';
@@ -27,6 +28,7 @@ enum WebhookEvent: string
             self::CONTENT_CHANGES_REQUESTED => 'Se pidieron cambios a un contenido',
             self::CONTENT_PUBLISHED => 'Contenido publicado (en todas o en algunas redes)',
             self::CONTENT_FAILED => 'La publicación falló en todas las redes',
+            self::PUBLICATION_DELETED => 'Una publicación se borró de su red desde Loop7',
             self::INBOX_MESSAGE_RECEIVED => 'Mensaje nuevo en el inbox',
             self::SOCIAL_CONNECTION_EXPIRED => 'Una cuenta social caducó y hay que reconectarla',
             self::TEST => 'Prueba',

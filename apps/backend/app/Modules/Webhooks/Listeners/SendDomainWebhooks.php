@@ -11,11 +11,13 @@ use App\Modules\Content\Events\ContentPublicationFailed;
 use App\Modules\Content\Events\ContentPublished;
 use App\Modules\Content\Events\ContentReviewed;
 use App\Modules\Content\Events\ContentSubmittedForReview;
+use App\Modules\Content\Events\PublicationDeletedRemotely;
 use App\Modules\Content\Models\ContentItem;
 use App\Modules\Content\Models\PostVariant;
 use App\Modules\Content\Models\PublicationTarget;
 use App\Modules\Inbox\Events\InboxMessageReceived;
 use App\Modules\SocialConnections\Events\SocialConnectionExpired;
+use App\Modules\SocialConnections\Models\SocialConnectionDestination;
 use App\Modules\Webhooks\Enums\WebhookEvent;
 use App\Modules\Webhooks\Services\WebhookDispatcher;
 use App\Support\Tenancy\OrganizationScope;
@@ -42,6 +44,7 @@ class SendDomainWebhooks
             ContentReviewed::class => 'onContentReviewed',
             ContentPublished::class => 'onContentPublished',
             ContentPublicationFailed::class => 'onContentPublicationFailed',
+            PublicationDeletedRemotely::class => 'onPublicationDeleted',
             InboxMessageReceived::class => 'onInboxMessageReceived',
             SocialConnectionExpired::class => 'onSocialConnectionExpired',
         ];
@@ -81,6 +84,26 @@ class SendDomainWebhooks
         $this->webhooks->dispatch($event->content->organization_id, WebhookEvent::CONTENT_FAILED, [
             'content' => $this->content($event->content),
             'targets' => $this->targets($event->content),
+        ]);
+    }
+
+    public function onPublicationDeleted(PublicationDeletedRemotely $event): void
+    {
+        $target = $event->target;
+        $destination = $target->social_connection_destination_id !== null
+            ? SocialConnectionDestination::query()->withoutGlobalScope(OrganizationScope::class)
+                ->find($target->social_connection_destination_id, ['id', 'name'])
+            : null;
+
+        $this->webhooks->dispatch($event->content->organization_id, WebhookEvent::PUBLICATION_DELETED, [
+            'content' => $this->content($event->content),
+            'publication' => [
+                'id' => $target->public_id,
+                'provider' => $event->provider,
+                'destination' => $destination?->name,
+                'published_at' => $target->published_at?->toIso8601String(),
+                'deleted_at' => $target->remote_deleted_at?->toIso8601String(),
+            ],
         ]);
     }
 

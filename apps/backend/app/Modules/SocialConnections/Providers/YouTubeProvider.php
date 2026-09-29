@@ -6,6 +6,7 @@ namespace App\Modules\SocialConnections\Providers;
 
 use App\Modules\Billing\Entitlements\Entitlement;
 use App\Modules\SocialConnections\Contracts\AccountMetrics;
+use App\Modules\SocialConnections\Contracts\DeletesRemotePosts;
 use App\Modules\SocialConnections\Contracts\HasPlanQuota;
 use App\Modules\SocialConnections\Contracts\HasPublishingLimits;
 use App\Modules\SocialConnections\Contracts\InboxMessageData;
@@ -43,7 +44,7 @@ use Illuminate\Support\Str;
  * certificación: se piden en el editor (ProvidesPublishOptions). Los proyectos
  * de Google sin auditar suben los videos bloqueados en privado.
  */
-class YouTubeProvider extends AbstractOAuth2Provider implements HasPlanQuota, HasPublishingLimits, ProvidesPublishOptions, RevokesAccess
+class YouTubeProvider extends AbstractOAuth2Provider implements DeletesRemotePosts, HasPlanQuota, HasPublishingLimits, ProvidesPublishOptions, RevokesAccess
 {
     private const API = 'https://www.googleapis.com/youtube/v3/';
 
@@ -136,6 +137,17 @@ class YouTubeProvider extends AbstractOAuth2Provider implements HasPlanQuota, Ha
     public function revokeAccess(OAuthTokens $tokens, array $credentials): void
     {
         $this->revokeAt('https://oauth2.googleapis.com/revoke', $tokens, $credentials, authenticateClient: false);
+    }
+
+    /**
+     * Borra el video (videos.delete: 50 unidades de la cuota diaria del
+     * proyecto; exige el scope youtube.force-ssl, que ya se pide al conectar).
+     */
+    public function deleteRemotePost(OAuthTokens $tokens, string $remoteId, array $credentials): void
+    {
+        $action = 'borrar el video';
+        $this->assertDeleted($this->send($action, fn () => $this->api($this->accessToken($tokens))
+            ->delete(self::API . 'videos?' . http_build_query(['id' => $remoteId]))), $action);
     }
 
     public function fetchAccount(OAuthTokens $tokens, array $credentials): RemoteAccount

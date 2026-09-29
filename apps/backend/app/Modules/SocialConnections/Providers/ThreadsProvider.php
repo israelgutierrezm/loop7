@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\SocialConnections\Providers;
 
 use App\Modules\SocialConnections\Contracts\AccountMetrics;
+use App\Modules\SocialConnections\Contracts\DeletesRemotePosts;
 use App\Modules\SocialConnections\Contracts\HasApiVersion;
 use App\Modules\SocialConnections\Contracts\HasPublishingLimits;
 use App\Modules\SocialConnections\Contracts\InboxMessageData;
@@ -37,7 +38,7 @@ use Illuminate\Support\Sleep;
  * 60 días; ese token se renueva consigo mismo (th_refresh_token), así que se
  * guarda también como «refresh token».
  */
-class ThreadsProvider extends AbstractOAuth2Provider implements HasApiVersion, HasPublishingLimits
+class ThreadsProvider extends AbstractOAuth2Provider implements DeletesRemotePosts, HasApiVersion, HasPublishingLimits
 {
     private const GRAPH = 'https://graph.threads.net/';
 
@@ -274,6 +275,41 @@ class ThreadsProvider extends AbstractOAuth2Provider implements HasApiVersion, H
         );
     }
 
+    /**
+     * Borra la publicación (DELETE /{id}). Exige el permiso threads_delete, que
+     * se añade en SUPERADMIN (y en la app de Meta) y obliga a reconectar la
+     * cuenta; Meta permite 100 borrados al día por cuenta.
+     */
+    public function deleteRemotePost(OAuthTokens $tokens, string $remoteId, array $credentials): void
+    {
+        $action = 'borrar la publicación';
+        $token = $this->accessToken($tokens);
+        $response = $this->send($action, fn () => Http::acceptJson()
+            ->timeout(self::TIMEOUT_SECONDS)
+            ->delete($this->url($credentials, $remoteId) . '?' . http_build_query(['access_token' => $token])));
+
+        if ($response->successful()) {
+            if ($response->json('success') !== true) {
+                throw new SocialProviderException('Threads no confirmó el borrado de la publicación.');
+            }
+
+            return;
+        }
+
+        $code = (int) ($response->json('error.code') ?? $response->json('code') ?? 0);
+        if ($code === 10 || $code === 200) {
+            throw new SocialProviderException(
+                'Threads sólo permite borrar con el permiso threads_delete: añádelo en la configuración de Threads y reconecta la cuenta.',
+            );
+        }
+        // Como en Facebook, «no existe» y «sin permiso» pueden llegar igual.
+        if (! $this->isTokenError($response) && ! $this->postExists($credentials, $remoteId, $token)) {
+            return;
+        }
+
+        $this->graphJson($response, $action);
+    }
+
     public function fetchPostMetrics(OAuthTokens $tokens, string $remoteId, array $credentials): PostMetrics
     {
         $data = $this->get($credentials, $remoteId . '/insights', [
@@ -500,6 +536,30 @@ class ThreadsProvider extends AbstractOAuth2Provider implements HasApiVersion, H
         return $this->graphJson($this->send($action, fn () => Http::acceptJson()
             ->timeout(self::TIMEOUT_SECONDS)
             ->get($this->url($credentials, $path), [...$query, 'access_token' => $token])), $action);
+    }
+
+    /**
+     * ¿Sigue existiendo la publicación? «No existe» llega como 404 o código 100
+     * (subcódigo 33); ante cualquier otra respuesta se asume que existe.
+     *
+     * @param  array<string, string>  $credentials
+     */
+    private function postExists(array $credentials, string $id, string $token): bool
+    {
+        $action = 'comprobar la publicación';
+        $response = $this->send($action, fn () => Http::acceptJson()
+            ->timeout(self::TIMEOUT_SECONDS)
+            ->get($this->url($credentials, $id), ['fields' => 'id', 'access_token' => $token]));
+        if ($response->successful()) {
+            return true;
+        }
+        if ($this->isTokenError($response)) {
+            $this->graphJson($response, $action);
+        }
+
+        $code = (int) ($response->json('error.code') ?? $response->json('code') ?? 0);
+
+        return ! ($response->status() === 404 || ($code === 100 && (int) ($response->json('error.error_subcode') ?? 0) === 33));
     }
 
     /**

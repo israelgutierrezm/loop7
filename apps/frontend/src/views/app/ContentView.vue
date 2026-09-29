@@ -41,6 +41,7 @@ const STATUS_OPTIONS = [
   { value: 'published', label: 'Publicado' },
   { value: 'partial', label: 'Parcial' },
   { value: 'failed', label: 'Fallido' },
+  { value: 'unpublished', label: 'Retirado' },
   { value: 'cancelled', label: 'Cancelado' },
 ]
 const TONES: Record<string, BadgeTone> = {
@@ -56,6 +57,7 @@ const TONES: Record<string, BadgeTone> = {
   failed: 'danger',
   cancelled: 'neutral',
   expired: 'neutral',
+  unpublished: 'neutral',
 }
 
 const auth = useAuthStore()

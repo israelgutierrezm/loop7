@@ -57,6 +57,10 @@ aislado, como lo haría una persona:
   (`analytics:demo {marca} --history`), muestra el mapa de calor y los tres horarios
   recomendados, el calendario de la semana próxima destaca esas horas (y se pueden
   ocultar) y, al programar, una sugerencia rellena la fecha y se programa.
+- `remote-delete.spec.ts`: publicar en la cuenta simulada (dos destinos), borrar la
+  publicación de la Página con «Borrar de la red» (el contenido sigue publicado) y
+  retirar la del Perfil con «Retirar de las redes»: ambas quedan «Borrado de la red» y
+  el contenido, «Retirado».
 
 Los pasos comunes (registro, marca, cuenta simulada, contenido, aprobación, programar)
 están en `e2e/support.ts`, junto con `artisan()`, que ejecuta comandos contra el backend

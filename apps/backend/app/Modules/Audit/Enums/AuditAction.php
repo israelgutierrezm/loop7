@@ -100,6 +100,7 @@ final class AuditAction
     public const CONTENT_PUBLISHING = 'content.publishing';
     public const CONTENT_PUBLISHED = 'content.published';
     public const CONTENT_PUBLISH_FAILED = 'content.publish_failed';
+    public const PUBLICATION_REMOTE_DELETED = 'publication.remote_deleted';
     public const CAMPAIGN_CREATED = 'campaign.created';
     public const CAMPAIGN_UPDATED = 'campaign.updated';
     public const CAMPAIGN_DELETED = 'campaign.deleted';

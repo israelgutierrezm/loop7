@@ -86,7 +86,8 @@ puntuales con condiciones.
 
 **Eventos** (`WebhookEvent`): `content.submitted`, `content.approved`,
 `content.changes_requested`, `content.published` (todas o algunas redes, con el
-resultado por destino), `content.failed`, `inbox.message_received`,
+resultado por destino), `content.failed`, `publication.deleted` (una publicación se
+borró de su red desde Loop7: contenido, red, destino y fechas), `inbox.message_received`,
 `social.connection_expired`; y `webhook.test`, que sólo envía el botón «Probar». El
 listener `SendDomainWebhooks` traduce los eventos de dominio sin que los módulos que
 los emiten conozcan a Webhooks. Los datos usan sólo identificadores públicos.

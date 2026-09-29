@@ -24,6 +24,7 @@ const STATUS_STYLES: Record<string, string> = {
   published: 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200',
   partial: 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200',
   failed: 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-200',
+  unpublished: 'border-slate-200 bg-slate-100 text-slate-500 line-through dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400',
 }
 const STATUS_OPTIONS: [string, string][] = [
   ['scheduled', 'Programado'],
@@ -31,6 +32,7 @@ const STATUS_OPTIONS: [string, string][] = [
   ['published', 'Publicado'],
   ['partial', 'Parcial'],
   ['failed', 'Fallido'],
+  ['unpublished', 'Retirado'],
 ]
 const WEEKDAYS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 // Vista en la URL (?vista=semana&fecha=2026-09-28): enlaces y «Atrás» la conservan.

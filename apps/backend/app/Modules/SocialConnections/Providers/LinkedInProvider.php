@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\SocialConnections\Providers;
 
 use App\Modules\SocialConnections\Contracts\AccountMetrics;
+use App\Modules\SocialConnections\Contracts\DeletesRemotePosts;
 use App\Modules\SocialConnections\Contracts\HasApiVersion;
 use App\Modules\SocialConnections\Contracts\HasPublishingLimits;
 use App\Modules\SocialConnections\Contracts\InboxMessageData;
@@ -42,7 +43,7 @@ use Illuminate\Support\Str;
  * aprobados, sin refresh token: el acceso dura 60 días y luego hay que
  * reconectar.
  */
-class LinkedInProvider extends AbstractOAuth2Provider implements HasApiVersion, HasPublishingLimits
+class LinkedInProvider extends AbstractOAuth2Provider implements DeletesRemotePosts, HasApiVersion, HasPublishingLimits
 {
     private const API = 'https://api.linkedin.com/rest/';
 
@@ -125,6 +126,15 @@ class LinkedInProvider extends AbstractOAuth2Provider implements HasApiVersion, 
             'example' => self::DEFAULT_VERSION,
             'hint' => 'LinkedIn publica una versión al mes y mantiene cada una al menos un año.',
         ];
+    }
+
+    public function deleteRemotePost(OAuthTokens $tokens, string $remoteId, array $credentials): void
+    {
+        // El URN va codificado en la ruta; borrar es idempotente (204 aunque ya no exista).
+        $action = 'borrar la publicación';
+        $this->assertDeleted($this->send($action, fn () => $this->rest($tokens, $credentials)
+            ->withHeaders(['X-RestLi-Method' => 'DELETE'])
+            ->delete(self::API . 'posts/' . rawurlencode($remoteId))), $action);
     }
 
     public function fetchAccount(OAuthTokens $tokens, array $credentials): RemoteAccount

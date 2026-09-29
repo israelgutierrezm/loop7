@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Modules\Content\Http\Resources;
 
+use App\Modules\Content\Enums\TargetStatus;
 use App\Modules\Content\Models\PostVariant;
 use App\Modules\Content\Models\PublicationTarget;
+use App\Modules\Content\Services\RemotePostDeletion;
 use App\Modules\MediaLibrary\Models\MediaAsset;
 use App\Modules\MediaLibrary\Services\MediaService;
 
@@ -15,8 +17,10 @@ use App\Modules\MediaLibrary\Services\MediaService;
  */
 class VariantPresenter
 {
-    public function __construct(private readonly MediaService $media)
-    {
+    public function __construct(
+        private readonly MediaService $media,
+        private readonly RemotePostDeletion $deletion,
+    ) {
     }
 
     /**
@@ -24,6 +28,8 @@ class VariantPresenter
      */
     public function present(PostVariant $variant): array
     {
+        $deletable = $this->deletion->supports($variant->provider);
+
         return [
             'id' => $variant->public_id,
             'provider' => $variant->provider,
@@ -47,7 +53,10 @@ class VariantPresenter
                     'destination' => $t->destination?->name,
                     'scheduled_at' => $t->scheduled_at?->toIso8601String(),
                     'published_at' => $t->published_at?->toIso8601String(),
+                    'remote_deleted_at' => $t->remote_deleted_at?->toIso8601String(),
                     'remote_url' => $t->remote_url,
+                    // La red permite borrarla desde Loop7 (el permiso lo valida el endpoint).
+                    'can_delete_remote' => $deletable && $t->status === TargetStatus::PUBLISHED && $t->remote_id !== null,
                     'error' => $t->error,
                 ])->values()->all()
                 : [],

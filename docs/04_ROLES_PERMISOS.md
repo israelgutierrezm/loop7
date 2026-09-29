@@ -56,7 +56,7 @@ Los roles agrupan permisos. Las Policies verifican permisos + Organization + Bra
 - content.view
 - content.create
 - content.update
-- content.delete
+- content.delete (también borrar de las redes lo ya publicado)
 - content.ai_generate
 - content.submit_for_review
 - content.approve

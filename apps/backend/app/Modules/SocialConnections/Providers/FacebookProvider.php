@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\SocialConnections\Providers;
 
 use App\Modules\SocialConnections\Contracts\AccountMetrics;
+use App\Modules\SocialConnections\Contracts\DeletesRemotePosts;
 use App\Modules\SocialConnections\Contracts\InboxMessageData;
 use App\Modules\SocialConnections\Contracts\InboxReplyResult;
 use App\Modules\SocialConnections\Contracts\InboxThread;
@@ -25,7 +26,7 @@ use Illuminate\Support\Carbon;
  * una o varias imágenes y video; lee métricas vigentes (views/reach tras la
  * retirada de "impressions" en nov-2025) y gestiona comentarios del inbox.
  */
-class FacebookProvider extends AbstractMetaProvider
+class FacebookProvider extends AbstractMetaProvider implements DeletesRemotePosts
 {
     public function key(): string
     {
@@ -171,6 +172,33 @@ class FacebookProvider extends AbstractMetaProvider
             engagement: $insights['page_post_engagements'],
             postsCount: 0,
         );
+    }
+
+    /**
+     * Borra la publicación (o el video) de la Página con su token (pages_manage_posts).
+     */
+    public function deleteRemotePost(OAuthTokens $tokens, string $remoteId, array $credentials): void
+    {
+        $graph = MetaGraph::fromCredentials($credentials);
+        $token = $this->pageToken($graph, $this->pageIdFromObjectId($remoteId), $tokens);
+
+        try {
+            $result = $graph->delete($remoteId, ['access_token' => $token], 'borrar la publicación');
+        } catch (SocialTokenExpiredException $e) {
+            throw $e;
+        } catch (SocialProviderException $e) {
+            // Meta responde igual a «no existe» que a «sin permiso»: sólo si ya no
+            // existe cuenta como borrada.
+            if (! $graph->exists($remoteId, $token)) {
+                return;
+            }
+
+            throw $e;
+        }
+
+        if (($result['success'] ?? null) !== true) {
+            throw new SocialProviderException('Meta no confirmó el borrado de la publicación.');
+        }
     }
 
     public function fetchPostMetrics(OAuthTokens $tokens, string $remoteId, array $credentials): PostMetrics

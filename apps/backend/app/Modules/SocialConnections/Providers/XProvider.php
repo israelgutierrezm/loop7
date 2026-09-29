@@ -7,6 +7,7 @@ namespace App\Modules\SocialConnections\Providers;
 use App\Modules\Billing\Entitlements\Entitlement;
 use App\Modules\SocialConnections\Contracts\AccountMetrics;
 use App\Modules\SocialConnections\Contracts\CountsText;
+use App\Modules\SocialConnections\Contracts\DeletesRemotePosts;
 use App\Modules\SocialConnections\Contracts\HasPlanQuota;
 use App\Modules\SocialConnections\Contracts\HasPublishingLimits;
 use App\Modules\SocialConnections\Contracts\InboxMessageData;
@@ -40,7 +41,7 @@ use Illuminate\Support\Sleep;
  * se cobran (más si el texto lleva una URL) y, fuera de Enterprise, sólo se
  * puede responder a quien menciona a la cuenta.
  */
-class XProvider extends AbstractOAuth2Provider implements CountsText, HasPlanQuota, HasPublishingLimits, RevokesAccess
+class XProvider extends AbstractOAuth2Provider implements CountsText, DeletesRemotePosts, HasPlanQuota, HasPublishingLimits, RevokesAccess
 {
     private const API = 'https://api.x.com/2/';
 
@@ -143,6 +144,23 @@ class XProvider extends AbstractOAuth2Provider implements CountsText, HasPlanQuo
     public function revokeAccess(OAuthTokens $tokens, array $credentials): void
     {
         $this->revokeAt(self::API . 'oauth2/revoke', $tokens, $credentials);
+    }
+
+    public function deleteRemotePost(OAuthTokens $tokens, string $remoteId, array $credentials): void
+    {
+        $action = 'borrar la publicación';
+        $response = $this->send($action, fn () => $this->api($this->accessToken($tokens))
+            ->delete(self::API . 'tweets/' . rawurlencode($remoteId)));
+
+        // «No existe» llega como 404 o como problema resource-not-found: ya está borrada.
+        if ($response->status() === 404 || $this->isNotFoundProblem($response)) {
+            return;
+        }
+
+        $data = $this->json($response, $action);
+        if (data_get($data, 'data.deleted') !== true) {
+            throw new SocialProviderException('X no confirmó el borrado de la publicación.');
+        }
     }
 
     public function fetchAccount(OAuthTokens $tokens, array $credentials): RemoteAccount
@@ -300,6 +318,28 @@ class XProvider extends AbstractOAuth2Provider implements CountsText, HasPlanQuo
             ->post(self::API . 'tweets', ['text' => $body, 'reply' => ['in_reply_to_tweet_id' => $conversationExternalId]])), 'responder');
 
         return new InboxReplyResult((string) ($data['data']['id'] ?? ''));
+    }
+
+    /**
+     * Problema de la API v2 que indica que el recurso no existe (en la raíz o en `errors`).
+     */
+    private function isNotFoundProblem(Response $response): bool
+    {
+        $types = [$response->json('type')];
+        $errors = $response->json('errors');
+        if (is_array($errors)) {
+            foreach ($errors as $error) {
+                $types[] = is_array($error) ? ($error['type'] ?? null) : null;
+            }
+        }
+
+        foreach ($types as $type) {
+            if (is_string($type) && str_ends_with($type, '/resource-not-found')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     protected function isTokenError(Response $response): bool

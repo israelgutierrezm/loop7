@@ -334,6 +334,20 @@ abstract class AbstractOAuth2Provider implements SocialProviderInterface
         throw new SocialProviderException($this->displayName() . ' no permitió ' . $action . ': ' . $message);
     }
 
+    /**
+     * Resultado de un borrado remoto: correcto, o la red confirma que ya no
+     * existe (404/410), que también cuenta como borrado. Cualquier otro error
+     * lanza la excepción adecuada (token o permiso).
+     */
+    protected function assertDeleted(Response $response, string $action): void
+    {
+        if ($response->successful() || in_array($response->status(), [404, 410], true)) {
+            return;
+        }
+
+        $this->json($response, $action);
+    }
+
     protected function isTokenError(Response $response): bool
     {
         return $response->status() === 401;

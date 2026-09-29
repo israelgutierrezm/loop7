@@ -28,7 +28,8 @@ Agrupar contenido por objetivo, rango de fechas, Brand, etiquetas y estado.
 Mes/semana/día/lista, drag and drop, filtros, timezone por Organization/Brand, mejores horarios futuros.
 
 ## Approval Workflow
-Draft -> Review -> Changes Requested -> Approved -> Scheduled -> Publishing -> Published/Partial/Failed.
+Draft -> Review -> Changes Requested -> Approved -> Scheduled -> Publishing -> Published/Partial/Failed
+-> Retirado, si después se borra de todas las redes (docs/12, «Borrar de las redes lo publicado»).
 
 ## Media Library
 Folders, tags, búsqueda, dimensiones, tipo, peso, metadatos, uso por contenido y límites por plan.

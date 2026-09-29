@@ -358,6 +358,21 @@ revoca si otra conexión (de otra marca u organización) usa la misma cuenta, po
 red invalidaría también sus tokens, y un fallo de la red no impide desconectar (queda
 en el registro y la auditoría indica `revoked_remotely`).
 
+## Borrar publicaciones (`DeletesRemotePosts`)
+
+Las redes cuya API lo permite implementan `deleteRemotePost()` (docs/12, «Borrar de las
+redes lo publicado»). Es idempotente: si la red confirma que la publicación ya no
+existe, cuenta como borrada.
+
+| Red | Llamada | Notas |
+|---|---|---|
+| Facebook | `DELETE /{post-id}` con el token de la Página | `pages_manage_posts` (ya se pide). Graph responde igual a «no existe» que a «sin permiso» (código 100, subcódigo 33): sólo se da por borrada si un `GET` confirma que no existe. |
+| Threads | `DELETE graph.threads.net/v1.0/{id}` | Exige **`threads_delete`**, que no se pide por defecto: añadirlo al caso de uso de la app de Meta y a los scopes de Threads en SUPERADMIN, y reconectar las cuentas. Sin él se explica cómo activarlo. Máximo 100 borrados al día por cuenta. |
+| X | `DELETE /2/tweets/{id}` | `tweet.write` (ya se pide). `resource-not-found` cuenta como borrada. |
+| LinkedIn | `DELETE /rest/posts/{urn codificado}` + `X-RestLi-Method: DELETE` | Idempotente en LinkedIn (204). `w_member_social` o, para páginas, `w_organization_social`. |
+| YouTube | `DELETE /youtube/v3/videos?id=` | `youtube.force-ssl` (ya se pide); 50 unidades de la cuota diaria del proyecto. |
+| Instagram, TikTok | — | Sus APIs de publicación no permiten borrar: Loop7 indica que se borre desde la red. |
+
 ## Webhooks de TikTok
 
 `POST /api/v1/social/webhooks/tiktok` (URL que SUPERADMIN registra en la app de

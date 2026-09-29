@@ -27,7 +27,10 @@ interface Target {
   destination: string | null
   scheduled_at: string | null
   published_at: string | null
+  remote_deleted_at: string | null
   remote_url: string | null
+  /** La red permite borrarla desde Loop7 (y aún está publicada). */
+  can_delete_remote: boolean
   error: string | null
 }
 interface Variant {
@@ -145,11 +148,11 @@ function variantWarnings(v: Variant): string[] {
 }
 
 const targetTone: Record<string, BadgeTone> = {
-  pending: 'neutral', scheduled: 'info', publishing: 'warning', published: 'success', failed: 'danger', cancelled: 'neutral',
+  pending: 'neutral', scheduled: 'info', publishing: 'warning', published: 'success', failed: 'danger', cancelled: 'neutral', deleted: 'neutral',
 }
 const statusTone: Record<string, BadgeTone> = {
   idea: 'neutral', draft: 'neutral', in_review: 'info', changes_requested: 'warning', approved: 'brand',
-  scheduled: 'info', publishing: 'warning', published: 'success', partial: 'warning', failed: 'danger', archived: 'neutral',
+  scheduled: 'info', publishing: 'warning', published: 'success', partial: 'warning', failed: 'danger', unpublished: 'neutral',
 }
 
 // Asistente de IA
@@ -336,11 +339,60 @@ async function changeCampaign(campaignId: string): Promise<void> {
   await act(() => http.patch(`/content/${id}`, { campaign: campaignId || null }), campaignId ? 'Campaña asignada.' : 'Quitado de la campaña.')
 }
 
+// --- Borrar de las redes lo ya publicado ---
+const canDeleteRemote = computed(() => auth.can('content.delete'))
+const deletableTargets = computed(() => content.value?.variants.flatMap((v) => v.targets.filter((t) => t.can_delete_remote)) ?? [])
+const stillPublished = computed(() => content.value?.variants.some((v) => v.targets.some((t) => t.status === 'published')) ?? false)
+
+async function deleteRemote(t: Target, provider: string): Promise<void> {
+  const ok = await confirmDialog.ask({
+    title: 'Borrar de la red',
+    message: `Se borrará la publicación de «${t.destination || 'la cuenta'}» en ${providerName(provider)}. No se puede deshacer.`,
+    confirmText: 'Borrar',
+    danger: true,
+  })
+  if (ok) await act(() => http.delete(`/publication-targets/${t.id}/remote`), 'Publicación borrada de la red.')
+}
+
+/** Borra una a una las publicaciones que lo permiten e informa de cada fallo. */
+async function retireEverywhere(): Promise<void> {
+  const targets = deletableTargets.value
+  if (targets.length === 0) return
+  const ok = await confirmDialog.ask({
+    title: 'Retirar de las redes',
+    message: targets.length === 1
+      ? 'Se borrará la publicación de su red. No se puede deshacer.'
+      : `Se borrarán ${targets.length} publicaciones de sus redes. No se puede deshacer.`,
+    confirmText: 'Retirar',
+    danger: true,
+  })
+  if (!ok) return
+  busy.value = true
+  let deleted = 0
+  try {
+    for (const t of targets) {
+      try {
+        await http.delete(`/publication-targets/${t.id}/remote`)
+        deleted++
+      } catch (e) {
+        toasts.error(`${t.destination || 'Cuenta'}: ${apiErrorMessage(e)}`)
+      }
+    }
+    if (deleted > 0) {
+      toasts.success(deleted === targets.length ? 'Retirado de las redes.' : `Retiradas ${deleted} de ${targets.length} publicaciones.`)
+    }
+    await load(true)
+  } finally {
+    busy.value = false
+  }
+}
+
 async function removeContent(): Promise<void> {
   if (!content.value) return
   const ok = await confirmDialog.ask({
     title: 'Eliminar contenido',
-    message: `Se eliminará «${content.value.title}». Si estaba programado, se cancela su publicación.`,
+    message: `Se eliminará «${content.value.title}». Si estaba programado, se cancela su publicación.`
+      + (stillPublished.value ? ' Lo ya publicado seguirá en las redes: para quitarlo, usa antes «Retirar de las redes» o bórralo en cada red.' : ''),
     confirmText: 'Eliminar',
     danger: true,
   })
@@ -452,6 +504,15 @@ onUnmounted(stopPolling)
             @click="publishNow"
           >
             <AppIcon name="social" :size="16" /> Publicar ahora
+          </button>
+          <button
+            v-if="canDeleteRemote && deletableTargets.length"
+            type="button"
+            class="btn-secondary text-sm text-rose-600"
+            :disabled="busy"
+            @click="retireEverywhere"
+          >
+            Retirar de las redes
           </button>
         </div>
         <div
@@ -609,9 +670,27 @@ onUnmounted(stopPolling)
                   <StatusBadge :tone="targetTone[t.status] ?? 'neutral'">{{ t.status_label }}</StatusBadge>
                   <span class="text-slate-500 dark:text-slate-400">{{ t.destination || 'Cuenta' }}</span>
                   <span v-if="t.published_at" class="text-slate-400">· {{ dateTime(t.published_at) }}</span>
-                  <a v-if="t.remote_url" :href="t.remote_url" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-brand-600 hover:underline dark:text-brand-300">
+                  <span v-if="t.remote_deleted_at" class="text-slate-400">· borrada el {{ dateTime(t.remote_deleted_at) }}</span>
+                  <a v-else-if="t.remote_url" :href="t.remote_url" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-brand-600 hover:underline dark:text-brand-300">
                     Ver publicación <AppIcon name="chevron-right" :size="12" />
                   </a>
+                  <button
+                    v-if="t.can_delete_remote && canDeleteRemote"
+                    type="button"
+                    class="ml-auto text-rose-600 hover:underline disabled:opacity-50 dark:text-rose-400"
+                    :disabled="busy"
+                    :aria-label="`Borrar de ${providerName(v.provider)} la publicación de ${t.destination || 'la cuenta'}`"
+                    @click="deleteRemote(t, v.provider)"
+                  >
+                    Borrar de la red
+                  </button>
+                  <span
+                    v-else-if="t.status === 'published' && canDeleteRemote"
+                    class="ml-auto text-slate-400"
+                    :title="`${providerName(v.provider)} no permite borrar publicaciones desde otras apps`"
+                  >
+                    Se borra desde {{ providerName(v.provider) }}
+                  </span>
                   <span v-if="t.error" class="w-full text-rose-600">{{ t.error }}</span>
                 </li>
               </ul>
