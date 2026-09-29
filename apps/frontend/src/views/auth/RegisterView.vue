@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import { usePublicConfigStore } from '@/stores/publicConfig'
 import { useToastStore } from '@/stores/toasts'
 import { apiErrorMessage, apiValidationErrors } from '@/utils/errors'
+import { browserTimezone } from '@/utils/timezone'
 import Spinner from '@/components/ui/Spinner.vue'
 
 const auth = useAuthStore()
@@ -30,7 +31,8 @@ async function submit(): Promise<void> {
   errors.value = {}
   generalError.value = ''
   try {
-    await auth.register({ ...form })
+    // La zona del navegador queda como la de la cuenta y su organización (editable en Ajustes).
+    await auth.register({ ...form, timezone: browserTimezone() })
     toasts.success('¡Cuenta creada! Revisa tu correo para verificarla.')
     router.push('/app')
   } catch (e) {

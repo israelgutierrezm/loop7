@@ -3,6 +3,7 @@ import { reactive, ref } from 'vue'
 import http from '@/services/http'
 import { useAuthStore } from '@/stores/auth'
 import { apiErrorMessage, apiValidationErrors } from '@/utils/errors'
+import { browserTimezone } from '@/utils/timezone'
 import Spinner from '@/components/ui/Spinner.vue'
 import TimezoneSelect from '@/components/ui/TimezoneSelect.vue'
 
@@ -14,14 +15,6 @@ withDefaults(defineProps<{ cancellable?: boolean }>(), { cancellable: false })
 const emit = defineEmits<{ created: []; cancel: [] }>()
 
 const auth = useAuthStore()
-
-function browserTimezone(): string {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
-  } catch {
-    return 'UTC'
-  }
-}
 
 const form = reactive({ name: '', timezone: browserTimezone() })
 const errors = ref<Record<string, string[]>>({})

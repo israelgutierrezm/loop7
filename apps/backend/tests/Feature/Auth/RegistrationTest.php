@@ -47,6 +47,37 @@ class RegistrationTest extends TestCase
         $this->assertDatabaseHas('audit_logs', ['action' => 'organization.created']);
     }
 
+    public function test_el_registro_guarda_la_zona_horaria_del_navegador(): void
+    {
+        $this->postJson('/api/v1/auth/register', [
+            'name' => 'Ada Lovelace',
+            'email' => 'ada@example.com',
+            'password' => 'Password123',
+            'password_confirmation' => 'Password123',
+            'organization_name' => 'Analytical Engines',
+            'timezone' => 'America/Bogota',
+            'accept_terms' => true,
+        ])->assertCreated();
+
+        $this->assertDatabaseHas('users', ['email' => 'ada@example.com', 'timezone' => 'America/Bogota']);
+        $this->assertDatabaseHas('organizations', ['name' => 'Analytical Engines', 'timezone' => 'America/Bogota']);
+    }
+
+    public function test_una_zona_horaria_invalida_no_impide_el_alta(): void
+    {
+        $this->postJson('/api/v1/auth/register', [
+            'name' => 'Ada Lovelace',
+            'email' => 'ada@example.com',
+            'password' => 'Password123',
+            'password_confirmation' => 'Password123',
+            'organization_name' => 'Analytical Engines',
+            'timezone' => 'Marte/Olimpo',
+            'accept_terms' => true,
+        ])->assertCreated();
+
+        $this->assertDatabaseHas('organizations', ['name' => 'Analytical Engines', 'timezone' => 'UTC']);
+    }
+
     public function test_la_respuesta_no_expone_secretos(): void
     {
         $response = $this->postJson('/api/v1/auth/register', [

@@ -11,6 +11,7 @@ import PageHeader from '@/components/ui/PageHeader.vue'
 import ErrorState from '@/components/ui/ErrorState.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import Spinner from '@/components/ui/Spinner.vue'
+import TimezoneSelect from '@/components/ui/TimezoneSelect.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import BrandAvatar from '@/components/BrandAvatar.vue'
 import MediaPicker, { type PickedMedia } from '@/components/media/MediaPicker.vue'
@@ -40,7 +41,7 @@ const activeTab = ref<'identidad' | 'audiencias' | 'oferta' | 'conocimiento' | '
 const canEdit = computed(() => auth.can('brands.update'))
 
 // --- Datos de la marca ---
-const details = reactive({ name: '', website: '', description: '', primary_color: '#6366f1', secondary_color: '#e0e7ff' })
+const details = reactive({ name: '', website: '', description: '', timezone: 'UTC', primary_color: '#6366f1', secondary_color: '#e0e7ff' })
 const detailErrors = ref<Record<string, string[]>>({})
 const savingDetails = ref(false)
 const pickingLogo = ref(false)
@@ -101,6 +102,7 @@ function hydrateDetails(b: Brand): void {
   details.name = b.name
   details.website = b.website ?? ''
   details.description = b.description ?? ''
+  details.timezone = b.timezone
   details.primary_color = b.primary_color ?? '#6366f1'
   details.secondary_color = b.secondary_color ?? '#e0e7ff'
 }
@@ -149,6 +151,7 @@ async function saveDetails(): Promise<void> {
       name: details.name,
       website: details.website || null,
       description: details.description || null,
+      timezone: details.timezone,
       primary_color: details.primary_color,
       secondary_color: details.secondary_color,
     })
@@ -344,6 +347,12 @@ onMounted(async () => {
             <div>
               <label class="label" for="brand-desc">Descripción</label>
               <textarea id="brand-desc" v-model="details.description" rows="3" maxlength="2000" class="input" placeholder="Qué hace la marca, a quién sirve…" />
+            </div>
+            <div>
+              <label class="label" for="brand-tz">Zona horaria</label>
+              <TimezoneSelect id="brand-tz" v-model="details.timezone" aria-describedby="brand-tz-hint" />
+              <p id="brand-tz-hint" class="mt-1 text-xs text-slate-500">La de su audiencia: con ella se calculan sus mejores horarios para publicar.</p>
+              <p v-if="detailErrors.timezone" class="mt-1 text-xs text-rose-600">{{ detailErrors.timezone[0] }}</p>
             </div>
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>

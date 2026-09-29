@@ -311,8 +311,14 @@ subir `content.create` y borrar `content.delete`; subida, cambios y borrados se 
 - `GET|POST /brands/{brand}/media/folders`, `PATCH|DELETE /media/folders/{folder}`
 - `GET /brands/{brand}/media/tags`
 
-## Marcas: logo y eliminación
+## Marcas: logo, zona horaria y eliminación
 - El logo es una imagen de la biblioteca de la propia marca (`PUT /brands/{brand}/logo`).
+- **Zona horaria** (la de su audiencia; base de sus mejores horarios para publicar): se
+  elige al crearla y en su ficha (`timezone` en `POST /brands` y `PATCH /brands/{brand}`,
+  zona IANA válida). Si el alta no la indica, hereda la de la organización. El registro
+  guarda la zona del navegador para la cuenta y su organización (si falta o no es
+  válida queda UTC; nunca impide el alta). La migración `default_brand_timezone_to_organization`
+  pasa a la zona de su organización las marcas que se habían creado en UTC por defecto.
 - Eliminar una marca emite `BrandDeleted`: se cancelan sus publicaciones programadas,
   se desconectan sus cuentas sociales (se borran los tokens) y se pausan sus
   automatizaciones, en la misma transacción.

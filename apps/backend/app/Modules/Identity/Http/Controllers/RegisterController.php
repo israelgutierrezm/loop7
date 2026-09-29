@@ -39,19 +39,20 @@ class RegisterController extends Controller
         }
 
         $user = DB::transaction(function () use ($request): User {
+            $timezone = $request->timezone();
             $user = User::create([
                 'name' => $request->string('name')->toString(),
                 'email' => $request->string('email')->toString(),
                 'password' => $request->string('password')->toString(),
                 'locale' => 'es',
-                'timezone' => 'UTC',
+                'timezone' => $timezone,
             ]);
 
             $organizationName = $request->filled('organization_name')
                 ? $request->string('organization_name')->toString()
                 : $user->name;
 
-            $this->createOrganization->handle($user, $organizationName);
+            $this->createOrganization->handle($user, $organizationName, ['timezone' => $timezone]);
 
             return $user;
         });

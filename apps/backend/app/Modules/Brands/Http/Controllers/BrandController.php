@@ -75,6 +75,9 @@ class BrandController extends Controller
             'timezone' => ['nullable', 'string', 'timezone'],
         ]);
 
+        // Sin zona explícita, la de la organización (base de los horarios de la marca).
+        $data['timezone'] ??= $organization?->timezone ?: 'UTC';
+
         $brand = new Brand($data);
         $brand->slug = $this->uniqueSlug($data['name']);
         // organization_id lo autocompleta el trait BelongsToOrganization.

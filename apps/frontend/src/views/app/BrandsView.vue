@@ -5,7 +5,9 @@ import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toasts'
 import type { Brand } from '@/types/models'
 import { apiErrorMessage, apiValidationErrors } from '@/utils/errors'
+import { browserTimezone } from '@/utils/timezone'
 import { useQueryAction } from '@/composables/useQueryAction'
+import TimezoneSelect from '@/components/ui/TimezoneSelect.vue'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import ErrorState from '@/components/ui/ErrorState.vue'
@@ -28,8 +30,14 @@ const loadingMore = ref(false)
 
 const showCreate = ref(false)
 const creating = ref(false)
-const form = reactive({ name: '', website: '', description: '' })
+const form = reactive({ name: '', website: '', description: '', timezone: defaultTimezone() })
 const errors = ref<Record<string, string[]>>({})
+
+/** La de la organización; si quedó en UTC (valor por defecto), la del navegador. */
+function defaultTimezone(): string {
+  const org = auth.currentOrganization?.timezone
+  return org && org !== 'UTC' ? org : browserTimezone()
+}
 
 async function load(): Promise<void> {
   loading.value = true
@@ -72,6 +80,7 @@ async function create(): Promise<void> {
     form.name = ''
     form.website = ''
     form.description = ''
+    form.timezone = defaultTimezone()
     toasts.success('Marca creada.')
     await auth.loadContext()
   } catch (e) {
@@ -167,6 +176,12 @@ useQueryAction('crear', () => {
         <div>
           <label class="label" for="b-desc">Descripción <span class="text-slate-400">(opcional)</span></label>
           <textarea id="b-desc" v-model="form.description" rows="3" class="input" />
+        </div>
+        <div>
+          <label class="label" for="b-tz">Zona horaria</label>
+          <TimezoneSelect id="b-tz" v-model="form.timezone" aria-describedby="b-tz-hint" />
+          <p id="b-tz-hint" class="mt-1 text-xs text-slate-500">La de su audiencia: con ella se calculan sus mejores horarios para publicar.</p>
+          <p v-if="errors.timezone" class="mt-1 text-xs text-rose-600">{{ errors.timezone[0] }}</p>
         </div>
         <div class="flex justify-end gap-2 pt-2">
           <button type="button" class="btn-secondary" @click="showCreate = false">Cancelar</button>

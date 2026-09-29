@@ -11,6 +11,7 @@ export interface RegisterPayload {
   password: string
   password_confirmation: string
   organization_name?: string
+  timezone?: string
   accept_terms: boolean
 }
 
