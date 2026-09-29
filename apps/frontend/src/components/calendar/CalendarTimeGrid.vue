@@ -4,8 +4,9 @@ import ProviderIcon from '@/components/social/ProviderIcon.vue'
 
 /**
  * Rejilla horaria de las vistas Semana (7 columnas) y Día (1 columna): una
- * fila por hora, las publicaciones en la hora de su salida y huecos donde
- * soltar lo que se arrastra para programarlo a esa hora.
+ * fila por hora, las publicaciones en la hora de su salida, huecos donde
+ * soltar lo que se arrastra para programarlo a esa hora y, si se pasan, los
+ * mejores horarios para publicar resaltados.
  */
 export interface CalendarItem {
   id: string
@@ -17,13 +18,20 @@ export interface CalendarItem {
   campaign: string | null
 }
 
-const props = defineProps<{
+/** Buen horario para publicar en una celda (mejora sobre lo habitual, en %). */
+export interface CalendarHighlight {
+  lift: number
+}
+
+const props = withDefaults(defineProps<{
   days: Date[]
   items: CalendarItem[]
   statusStyles: Record<string, string>
   canSchedule: boolean
   dragging: boolean
-}>()
+  /** Mejores horarios por celda «AAAA-MM-DD-hora» (hora local del navegador). */
+  highlights?: Record<string, CalendarHighlight>
+}>(), { highlights: () => ({}) })
 
 const emit = defineEmits<{
   itemDragStart: [event: DragEvent, id: string]
@@ -85,6 +93,12 @@ function isPast(day: Date, hour: number): boolean {
 function nowOffset(day: Date, hour: number): number | null {
   if (dayKey(day) !== todayKey.value || now.value.getHours() !== hour) return null
   return (now.value.getMinutes() / 60) * 100
+}
+
+function cellLabel(day: Date, hour: number): string {
+  const best = props.highlights[`${dayKey(day)}-${hour}`]
+  const base = `${day.toLocaleDateString('es', { weekday: 'long', day: 'numeric' })}, ${hourLabel(hour)}`
+  return best ? `${base}, buen horario para publicar (+${best.lift}%)` : base
 }
 
 function onDragOver(key: string): void {
@@ -157,13 +171,23 @@ onBeforeUnmount(() => window.clearInterval(timer))
               class="relative min-h-12 border-l border-t border-slate-100 p-1 dark:border-slate-800"
               :class="[
                 isPast(d, h) ? 'bg-slate-100/70 dark:bg-slate-800/40' : '',
+                highlights[`${dayKey(d)}-${h}`] ? (dragging ? 'bg-emerald-100 ring-1 ring-inset ring-emerald-300 dark:bg-emerald-900/50 dark:ring-emerald-700' : 'bg-emerald-50/80 dark:bg-emerald-950/30') : '',
                 dropCell === `${dayKey(d)}-${h}` ? 'bg-brand-50 ring-2 ring-inset ring-brand-400 dark:bg-brand-950/40' : '',
               ]"
-              :aria-label="`${d.toLocaleDateString('es', { weekday: 'long', day: 'numeric' })}, ${hourLabel(h)}`"
+              :aria-label="cellLabel(d, h)"
+              :data-best="highlights[`${dayKey(d)}-${h}`] ? '' : undefined"
               @dragover.prevent="onDragOver(`${dayKey(d)}-${h}`)"
               @dragleave="dropCell === `${dayKey(d)}-${h}` && (dropCell = null)"
               @drop.prevent="onDrop(d, h)"
             >
+              <p
+                v-if="highlights[`${dayKey(d)}-${h}`]"
+                class="mb-0.5 text-[10px] font-semibold leading-none text-emerald-700 dark:text-emerald-300"
+                :title="`Buen horario para publicar: +${highlights[`${dayKey(d)}-${h}`].lift}% de interacciones sobre lo habitual`"
+                aria-hidden="true"
+              >
+                ★ +{{ highlights[`${dayKey(d)}-${h}`].lift }}%
+              </p>
               <div
                 v-if="nowOffset(d, h) !== null"
                 class="pointer-events-none absolute inset-x-0 z-10 border-t-2 border-rose-500"

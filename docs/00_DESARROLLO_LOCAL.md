@@ -36,6 +36,16 @@ Usuarios sembrados (solo desarrollo):
 - SUPERADMIN: `superadmin@loop7.test` / `Superadmin123`
 - OWNER demo: `owner@loop7.test` / `Owner12345`
 
+### Datos de analítica de muestra
+Con una cuenta simulada (proveedor de prueba) conectada a la marca:
+```bash
+php artisan analytics:demo {public_id de la marca} --days=30   # métricas de cuentas y publicaciones
+php artisan analytics:demo {public_id de la marca} --history   # + 60 días de publicaciones medidas (mejores horarios)
+```
+`--history` crea una sola vez unas 116 publicaciones de muestra en la primera cuenta
+simulada (no en producción). Cuentan para el cupo mensual del plan como un historial
+real: sólo las de este mes.
+
 ### Calidad
 ```bash
 vendor/bin/pint            # formateo PSR-12

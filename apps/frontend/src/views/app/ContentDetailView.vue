@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import http from '@/services/http'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toasts'
 import { useConfirmStore } from '@/stores/confirm'
+import { useBestTimes } from '@/composables/useBestTimes'
 import { apiErrorMessage } from '@/utils/errors'
 import { dateTime } from '@/utils/format'
 import PageHeader from '@/components/ui/PageHeader.vue'
@@ -80,10 +81,33 @@ const changesNote = ref('')
 
 const approvalsEnabled = computed(() => auth.hasFeature('feature.approvals'))
 const canEdit = computed(() => (content.value?.editable ?? false) && auth.can('content.update'))
+/** Valor «AAAA-MM-DDTHH:MM» en hora local para un <input type="datetime-local">. */
+function toLocalInput(d: Date): string {
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
+}
+
 const minSchedule = computed(() => {
   const d = new Date(Date.now() + 5 * 60_000)
   d.setSeconds(0, 0)
-  return new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
+  return toLocalInput(d)
+})
+
+// --- Mejores horarios para programar (analítica avanzada) ---
+const { data: bestData, available: bestAvailable, load: loadBest } = useBestTimes()
+const schedulable = computed(() => ['approved', 'scheduled'].includes(content.value?.status ?? '') && auth.can('content.schedule'))
+const variantProviders = computed(() => [...new Set(content.value?.variants.map((v) => v.provider) ?? [])].sort())
+
+function suggestionLabel(iso: string): string {
+  return new Date(iso).toLocaleString('es', { weekday: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+function pickSuggestion(iso: string): void {
+  scheduleAt.value = toLocalInput(new Date(iso))
+}
+
+// Sólo al cambiar la marca, las redes o si se puede programar (no en cada recarga del contenido).
+watch(() => `${content.value?.brand ?? ''}|${variantProviders.value.join(',')}|${schedulable.value}`, () => {
+  if (schedulable.value && content.value) loadBest(content.value.brand, { providers: variantProviders.value })
 })
 const availableProviders = computed(() => providers.value.filter((p) => !content.value?.variants.some((v) => v.provider === p.key)))
 
@@ -429,6 +453,27 @@ onUnmounted(stopPolling)
           >
             <AppIcon name="social" :size="16" /> Publicar ahora
           </button>
+        </div>
+        <div
+          v-if="schedulable && bestAvailable && bestData && (bestData.occurrences.length || !bestData.sufficient)"
+          class="basis-full border-t border-slate-100 pt-3 dark:border-slate-800"
+        >
+          <div v-if="bestData.occurrences.length" class="flex flex-wrap items-center gap-2" role="group" aria-label="Mejores horarios para programar">
+            <span class="text-xs font-medium text-slate-500">Mejores horarios:</span>
+            <button
+              v-for="o in bestData.occurrences.slice(0, 4)"
+              :key="o.at"
+              type="button"
+              class="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800 transition hover:bg-emerald-100 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-900/60"
+              :title="`${o.lift}% más interacciones que lo habitual en esta franja`"
+              @click="pickSuggestion(o.at)"
+            >
+              {{ suggestionLabel(o.at) }} · +{{ o.lift }}%
+            </button>
+          </div>
+          <p v-else class="text-xs text-slate-400">
+            Sugerencias de horario: faltan datos ({{ bestData.sample }} de {{ bestData.min_posts }} publicaciones medidas en {{ bestData.window_days }} días).
+          </p>
         </div>
       </section>
 

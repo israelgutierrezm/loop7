@@ -52,8 +52,15 @@ aislado, como lo haría una persona:
   prueba emite los eventos HTML5 (`dragstart`, `dragover`, `drop`…) sobre los elementos
   reales.
 
+- `best-times.spec.ts`: con métricas de la cuenta pero sin publicaciones medidas, la
+  tarjeta de Analítica indica cuánto falta; tras sembrar el historial de muestra
+  (`analytics:demo {marca} --history`), muestra el mapa de calor y los tres horarios
+  recomendados, el calendario de la semana próxima destaca esas horas (y se pueden
+  ocultar) y, al programar, una sugerencia rellena la fecha y se programa.
+
 Los pasos comunes (registro, marca, cuenta simulada, contenido, aprobación, programar)
-están en `e2e/support.ts`. Cada prueba crea su propia cuenta (no dependen entre sí). Entorno (`playwright.config.ts`
+están en `e2e/support.ts`, junto con `artisan()`, que ejecuta comandos contra el backend
+aislado (`--env=e2e`) para preparar datos que la interfaz no puede crear. Cada prueba crea su propia cuenta (no dependen entre sí). Entorno (`playwright.config.ts`
 + `e2e/start-backend.mjs`): escribe `apps/backend/.env.e2e` (ignorado por git), recrea
 `database/e2e.sqlite` (WAL + `synchronous=OFF`) con migraciones y datos base, sirve
 Laravel en **8002** y un Vite propio en **5174** (proxy a 8002): no toca la base ni los

@@ -10,6 +10,7 @@ import ErrorState from '@/components/ui/ErrorState.vue'
 import BrandPicker from '@/components/BrandPicker.vue'
 import StatCard from '@/components/StatCard.vue'
 import AppIcon from '@/components/AppIcon.vue'
+import BestTimesCard from '@/components/analytics/BestTimesCard.vue'
 
 interface SeriesPoint { date: string; impressions: number; reach: number; engagement: number }
 interface Delta { value: number; pct: number | null }
@@ -258,6 +259,8 @@ onMounted(load)
             </div>
           </div>
         </div>
+
+        <BestTimesCard class="mt-6" :brand-id="brandId" :providers="data.by_channel.map((c) => c.provider)" />
 
         <!-- Top publicaciones -->
         <div class="card mt-6 overflow-hidden">

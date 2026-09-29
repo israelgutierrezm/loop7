@@ -9,4 +9,5 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function (): void {
     Route::get('/brands/{brand}/analytics/overview', [AnalyticsController::class, 'overview']);
     Route::post('/brands/{brand}/analytics/sync', [AnalyticsController::class, 'sync']);
     Route::get('/brands/{brand}/analytics/export', [AnalyticsController::class, 'export']);
+    Route::get('/brands/{brand}/analytics/best-times', [AnalyticsController::class, 'bestTimes']);
 });

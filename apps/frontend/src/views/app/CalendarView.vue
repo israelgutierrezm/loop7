@@ -9,9 +9,11 @@ import PageHeader from '@/components/ui/PageHeader.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import ErrorState from '@/components/ui/ErrorState.vue'
 import BrandPicker from '@/components/BrandPicker.vue'
+import { providerName } from '@/utils/providers'
+import { useBestTimes } from '@/composables/useBestTimes'
 import AppIcon from '@/components/AppIcon.vue'
 import ProviderIcon from '@/components/social/ProviderIcon.vue'
-import CalendarTimeGrid, { type CalendarItem } from '@/components/calendar/CalendarTimeGrid.vue'
+import CalendarTimeGrid, { type CalendarHighlight, type CalendarItem } from '@/components/calendar/CalendarTimeGrid.vue'
 
 interface ReadyItem { id: string; title: string }
 type View = 'month' | 'week' | 'day' | 'list'
@@ -150,8 +152,47 @@ function dayLabel(key: string): string {
   return (parseDay(key) ?? new Date()).toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' })
 }
 
-function providerName(key: string): string {
-  return { fake: 'Proveedor de prueba', x: 'X', youtube: 'YouTube', tiktok: 'TikTok', linkedin: 'LinkedIn', threads: 'Threads', facebook: 'Facebook', instagram: 'Instagram' }[key] ?? key
+// --- Mejores horarios (Semana y Día; analítica avanzada) ---
+const BEST_TIMES_KEY = 'loop7.calendar.bestTimes'
+const { data: bestData, available: bestAvailable, load: loadBest, clear: clearBest } = useBestTimes()
+
+function readShowBest(): boolean {
+  try {
+    return localStorage.getItem(BEST_TIMES_KEY) !== 'off'
+  } catch {
+    return true
+  }
+}
+
+const showBest = ref(readShowBest())
+watch(showBest, (on) => {
+  try {
+    localStorage.setItem(BEST_TIMES_KEY, on ? 'on' : 'off')
+  } catch {
+    // Sin almacenamiento del navegador la preferencia dura sólo esta visita.
+  }
+})
+
+/** Fechas recomendadas del rango visible, por celda en la hora local del navegador. */
+const highlights = computed<Record<string, CalendarHighlight>>(() => {
+  const map: Record<string, CalendarHighlight> = {}
+  if (!showBest.value) return map
+  for (const o of bestData.value?.occurrences ?? []) {
+    const d = new Date(o.at)
+    map[`${dayKey(d)}-${d.getHours()}`] = { lift: o.lift }
+  }
+  return map
+})
+
+function loadBestTimes(): void {
+  if (!showBest.value || (view.value !== 'week' && view.value !== 'day')) {
+    clearBest()
+    return
+  }
+  const from = new Date(range.value[0])
+  const to = new Date(range.value[range.value.length - 1])
+  to.setHours(23, 59, 59, 999)
+  loadBest(brandId.value, { providers: providerFilter.value ? [providerFilter.value] : [], from, to })
 }
 
 let requestId = 0
@@ -281,7 +322,11 @@ watch(() => route.query, (query) => {
 })
 // Se recarga sólo si cambia el rango consultado (p. ej. no al pasar de Mes a Lista).
 watch(() => `${brandId.value}|${dayKey(range.value[0])}|${range.value.length}`, load)
-onMounted(load)
+watch(() => `${brandId.value}|${dayKey(range.value[0])}|${view.value}|${providerFilter.value}|${showBest.value}`, loadBestTimes)
+onMounted(() => {
+  load()
+  loadBestTimes()
+})
 </script>
 
 <template>
@@ -326,6 +371,15 @@ onMounted(load)
         <option v-for="s in STATUS_OPTIONS" :key="s[0]" :value="s[0]">{{ s[1] }}</option>
       </select>
       <button v-if="providerFilter || statusFilter" type="button" class="btn-ghost text-xs" @click="providerFilter = ''; statusFilter = ''">Quitar filtros</button>
+      <template v-if="bestAvailable && (view === 'week' || view === 'day')">
+        <label class="inline-flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
+          <input v-model="showBest" type="checkbox" class="rounded border-slate-300 text-brand-600" />
+          Mejores horarios
+        </label>
+        <span v-if="showBest && bestData && !bestData.sufficient" class="text-xs text-slate-400">
+          Faltan datos: {{ bestData.sample }} de {{ bestData.min_posts }} publicaciones medidas.
+        </span>
+      </template>
       <span class="ml-auto text-xs text-slate-400" :title="brandTimezone && brandTimezone !== timezone ? `La marca está configurada en ${brandTimezone}` : undefined">
         Horas en tu zona horaria ({{ timezone }})
       </span>
@@ -392,6 +446,7 @@ onMounted(load)
         :status-styles="STATUS_STYLES"
         :can-schedule="canSchedule"
         :dragging="dragging !== null"
+        :highlights="highlights"
         @item-drag-start="(event, id) => onDragStart(event, id, 'scheduled')"
         @item-drag-end="onDragEnd"
         @drop="(date) => schedule(date, true)"
@@ -431,6 +486,7 @@ onMounted(load)
         <h2 id="ready-title" class="text-sm font-semibold text-slate-900 dark:text-white">Listos para programar</h2>
         <p class="mb-3 mt-1 text-xs text-slate-500">
           Arrástralos a un día (salen a las 10:00) o, en Semana y Día, a la hora exacta. Luego puedes ajustarla en su detalle.
+          <template v-if="Object.keys(highlights).length">Las horas con ★ son las que mejor le funcionan a esta marca.</template>
         </p>
         <ul class="space-y-1.5">
           <li v-for="r in ready" :key="r.id">

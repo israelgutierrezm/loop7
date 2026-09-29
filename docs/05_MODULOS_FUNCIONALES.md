@@ -67,7 +67,8 @@ vigentes de Graph API (ver docs/06).
 sin configurar), `syncBrand` (en el acto), `syncDue` (despacha jobs) y `backfillDemo`
 (serie sintética de muestra para desarrollo). Jobs `SyncAccountMetrics` /
 `SyncPostMetrics` en la cola `analytics`. Comando `analytics:sync-due` programado a
-diario; `analytics:demo {brand} --days=N` para poblar datos de muestra.
+diario; `analytics:demo {brand} --days=N` para poblar datos de muestra (con `--history`,
+además 60 días de publicaciones medidas para los mejores horarios; ver docs/00).
 
 ### Consultas y dashboards
 `AnalyticsQueryService`: KPIs, series por fecha, comparación con el periodo anterior
@@ -79,11 +80,41 @@ de la Organization.
 - `POST /api/v1/brands/{brand}/analytics/sync` — permiso `analytics.view`.
 - `GET /api/v1/brands/{brand}/analytics/export` (CSV) — permiso `analytics.export`
   + entitlement `feature.analytics_advanced` (402 si el plan no lo incluye).
+- `GET /api/v1/brands/{brand}/analytics/best-times` — permiso `analytics.view` +
+  entitlement `feature.analytics_advanced` (402). Ver «Mejores horarios para publicar».
 
 ### Frontend
 Vista **Analítica** (`/app/analytics`): selector de marca y de rango (7/30/90 días),
-KPIs con comparación de periodo, gráfico de evolución (SVG), desglose por canal, top
-de publicaciones, actualización manual y exportación CSV (según plan).
+KPIs con comparación de periodo, gráfico de evolución (SVG), desglose por canal, mejores
+horarios para publicar, top de publicaciones, actualización manual y exportación CSV
+(según plan).
+
+### Mejores horarios para publicar
+`GET /brands/{brand}/analytics/best-times` con `providers[]` (redes a considerar; vacío =
+todas) y `from`/`to` (rango de las fechas sugeridas; por defecto la semana próxima, máximo
+62 días).
+
+- **Datos**: el último snapshot de cada publicación de la marca publicada en los últimos
+  90 días y con al menos 48 h de vida (métricas ya asentadas), agrupadas por día de la
+  semana y hora **en la zona horaria de la marca** (respeta el cambio de horario).
+- **Cálculo** (`BestTimesCalculator`, dominio sin base de datos): cada publicación se
+  compara con lo habitual de su cuenta (la mediana de sus interacciones; si es 0, la
+  media), con tope de 3 veces, así una cuenta grande no tapa a una pequeña ni un viral
+  decide solo. Cada franja promedia esas puntuaciones con suavizado a las horas vecinas
+  (peso 0,5) y contracción hacia lo habitual (peso 2): pocas publicaciones no deciden.
+- **Recomendados**: hasta 5 franjas con al menos una publicación propia y +5 % sobre lo
+  habitual, sin horas seguidas. Hacen falta 10 publicaciones con interacciones en su
+  cuenta; si no, `sufficient: false` con el avance (`sample` de `min_posts`).
+- **Respuesta**: `timezone`, `sample`, `min_posts`, `sufficient`, `heatmap` (7×24; 1 = lo
+  habitual, null = sin datos), `counts` (7×24), `top` (`weekday` 1–7 ISO, `hour`, `lift` en
+  %, `posts`) y `occurrences`: próximas fechas de las franjas recomendadas dentro del
+  rango, como instantes ISO 8601 (nunca en los próximos 10 minutos).
+- **Interfaz** (composable `useBestTimes`: sólo consulta si el plan lo incluye y el
+  usuario ve la analítica): tarjeta en **Analítica** con mapa de calor, leyenda,
+  recomendados, filtro por red, avance si faltan datos e invitación a mejorar el plan si
+  no lo incluye; en el **Calendario** (Semana y Día) esas horas aparecen con ★ y su mejora;
+  en el **detalle del contenido**, las próximas fechas para sus redes rellenan el campo de
+  programación con un clic.
 
 ---
 
@@ -285,6 +316,9 @@ domingo) o un día, y «Hoy» vuelve a la fecha actual.
   el Mes) abre su vista Día, que muestra además redes, estado y campaña. En móvil la
   semana se desplaza dentro de su tarjeta.
 - **Filtros** por red y por estado, sobre lo ya cargado (no consultan de nuevo).
+- **Mejores horarios** (con analítica avanzada): en Semana y Día las horas recomendadas
+  para la marca (y la red filtrada) aparecen con ★ y su mejora, más marcadas al
+  arrastrar. Se pueden ocultar; la preferencia se recuerda en el navegador.
 - **Arrastrar para programar** (con `content.schedule`): lo programado se reprograma y lo
   aprobado («Listos para programar») se programa. En el Mes se conserva la hora (lo
   aprobado sale a las 10:00); en Semana y Día se usa la hora de la celda conservando los

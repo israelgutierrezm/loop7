@@ -1,7 +1,24 @@
+import { execFileSync } from 'node:child_process'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { expect, type Page } from '@playwright/test'
 
 /** Contraseña de las cuentas que crean las pruebas (sólo existe en la base E2E). */
 export const E2E_PASSWORD = 'E2e-Loop7-2026'
+
+const backend = resolve(dirname(fileURLToPath(import.meta.url)), '../../backend')
+
+/**
+ * Ejecuta un comando de Artisan contra el backend aislado (`--env=e2e`): para
+ * preparar datos que la interfaz no puede crear (p. ej. historial ya medido).
+ */
+export function artisan(...args: string[]): void {
+  execFileSync(process.env.PHP_BINARY ?? 'php', ['artisan', ...args, '--env=e2e'], {
+    cwd: backend,
+    env: { ...process.env, XDEBUG_MODE: 'off' },
+    stdio: 'pipe',
+  })
+}
 
 export interface Account {
   name: string
