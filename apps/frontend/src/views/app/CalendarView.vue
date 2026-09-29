@@ -347,7 +347,7 @@ onMounted(load)
             :key="dayKey(d)"
             class="min-h-28 border-b border-r border-slate-100 p-1.5 dark:border-slate-800"
             :class="[
-              d.getMonth() !== monthStart.getMonth() ? 'bg-slate-50/60 dark:bg-slate-900/40' : '',
+              d.getMonth() !== monthStart.getMonth() ? 'bg-slate-50 dark:bg-slate-800/30' : '',
               dropTarget === dayKey(d) ? 'bg-brand-50 ring-2 ring-inset ring-brand-400 dark:bg-brand-950/40' : '',
             ]"
             @dragover.prevent="dragging && (dropTarget = dayKey(d))"

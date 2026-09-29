@@ -156,7 +156,7 @@ onBeforeUnmount(() => window.clearInterval(timer))
               :key="dayKey(d)"
               class="relative min-h-12 border-l border-t border-slate-100 p-1 dark:border-slate-800"
               :class="[
-                isPast(d, h) ? 'bg-slate-50/70 dark:bg-slate-900/40' : '',
+                isPast(d, h) ? 'bg-slate-100/70 dark:bg-slate-800/40' : '',
                 dropCell === `${dayKey(d)}-${h}` ? 'bg-brand-50 ring-2 ring-inset ring-brand-400 dark:bg-brand-950/40' : '',
               ]"
               :aria-label="`${d.toLocaleDateString('es', { weekday: 'long', day: 'numeric' })}, ${hourLabel(h)}`"
