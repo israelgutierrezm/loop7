@@ -26,6 +26,8 @@ interface Provider {
     redirect_uri: string
     redirect_hint: string
     data_deletion_url: string | null
+    deauthorize_url: string | null
+    webhook_url: string | null
     privacy_url: string
     terms_url: string
   }
@@ -249,8 +251,19 @@ onMounted(load)
               :value="p.setup.redirect_uri"
               :hint="p.setup.redirect_hint"
             />
+            <CopyField
+              v-if="p.setup.webhook_url"
+              label="URL de webhooks"
+              :value="p.setup.webhook_url"
+              hint="Regístrala en tu app de TikTok → Webhooks: avisa cuando alguien quita el acceso y cuando un video pasa a público."
+            />
             <template v-if="p.setup.data_deletion_url">
               <CopyField label="URL de devolución de llamada de eliminación de datos" :value="p.setup.data_deletion_url" />
+              <CopyField
+                v-if="p.setup.deauthorize_url"
+                label="URL de devolución de llamada para desautorizar"
+                :value="p.setup.deauthorize_url"
+              />
               <CopyField label="URL de la política de privacidad" :value="p.setup.privacy_url" />
               <CopyField label="URL de las condiciones del servicio" :value="p.setup.terms_url" />
             </template>

@@ -152,6 +152,30 @@ abstract class AbstractOAuth2Provider implements SocialProviderInterface
     }
 
     /**
+     * Revoca un token en el endpoint de revocación de la red (RFC 7009): el
+     * refresh token si lo hay (invalida la concesión) o el de acceso. Algunas
+     * redes (Google) no autentican al cliente al revocar.
+     *
+     * @param  array<string, string>  $credentials
+     */
+    protected function revokeAt(string $endpoint, OAuthTokens $tokens, array $credentials, bool $authenticateClient = true): void
+    {
+        $this->assertConfigured($credentials);
+        $token = $tokens->refreshToken ?? $tokens->accessToken;
+        if ($token === '') {
+            return;
+        }
+
+        $response = $this->send('revocar el acceso', fn () => $authenticateClient
+            ? $this->tokenHttp($credentials)->post($endpoint, $this->withClient(['token' => $token], $credentials))
+            : Http::asForm()->acceptJson()->timeout(self::TIMEOUT_SECONDS)->post($endpoint, ['token' => $token]));
+
+        if ($response->failed() || $this->oauthError($response) !== null) {
+            throw new SocialProviderException($this->displayName() . ' no permitió revocar el acceso: ' . SecretRedactor::redact($this->errorMessage($response)));
+        }
+    }
+
+    /**
      * @param  array<string, string>  $credentials
      */
     protected function assertConfigured(array $credentials): void

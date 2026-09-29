@@ -13,6 +13,7 @@ use App\Modules\Brands\Models\Brand;
 use App\Modules\Organizations\Models\Organization;
 use App\Modules\SocialConnections\Contracts\OAuthTokens;
 use App\Modules\SocialConnections\Contracts\RemoteDestination;
+use App\Modules\SocialConnections\Contracts\RevokesAccess;
 use App\Modules\SocialConnections\Contracts\SocialProviderInterface;
 use App\Modules\SocialConnections\Enums\ConnectionStatus;
 use App\Modules\SocialConnections\Events\SocialConnectionExpired;
@@ -21,10 +22,13 @@ use App\Modules\SocialConnections\Exceptions\SocialTokenExpiredException;
 use App\Modules\SocialConnections\Models\SocialConnection;
 use App\Modules\SocialConnections\Models\SocialConnectionDestination;
 use App\Modules\SocialConnections\Models\SocialTokenEvent;
+use App\Support\Security\SecretRedactor;
+use App\Support\Tenancy\OrganizationScope;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -165,6 +169,8 @@ class SocialConnectionService
 
     public function disconnect(SocialConnection $connection): void
     {
+        $revoked = $this->revokeRemotely($connection);
+
         $connection->forceFill([
             'status' => ConnectionStatus::REVOKED->value,
             'access_token' => null,
@@ -175,9 +181,49 @@ class SocialConnectionService
         $this->recordEvent($connection, 'revoked');
         $this->audit->log(AuditAction::SOCIAL_DISCONNECTED, $connection, [
             'provider' => $connection->provider,
+            'revoked_remotely' => $revoked,
         ]);
 
         $connection->delete();
+    }
+
+    /**
+     * Revoca el acceso en la red si el proveedor lo permite (YouTube lo exige).
+     * No se revoca si otra conexión (de otra marca u organización) usa la misma
+     * cuenta: la red invalidaría también sus tokens. Un fallo no impide
+     * desconectar.
+     */
+    private function revokeRemotely(SocialConnection $connection): bool
+    {
+        $adapter = $this->manager->adapter($connection->provider);
+        if (! $adapter instanceof RevokesAccess || ($connection->access_token === null && $connection->refresh_token === null)) {
+            return false;
+        }
+
+        $shared = $connection->external_account_id !== null && SocialConnection::query()
+            ->withoutGlobalScope(OrganizationScope::class)
+            ->whereKeyNot($connection->id)
+            ->where('provider', $connection->provider)
+            ->where('external_account_id', $connection->external_account_id)
+            ->where('status', '!=', ConnectionStatus::REVOKED->value)
+            ->exists();
+        if ($shared) {
+            return false;
+        }
+
+        try {
+            $adapter->revokeAccess($connection->toTokens(), $this->manager->credentials($connection->provider));
+
+            return true;
+        } catch (Throwable $e) {
+            Log::warning('No se pudo revocar el acceso en la red al desconectar.', [
+                'provider' => $connection->provider,
+                'connection' => $connection->id,
+                'error' => SecretRedactor::redact($e->getMessage()),
+            ]);
+
+            return false;
+        }
     }
 
     /**

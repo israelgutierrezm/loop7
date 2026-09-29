@@ -201,6 +201,8 @@ class PlatformSocialProvidersController extends Controller
     {
         $sharesWith = $this->manager->sharesAppWith($provider->key);
         $isMeta = in_array($provider->key, ['facebook', 'instagram'], true);
+        // App de Meta cuyos callbacks de borrado/desautorización cubren esta red.
+        $metaApp = $isMeta ? 'facebook' : ($provider->key === 'threads' ? 'threads' : null);
         $frontend = rtrim((string) config('app.frontend_url'), '/');
         $version = $this->versionSetting($provider->key);
 
@@ -232,7 +234,9 @@ class PlatformSocialProvidersController extends Controller
             'setup' => [
                 'redirect_uri' => $this->connections->redirectUri($provider->key),
                 'redirect_hint' => self::SETUP[$provider->key]['redirect_hint'] ?? 'Regístrala como URI de redirección OAuth en la app del proveedor.',
-                'data_deletion_url' => $isMeta ? url('/api/v1/data-deletion/facebook') : null,
+                'data_deletion_url' => $metaApp !== null ? url('/api/v1/data-deletion/' . $metaApp) : null,
+                'deauthorize_url' => $metaApp !== null ? url('/api/v1/deauthorize/' . $metaApp) : null,
+                'webhook_url' => $provider->key === 'tiktok' ? url('/api/v1/social/webhooks/tiktok') : null,
                 'privacy_url' => $frontend . '/privacidad',
                 'terms_url' => $frontend . '/terminos',
             ],

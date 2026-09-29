@@ -16,6 +16,7 @@ use App\Modules\SocialConnections\Contracts\PublishPayload;
 use App\Modules\SocialConnections\Contracts\PublishResult;
 use App\Modules\SocialConnections\Contracts\RemoteAccount;
 use App\Modules\SocialConnections\Contracts\RemoteDestination;
+use App\Modules\SocialConnections\Contracts\RevokesAccess;
 use App\Modules\SocialConnections\Enums\Capability;
 use App\Modules\SocialConnections\Exceptions\SocialProviderException;
 use App\Modules\SocialConnections\Exceptions\SocialTokenExpiredException;
@@ -38,7 +39,7 @@ use Illuminate\Support\Sleep;
  *
  * Sin PKCE en web. Token de 24 h con refresh token de 365 días.
  */
-class TikTokProvider extends AbstractOAuth2Provider implements HasPublishingLimits, ProvidesPublishOptions
+class TikTokProvider extends AbstractOAuth2Provider implements HasPublishingLimits, ProvidesPublishOptions, RevokesAccess
 {
     private const API = 'https://open.tiktokapis.com/v2/';
 
@@ -127,6 +128,18 @@ class TikTokProvider extends AbstractOAuth2Provider implements HasPublishingLimi
     public function defaultScopes(): array
     {
         return ['user.info.basic', 'user.info.stats', 'video.publish', 'video.list'];
+    }
+
+    /**
+     * TikTok revoca con el token de acceso (dura 24 h): si caducó, se renueva antes.
+     */
+    public function revokeAccess(OAuthTokens $tokens, array $credentials): void
+    {
+        if ($tokens->refreshToken !== null && ($tokens->accessToken === '' || $tokens->expiresAt?->isPast())) {
+            $tokens = $this->refreshTokens($tokens->refreshToken, $credentials);
+        }
+
+        $this->revokeAt(self::API . 'oauth/revoke/', new OAuthTokens($tokens->accessToken), $credentials);
     }
 
     public function fetchAccount(OAuthTokens $tokens, array $credentials): RemoteAccount

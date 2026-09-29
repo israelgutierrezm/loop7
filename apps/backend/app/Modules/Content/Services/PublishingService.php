@@ -6,6 +6,7 @@ namespace App\Modules\Content\Services;
 
 use App\Modules\Audit\Enums\AuditAction;
 use App\Modules\Audit\Services\AuditLogger;
+use App\Modules\Billing\Exceptions\PlanLimitExceededException;
 use App\Modules\Billing\Services\EntitlementsService;
 use App\Modules\Content\Enums\ContentStatus;
 use App\Modules\Content\Enums\TargetStatus;
@@ -46,6 +47,7 @@ class PublishingService
         private readonly MediaService $media,
         private readonly AuditLogger $audit,
         private readonly EntitlementsService $entitlements,
+        private readonly ProviderQuota $quotas,
     ) {
     }
 
@@ -104,6 +106,17 @@ class PublishingService
             $this->markFailed($target, $organization?->isSuspended()
                 ? 'La organización está suspendida.'
                 : 'La suscripción de la organización no está activa.');
+            $this->rollup($target);
+
+            return;
+        }
+
+        // Cupo de la red en el plan (X al mes, YouTube al día): sin cupo no se
+        // publica ni se reintenta.
+        try {
+            $this->quotas->ensureCanPublish($organization, $connection->provider);
+        } catch (PlanLimitExceededException $e) {
+            $this->markFailed($target, $e->getMessage());
             $this->rollup($target);
 
             return;

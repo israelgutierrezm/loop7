@@ -7,6 +7,7 @@ namespace App\Modules\Billing\Services;
 use App\Modules\Billing\Entitlements\Entitlement;
 use App\Modules\Billing\Exceptions\PlanLimitExceededException;
 use App\Modules\Brands\Models\Brand;
+use App\Modules\Content\Enums\TargetStatus;
 use App\Modules\Content\Models\PublicationTarget;
 use App\Modules\Knowledge\Models\KnowledgeDocument;
 use App\Modules\MediaLibrary\Models\MediaAsset;
@@ -48,7 +49,29 @@ class UsageService
             Entitlement::KNOWLEDGE_DOCUMENTS_MAX => KnowledgeDocument::query()->withoutGlobalScope(OrganizationScope::class)
                 ->where('organization_id', $organization->id)
                 ->count(),
+            Entitlement::X_POSTS_MONTH => $this->providerPublications($organization, 'x', Carbon::now()->startOfMonth(), Carbon::now()->endOfMonth(), false),
+            Entitlement::YOUTUBE_UPLOADS_DAY => $this->providerPublications($organization, 'youtube', Carbon::now()->startOfDay(), Carbon::now()->endOfDay(), false),
         ];
+    }
+
+    /**
+     * Publicaciones de una red que ocupan su cupo en [from, to]: las publicadas
+     * y, si se pide, las programadas o en curso para ese periodo.
+     */
+    public function providerPublications(Organization $organization, string $provider, Carbon $from, Carbon $to, bool $includeScheduled = true): int
+    {
+        return PublicationTarget::query()->withoutGlobalScopes()
+            ->where('organization_id', $organization->id)
+            ->whereHas('variant', fn ($q) => $q->withoutGlobalScopes()->where('provider', $provider))
+            ->where(function ($q) use ($from, $to, $includeScheduled): void {
+                $q->where(fn ($p) => $p->where('status', TargetStatus::PUBLISHED->value)->whereBetween('published_at', [$from, $to]));
+                if ($includeScheduled) {
+                    $q->orWhere(fn ($s) => $s
+                        ->whereIn('status', [TargetStatus::SCHEDULED->value, TargetStatus::PUBLISHING->value])
+                        ->whereBetween('scheduled_at', [$from, $to]));
+                }
+            })
+            ->count();
     }
 
     /**

@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Modules\SocialConnections\Providers;
 
+use App\Modules\Billing\Entitlements\Entitlement;
 use App\Modules\SocialConnections\Contracts\AccountMetrics;
+use App\Modules\SocialConnections\Contracts\HasPlanQuota;
 use App\Modules\SocialConnections\Contracts\HasPublishingLimits;
 use App\Modules\SocialConnections\Contracts\InboxMessageData;
 use App\Modules\SocialConnections\Contracts\InboxReplyResult;
@@ -18,6 +20,7 @@ use App\Modules\SocialConnections\Contracts\PublishPayload;
 use App\Modules\SocialConnections\Contracts\PublishResult;
 use App\Modules\SocialConnections\Contracts\RemoteAccount;
 use App\Modules\SocialConnections\Contracts\RemoteDestination;
+use App\Modules\SocialConnections\Contracts\RevokesAccess;
 use App\Modules\SocialConnections\Enums\Capability;
 use App\Modules\SocialConnections\Exceptions\SocialProviderException;
 use App\Modules\SocialConnections\Providers\OAuth2\AbstractOAuth2Provider;
@@ -40,7 +43,7 @@ use Illuminate\Support\Str;
  * certificación: se piden en el editor (ProvidesPublishOptions). Los proyectos
  * de Google sin auditar suben los videos bloqueados en privado.
  */
-class YouTubeProvider extends AbstractOAuth2Provider implements HasPublishingLimits, ProvidesPublishOptions
+class YouTubeProvider extends AbstractOAuth2Provider implements HasPlanQuota, HasPublishingLimits, ProvidesPublishOptions, RevokesAccess
 {
     private const API = 'https://www.googleapis.com/youtube/v3/';
 
@@ -107,6 +110,15 @@ class YouTubeProvider extends AbstractOAuth2Provider implements HasPublishingLim
         return ['text' => self::DESCRIPTION_MAX_BYTES, 'media' => 1, 'videos' => 1];
     }
 
+    /**
+     * El proyecto de Google tiene 100 subidas al día para todos los clientes:
+     * cada organización tiene su parte diaria.
+     */
+    public function planQuota(): array
+    {
+        return ['entitlement' => Entitlement::YOUTUBE_UPLOADS_DAY, 'period' => 'day', 'label' => 'subidas a YouTube al día'];
+    }
+
     public function defaultScopes(): array
     {
         return [
@@ -115,6 +127,15 @@ class YouTubeProvider extends AbstractOAuth2Provider implements HasPublishingLim
             // Leer y responder comentarios sólo admite este scope.
             'https://www.googleapis.com/auth/youtube.force-ssl',
         ];
+    }
+
+    /**
+     * Las políticas de YouTube exigen revocar el token en cuanto la persona
+     * desconecta la cuenta (revoca todos los permisos de la app en Google).
+     */
+    public function revokeAccess(OAuthTokens $tokens, array $credentials): void
+    {
+        $this->revokeAt('https://oauth2.googleapis.com/revoke', $tokens, $credentials, authenticateClient: false);
     }
 
     public function fetchAccount(OAuthTokens $tokens, array $credentials): RemoteAccount

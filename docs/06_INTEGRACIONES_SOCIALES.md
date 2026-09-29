@@ -336,12 +336,38 @@ que el App Review revisa. Ya están construidas del lado del código:
 - **Política de Privacidad (URL pública):** `/privacidad` (SPA, sin login).
 - **Términos de servicio (URL pública):** `/terminos`.
 - **Borrado de datos:** `/eliminar-datos` (instrucciones + consulta de estado) y el
-  **callback firmado** `POST /api/v1/data-deletion/facebook`, que:
-  - verifica el `signed_request` con HMAC-SHA256 y el App Secret del proveedor;
+  **callback firmado** `POST /api/v1/data-deletion/{facebook|threads}` (cada app de
+  Meta firma con su secreto: la de Facebook cubre Facebook e Instagram; Threads tiene
+  la suya), que:
+  - verifica el `signed_request` con HMAC-SHA256 y el App Secret de esa app;
   - registra la solicitud (`data_deletion_requests`) y lanza `PurgeExternalUserData`
-    (borra conexiones cuya cuenta pertenece al usuario y sus conversaciones de inbox);
+    (borra, **sólo en las redes de esa app**, las conexiones cuya cuenta pertenece al
+    usuario y sus conversaciones de inbox);
   - responde con `{ url, confirmation_code }` (formato requerido por Meta).
   - Está exento de CSRF (llamada servidor-a-servidor).
+- **Desautorización** (la persona quita la app desde Facebook o Threads):
+  `POST /api/v1/deauthorize/{facebook|threads}` con el mismo `signed_request` → sus
+  conexiones pierden los tokens y quedan «Expiradas» (con aviso para reconectar).
+  SUPERADMIN muestra las dos URLs de cada app para registrarlas.
+
+## Revocar el acceso al desconectar
+
+Al desconectar una cuenta, si la red lo permite (`RevokesAccess`: YouTube —sus
+políticas lo exigen—, X y TikTok) también se revoca el acceso en la red. No se
+revoca si otra conexión (de otra marca u organización) usa la misma cuenta, porque la
+red invalidaría también sus tokens, y un fallo de la red no impide desconectar (queda
+en el registro y la auditoría indica `revoked_remotely`).
+
+## Webhooks de TikTok
+
+`POST /api/v1/social/webhooks/tiktok` (URL que SUPERADMIN registra en la app de
+TikTok): firma `TikTok-Signature: t=…,s=…` (HMAC-SHA256 hexadecimal de «t.cuerpo» con el
+client secret) y `client_key` de la app. TikTok entrega al menos una vez y reintenta
+72 h: cada aviso se procesa una sola vez.
+- `authorization.removed` → las conexiones de esa cuenta pierden los tokens y quedan
+  «Expiradas».
+- `post.publish.publicly_available` → la publicación guarda el id público del video y
+  su enlace (desde entonces tiene métricas).
 
 Plantillas legales: `PrivacyView`/`TermsView` traen placeholders `[NOMBRE DE LA
 EMPRESA]`, `[CORREO DE CONTACTO]`, `[PAÍS/JURISDICCIÓN]` — completar y revisar con

@@ -89,6 +89,8 @@ const usageRows = [
   { key: 'ai_credits.month', label: 'Créditos de IA este mes' },
   { key: 'storage.gb', label: 'Almacenamiento (GB)' },
   { key: 'knowledge_documents.max', label: 'Documentos del Brand Brain' },
+  { key: 'x_posts.month', label: 'Publicaciones en X este mes' },
+  { key: 'youtube_uploads.day', label: 'Subidas a YouTube hoy' },
 ]
 
 const planRows = [
@@ -99,6 +101,8 @@ const planRows = [
   { key: 'ai_credits.month', label: 'créditos de IA/mes' },
   { key: 'storage.gb', label: 'GB de almacenamiento' },
   { key: 'knowledge_documents.max', label: 'documentos del Brand Brain' },
+  { key: 'x_posts.month', label: 'publicaciones en X/mes' },
+  { key: 'youtube_uploads.day', label: 'subidas a YouTube/día' },
 ]
 
 const featureLabels: Record<string, string> = {

@@ -35,6 +35,7 @@ class PublicationPlanner
         private readonly SocialProviderManager $manager,
         private readonly EntitlementsService $entitlements,
         private readonly UsageService $usage,
+        private readonly ProviderQuota $quotas,
     ) {
     }
 
@@ -139,13 +140,24 @@ class PublicationPlanner
 
         // Límite de plan: publicaciones por mes (sólo cuentan las nuevas; reprogramar no suma).
         $organization = Organization::query()->findOrFail($content->organization_id);
+        $new = array_filter($pending, fn (PublicationTarget $t) => ! $t->exists);
         $this->usage->ensureWithin(
             $organization,
             Entitlement::SCHEDULED_POSTS_MONTH,
             $this->usage->scheduledPostsThisMonth($organization),
-            count(array_filter($pending, fn (PublicationTarget $t) => ! $t->exists)),
+            count($new),
             'Has alcanzado las publicaciones mensuales incluidas en tu plan.',
         );
+
+        // Cupos por red (X al mes, YouTube al día) en el periodo de la fecha elegida.
+        $perProvider = [];
+        foreach ($content->variants as $variant) {
+            $perProvider[$variant->provider] = ($perProvider[$variant->provider] ?? 0)
+                + count(array_filter($new, fn (PublicationTarget $t) => $t->post_variant_id === $variant->id));
+        }
+        foreach ($perProvider as $provider => $adding) {
+            $this->quotas->ensureCanSchedule($organization, $provider, $when, $adding);
+        }
 
         foreach ($pending as $target) {
             $target->forceFill([

@@ -5,12 +5,16 @@ declare(strict_types=1);
 use App\Modules\SocialConnections\Http\Controllers\PlatformSocialProvidersController;
 use App\Modules\SocialConnections\Http\Controllers\SocialCallbackController;
 use App\Modules\SocialConnections\Http\Controllers\SocialConnectionsController;
+use App\Modules\SocialConnections\Http\Controllers\TikTokWebhookController;
 use Illuminate\Support\Facades\Route;
 
 // Callback OAuth público (valida el state internamente).
 Route::get('/social/callback/{provider}', [SocialCallbackController::class, 'handle'])
     ->name('social.callback')
     ->middleware('throttle:30,1');
+
+// Webhooks de TikTok (públicos; firma HMAC con el secreto de la app).
+Route::post('/social/webhooks/tiktok', TikTokWebhookController::class)->middleware('throttle:120,1');
 
 // Conexiones sociales del cliente.
 Route::middleware(['auth:sanctum', 'tenant'])->group(function (): void {

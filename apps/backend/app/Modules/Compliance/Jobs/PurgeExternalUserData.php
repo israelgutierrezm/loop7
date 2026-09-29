@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Compliance\Jobs;
 
 use App\Modules\Compliance\Models\DataDeletionRequest;
+use App\Modules\Compliance\Services\DataDeletionService;
 use App\Modules\Inbox\Models\InboxConversation;
 use App\Modules\SocialConnections\Models\SocialConnection;
 use Illuminate\Bus\Queueable;
@@ -15,8 +16,9 @@ use Illuminate\Queue\SerializesModels;
 
 /**
  * Borra los datos vinculados a un usuario externo (conexiones sociales cuya
- * cuenta le pertenece y conversaciones del inbox donde participa). Cumple la
- * solicitud de borrado de datos (Meta). Se ejecuta en todas las Organizations.
+ * cuenta le pertenece y conversaciones del inbox donde participa) en las redes
+ * de la app que lo pidió (Facebook+Instagram, o Threads). Cumple la solicitud
+ * de borrado de datos de Meta. Se ejecuta en todas las Organizations.
  */
 class PurgeExternalUserData implements ShouldQueue
 {
@@ -40,10 +42,13 @@ class PurgeExternalUserData implements ShouldQueue
         }
 
         $userId = $request->external_user_id;
+        $providers = DataDeletionService::providersOf($request->provider);
         $deleted = 0;
 
-        // Conexiones sociales cuya cuenta externa pertenece al usuario.
+        // Conexiones sociales cuya cuenta externa pertenece al usuario (sólo en
+        // las redes de esa app: un id de otra red podría coincidir).
         $connections = SocialConnection::query()->withoutGlobalScopes()
+            ->whereIn('provider', $providers)
             ->where('external_account_id', $userId)->get();
         foreach ($connections as $connection) {
             $connection->forceDelete(); // cascada: destinos, conversaciones, targets
@@ -52,6 +57,7 @@ class PurgeExternalUserData implements ShouldQueue
 
         // Conversaciones del inbox donde el usuario es el participante.
         $conversations = InboxConversation::query()->withoutGlobalScopes()
+            ->whereIn('provider', $providers)
             ->where('participant_external_id', $userId)->get();
         foreach ($conversations as $conversation) {
             $conversation->delete(); // cascada: mensajes

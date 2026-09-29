@@ -24,6 +24,10 @@ Ver runbook: [21_RUNBOOK_OPERACION.md](21_RUNBOOK_OPERACION.md).
 - [x] ✅ webhooks salientes sin SSRF — `OutboundUrl` (sólo IPs públicas, IP fijada, sin redirecciones); los webhooks de «API y accesos» además sólo https
 - [x] ✅ webhooks salientes firmados — Standard Webhooks (HMAC-SHA256 con `webhook-id` y marca de tiempo), secreto cifrado y mostrado una vez, rotación con doble firma 24 h (`WebhooksTest`)
 - [x] ✅ webhooks entrantes de automatizaciones — URL con token de 48 caracteres (cifrado; búsqueda por hash), límite por URL, 64 KB, idempotencia con `Idempotency-Key` (`InboundTriggersTest`)
+- [x] ✅ callbacks de Meta por app (Facebook/Instagram y Threads): borrado de datos y desautorización con `signed_request` verificado; purga acotada a las redes de cada app (`ProviderComplianceTest`)
+- [x] ✅ revocación del acceso en la red al desconectar (YouTube, X, TikTok) sin afectar a otras conexiones de la misma cuenta
+- [x] ✅ webhooks de TikTok firmados (HMAC con el client secret) e idempotentes
+- [x] ✅ cupos por red en el plan (`x_posts.month`, `youtube_uploads.day`): un cliente no agota el saldo de X ni las subidas diarias de YouTube de la plataforma (`ProviderQuotaTest`)
 - [x] ✅ feeds RSS sin SSRF ni XXE — cada redirección revalidada, 2 MB, 10 s, XML sin entidades ni DTD externas (`InboundTriggersTest`)
 - [x] ✅ idempotencia — publicación (consolidación idempotente), webhooks de pago, créditos IA
 - [x] ✅ tests IDOR/tenant isolation — en cada módulo

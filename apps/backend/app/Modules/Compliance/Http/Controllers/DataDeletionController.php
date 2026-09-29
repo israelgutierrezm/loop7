@@ -12,9 +12,10 @@ use Illuminate\Http\Request;
 use Throwable;
 
 /**
- * Endpoints públicos de borrado de datos (Meta App Review, docs/19). El callback
- * recibe el signed_request firmado; la página de estado permite al usuario
- * consultar su solicitud con el código de confirmación.
+ * Endpoints públicos de las apps de Meta (App Review, docs/06 y docs/19): el
+ * callback de borrado de datos y el de desautorización reciben el
+ * signed_request firmado (app de Facebook o app propia de Threads); la página
+ * de estado permite al usuario consultar su solicitud con el código.
  */
 class DataDeletionController extends Controller
 {
@@ -26,7 +27,7 @@ class DataDeletionController extends Controller
      * Callback de borrado de datos de Meta. Devuelve el formato que exige Meta:
      * { "url": <estado>, "confirmation_code": <código> }.
      */
-    public function facebook(Request $request): JsonResponse
+    public function dataDeletion(Request $request, string $provider): JsonResponse
     {
         $signed = (string) $request->input('signed_request', '');
         if ($signed === '') {
@@ -34,7 +35,7 @@ class DataDeletionController extends Controller
         }
 
         try {
-            $deletion = $this->service->handleSignedRequest('facebook', $signed);
+            $deletion = $this->service->handleSignedRequest($provider, $signed);
         } catch (Throwable $e) {
             return response()->json(['error' => $e->getMessage()], 400);
         }
@@ -46,6 +47,25 @@ class DataDeletionController extends Controller
             'url' => $statusUrl,
             'confirmation_code' => $deletion->confirmation_code,
         ]);
+    }
+
+    /**
+     * Callback de desautorización: la persona quitó la app desde la red.
+     */
+    public function deauthorize(Request $request, string $provider): JsonResponse
+    {
+        $signed = (string) $request->input('signed_request', '');
+        if ($signed === '') {
+            return response()->json(['error' => 'Falta signed_request.'], 400);
+        }
+
+        try {
+            $affected = $this->service->deauthorize($provider, $signed);
+        } catch (Throwable $e) {
+            return response()->json(['error' => $e->getMessage()], 400);
+        }
+
+        return response()->json(['success' => true, 'connections' => $affected]);
     }
 
     /**

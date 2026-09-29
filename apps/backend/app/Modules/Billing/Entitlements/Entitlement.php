@@ -21,6 +21,10 @@ final class Entitlement
     public const STORAGE_GB = 'storage.gb';
     public const AI_CREDITS_MONTH = 'ai_credits.month';
     public const KNOWLEDGE_DOCUMENTS_MAX = 'knowledge_documents.max';
+    // Cupos que paga o comparte la plataforma: X cobra cada publicación y
+    // YouTube da 100 subidas al día por proyecto para todos los clientes.
+    public const X_POSTS_MONTH = 'x_posts.month';
+    public const YOUTUBE_UPLOADS_DAY = 'youtube_uploads.day';
 
     // Features
     public const FEATURE_APPROVALS = 'feature.approvals';
@@ -52,6 +56,8 @@ final class Entitlement
             self::STORAGE_GB => ['type' => self::TYPE_LIMIT, 'label' => 'Almacenamiento (GB)'],
             self::AI_CREDITS_MONTH => ['type' => self::TYPE_LIMIT, 'label' => 'Créditos IA/mes'],
             self::KNOWLEDGE_DOCUMENTS_MAX => ['type' => self::TYPE_LIMIT, 'label' => 'Documentos del Brand Brain'],
+            self::X_POSTS_MONTH => ['type' => self::TYPE_LIMIT, 'label' => 'Publicaciones en X/mes'],
+            self::YOUTUBE_UPLOADS_DAY => ['type' => self::TYPE_LIMIT, 'label' => 'Subidas a YouTube/día'],
             self::FEATURE_APPROVALS => ['type' => self::TYPE_BOOL, 'label' => 'Flujos de aprobación'],
             self::FEATURE_ANALYTICS_ADVANCED => ['type' => self::TYPE_BOOL, 'label' => 'Analítica avanzada'],
             self::FEATURE_INBOX => ['type' => self::TYPE_BOOL, 'label' => 'Inbox'],

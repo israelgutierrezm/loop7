@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Modules\SocialConnections\Providers;
 
+use App\Modules\Billing\Entitlements\Entitlement;
 use App\Modules\SocialConnections\Contracts\AccountMetrics;
 use App\Modules\SocialConnections\Contracts\CountsText;
+use App\Modules\SocialConnections\Contracts\HasPlanQuota;
 use App\Modules\SocialConnections\Contracts\HasPublishingLimits;
 use App\Modules\SocialConnections\Contracts\InboxMessageData;
 use App\Modules\SocialConnections\Contracts\InboxReplyResult;
@@ -18,6 +20,7 @@ use App\Modules\SocialConnections\Contracts\PublishPayload;
 use App\Modules\SocialConnections\Contracts\PublishResult;
 use App\Modules\SocialConnections\Contracts\RemoteAccount;
 use App\Modules\SocialConnections\Contracts\RemoteDestination;
+use App\Modules\SocialConnections\Contracts\RevokesAccess;
 use App\Modules\SocialConnections\Enums\Capability;
 use App\Modules\SocialConnections\Exceptions\SocialProviderException;
 use App\Modules\SocialConnections\Exceptions\SocialTokenExpiredException;
@@ -37,7 +40,7 @@ use Illuminate\Support\Sleep;
  * se cobran (más si el texto lleva una URL) y, fuera de Enterprise, sólo se
  * puede responder a quien menciona a la cuenta.
  */
-class XProvider extends AbstractOAuth2Provider implements CountsText, HasPublishingLimits
+class XProvider extends AbstractOAuth2Provider implements CountsText, HasPlanQuota, HasPublishingLimits, RevokesAccess
 {
     private const API = 'https://api.x.com/2/';
 
@@ -100,6 +103,14 @@ class XProvider extends AbstractOAuth2Provider implements CountsText, HasPublish
         return ['text' => 280, 'images' => 4, 'videos' => 1];
     }
 
+    /**
+     * X cobra a la plataforma cada publicación: cada organización tiene un cupo mensual.
+     */
+    public function planQuota(): array
+    {
+        return ['entitlement' => Entitlement::X_POSTS_MONTH, 'period' => 'month', 'label' => 'publicaciones en X al mes'];
+    }
+
     public function defaultScopes(): array
     {
         return ['tweet.read', 'tweet.write', 'users.read', 'media.write', 'offline.access'];
@@ -127,6 +138,11 @@ class XProvider extends AbstractOAuth2Provider implements CountsText, HasPublish
         }
 
         return $length;
+    }
+
+    public function revokeAccess(OAuthTokens $tokens, array $credentials): void
+    {
+        $this->revokeAt(self::API . 'oauth2/revoke', $tokens, $credentials);
     }
 
     public function fetchAccount(OAuthTokens $tokens, array $credentials): RemoteAccount

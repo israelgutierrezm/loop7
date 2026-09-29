@@ -40,6 +40,8 @@ Catálogo en código (`App\Modules\Billing\Entitlements\Entitlement`); `-1` = il
 | `storage.gb` | Almacenamiento de la biblioteca | Subida y guardado de imágenes IA |
 | `ai_credits.month` | Créditos de IA | Cada generación |
 | `knowledge_documents.max` | Documentos del Brand Brain (Starter 5, Growth 25, Professional 100, Agency 500, Enterprise ilimitados) | Subir documento (RAG) |
+| `x_posts.month` | Publicaciones en X al mes (Starter 30, Growth 100, Professional 500, Agency 2000, Enterprise ilimitadas): X cobra cada publicación a la plataforma | Programar (cupo del mes de la fecha elegida, contando publicadas y programadas) y publicar (sin cupo, falla sin llamar a X ni reintentar) |
+| `youtube_uploads.day` | Subidas a YouTube al día (Starter 1, Growth 2, Professional 5, Agency 10, Enterprise 25): el proyecto de Google tiene 100 al día para todos los clientes | Igual, por día |
 | `feature.approvals` | Flujo de aprobación (sin él se aprueba directo) | Enviar a revisión |
 | `feature.analytics_advanced` | Exportación de analítica | Export CSV |
 | `feature.inbox` | Inbox | Todo el módulo |
