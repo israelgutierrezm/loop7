@@ -8,10 +8,19 @@ export interface ConfirmOptions {
   cancelText?: string
   /** Acción destructiva: el botón de confirmar se muestra en rojo. */
   danger?: boolean
+  /** Casilla opcional (p. ej. «Borrar también de las redes»); su valor llega con `askWithOption`. */
+  option?: { label: string; hint?: string; checked?: boolean }
+}
+
+export interface ConfirmResult {
+  ok: boolean
+  /** Si se marcó la casilla (siempre false al cancelar). */
+  option: boolean
 }
 
 interface PendingConfirm extends ConfirmOptions {
-  resolve: (ok: boolean) => void
+  optionChecked: boolean
+  resolve: (result: ConfirmResult) => void
 }
 
 /**
@@ -21,17 +30,22 @@ interface PendingConfirm extends ConfirmOptions {
 export const useConfirmStore = defineStore('confirm', () => {
   const current = ref<PendingConfirm | null>(null)
 
-  function ask(options: ConfirmOptions): Promise<boolean> {
-    current.value?.resolve(false)
+  function askWithOption(options: ConfirmOptions): Promise<ConfirmResult> {
+    current.value?.resolve({ ok: false, option: false })
     return new Promise((resolve) => {
-      current.value = { ...options, resolve }
+      current.value = { ...options, optionChecked: options.option?.checked ?? false, resolve }
     })
   }
 
+  async function ask(options: ConfirmOptions): Promise<boolean> {
+    return (await askWithOption(options)).ok
+  }
+
   function answer(ok: boolean): void {
-    current.value?.resolve(ok)
+    const pending = current.value
+    pending?.resolve({ ok, option: ok && pending.optionChecked })
     current.value = null
   }
 
-  return { current, ask, answer }
+  return { current, ask, askWithOption, answer }
 })

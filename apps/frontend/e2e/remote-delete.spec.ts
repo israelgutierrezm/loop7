@@ -37,4 +37,29 @@ test.describe('Borrar de las redes', () => {
     await page.screenshot({ path: testInfo.outputPath('retirado.png') })
     await variant.screenshot({ path: testInfo.outputPath('retirado-variante.png') })
   })
+
+  test('eliminar un contenido publicado borrándolo también de las redes', async ({ page }, testInfo) => {
+    test.setTimeout(120_000)
+    await register(page, 'Limpieza E2E')
+    await createBrand(page, 'Café Pasajero')
+    await connectFakeAccount(page, 'Café Pasajero')
+    await createContent(page, 'Promo caducada')
+    await addFakeVariant(page)
+    await approve(page)
+    await page.getByRole('button', { name: /Publicar ahora/ }).click()
+    await page.getByRole('dialog').getByRole('button', { name: /Publicar/ }).click()
+    await expect(page.getByText('Publicado', { exact: true }).first()).toBeVisible()
+
+    // El diálogo avisa de que lo publicado sigue en las redes y ofrece borrarlo también.
+    await page.getByRole('button', { name: 'Eliminar' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Eliminar contenido' })
+    await expect(dialog).toContainText('sigue en las redes')
+    await dialog.getByRole('checkbox', { name: 'Borrar también las 2 publicaciones de sus redes' }).check()
+    await dialog.screenshot({ path: testInfo.outputPath('eliminar-con-redes.png') })
+    await dialog.getByRole('button', { name: 'Eliminar' }).click()
+
+    await expectToast(page, 'Contenido eliminado y borrado de las redes.')
+    await expect(page).toHaveURL(/\/app\/content$/)
+    await expect(page.getByRole('link', { name: /Promo caducada/ })).toHaveCount(0)
+  })
 })

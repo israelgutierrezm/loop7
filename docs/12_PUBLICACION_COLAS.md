@@ -115,9 +115,13 @@ la marca, 20 por minuto. Borra de su red una publicación ya hecha (`RemotePostD
   publicar, el contenido pasa a `UNPUBLISHED`. Se audita `publication.remote_deleted` y se
   emite `PublicationDeletedRemotely` (webhook `publication.deleted`).
 - Al consolidar el estado tras publicar, un target borrado cuenta como publicado.
-- En el detalle del contenido: «Borrar de la red» en cada publicación que lo permite,
-  «Retirar de las redes» para todas, y el aviso al eliminar el contenido de que lo
-  publicado sigue en las redes. El listado y el calendario muestran «Retirado».
+- En el detalle del contenido: «Borrar de la red» en cada publicación que lo permite y
+  «Retirar de las redes» para todas (una petición por publicación, cada una acotada en
+  el tiempo). Al **eliminar** un contenido publicado, el diálogo avisa de que lo
+  publicado sigue en las redes y ofrece «Borrar también de las redes» (desmarcado por
+  defecto; indica qué redes hay que borrar a mano). Si alguna publicación no se puede
+  borrar, el contenido no se elimina, para no perder el enlace con lo que sigue
+  publicado. El listado y el calendario muestran «Retirado».
 
 ### Proveedores
 `SocialProviderInterface::publish(OAuthTokens, destinationExternalId, PublishPayload, credentials): PublishResult`.

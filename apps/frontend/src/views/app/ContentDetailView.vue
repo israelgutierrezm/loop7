@@ -354,7 +354,30 @@ async function deleteRemote(t: Target, provider: string): Promise<void> {
   if (ok) await act(() => http.delete(`/publication-targets/${t.id}/remote`), 'Publicación borrada de la red.')
 }
 
-/** Borra una a una las publicaciones que lo permiten e informa de cada fallo. */
+/** Redes con publicaciones vivas que no se pueden borrar desde Loop7 (p. ej. Instagram). */
+const undeletableNetworks = computed(() => [...new Set(
+  content.value?.variants
+    .filter((v) => v.targets.some((t) => t.status === 'published' && !t.can_delete_remote))
+    .map((v) => providerName(v.provider)) ?? [],
+)])
+
+/**
+ * Borra de sus redes las publicaciones indicadas, una petición por publicación
+ * (cada una acotada en el tiempo). Avisa de cada fallo y devuelve cuántas fallaron.
+ */
+async function deleteFromNetworks(targets: Target[]): Promise<number> {
+  let failed = 0
+  for (const t of targets) {
+    try {
+      await http.delete(`/publication-targets/${t.id}/remote`)
+    } catch (e) {
+      failed++
+      toasts.error(`${t.destination || 'Cuenta'}: ${apiErrorMessage(e)}`)
+    }
+  }
+  return failed
+}
+
 async function retireEverywhere(): Promise<void> {
   const targets = deletableTargets.value
   if (targets.length === 0) return
@@ -368,18 +391,11 @@ async function retireEverywhere(): Promise<void> {
   })
   if (!ok) return
   busy.value = true
-  let deleted = 0
   try {
-    for (const t of targets) {
-      try {
-        await http.delete(`/publication-targets/${t.id}/remote`)
-        deleted++
-      } catch (e) {
-        toasts.error(`${t.destination || 'Cuenta'}: ${apiErrorMessage(e)}`)
-      }
-    }
+    const failed = await deleteFromNetworks(targets)
+    const deleted = targets.length - failed
     if (deleted > 0) {
-      toasts.success(deleted === targets.length ? 'Retirado de las redes.' : `Retiradas ${deleted} de ${targets.length} publicaciones.`)
+      toasts.success(failed === 0 ? 'Retirado de las redes.' : `Retiradas ${deleted} de ${targets.length} publicaciones.`)
     }
     await load(true)
   } finally {
@@ -389,18 +405,35 @@ async function retireEverywhere(): Promise<void> {
 
 async function removeContent(): Promise<void> {
   if (!content.value) return
-  const ok = await confirmDialog.ask({
+  const targets = canDeleteRemote.value ? deletableTargets.value : []
+  const elsewhere = undeletableNetworks.value
+  const { ok, option: alsoFromNetworks } = await confirmDialog.askWithOption({
     title: 'Eliminar contenido',
     message: `Se eliminará «${content.value.title}». Si estaba programado, se cancela su publicación.`
-      + (stillPublished.value ? ' Lo ya publicado seguirá en las redes: para quitarlo, usa antes «Retirar de las redes» o bórralo en cada red.' : ''),
+      + (stillPublished.value ? ' Lo ya publicado sigue en las redes salvo que lo borres.' : ''),
     confirmText: 'Eliminar',
     danger: true,
+    option: targets.length > 0
+      ? {
+          label: targets.length === 1
+            ? 'Borrar también la publicación de su red'
+            : `Borrar también las ${targets.length} publicaciones de sus redes`,
+          hint: elsewhere.length > 0 ? `Lo publicado en ${elsewhere.join(' y ')} se borra desde esa red.` : undefined,
+        }
+      : undefined,
   })
   if (!ok) return
   busy.value = true
   try {
+    // Si alguna no se pudo borrar, el contenido no se elimina: se perdería el
+    // enlace con lo que sigue publicado.
+    if (alsoFromNetworks && (await deleteFromNetworks(targets)) > 0) {
+      toasts.error('No se eliminó el contenido porque algunas publicaciones siguen en las redes.')
+      await load(true)
+      return
+    }
     await http.delete(`/content/${id}`)
-    toasts.success('Contenido eliminado.')
+    toasts.success(alsoFromNetworks ? 'Contenido eliminado y borrado de las redes.' : 'Contenido eliminado.')
     router.push('/app/content')
   } catch (e) {
     toasts.error(apiErrorMessage(e))

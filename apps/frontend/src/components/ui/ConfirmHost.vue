@@ -17,9 +17,18 @@ const open = computed(() => confirm.current !== null)
       >
         <AppIcon :name="confirm.current?.danger ? 'alert' : 'help'" :size="20" />
       </span>
-      <p class="text-sm text-slate-600 dark:text-slate-300">
-        {{ confirm.current?.message ?? '¿Quieres continuar?' }}
-      </p>
+      <div class="space-y-3">
+        <p class="text-sm text-slate-600 dark:text-slate-300">
+          {{ confirm.current?.message ?? '¿Quieres continuar?' }}
+        </p>
+        <label v-if="confirm.current?.option" class="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-200">
+          <input v-model="confirm.current.optionChecked" type="checkbox" class="mt-0.5 rounded border-slate-300 text-brand-600" />
+          <span>
+            {{ confirm.current.option.label }}
+            <span v-if="confirm.current.option.hint" class="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">{{ confirm.current.option.hint }}</span>
+          </span>
+        </label>
+      </div>
     </div>
     <template #footer>
       <button type="button" class="btn-secondary text-sm" @click="confirm.answer(false)">
