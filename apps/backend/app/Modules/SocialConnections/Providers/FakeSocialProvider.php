@@ -42,6 +42,7 @@ class FakeSocialProvider implements DeletesRemotePosts, SocialProviderInterface
             Capability::VIDEO => true,
             Capability::LINK => true,
             Capability::CAROUSEL => true,
+            Capability::STORY => true,
             Capability::SCHEDULE_NATIVE => false,
             Capability::COMMENTS_READ => true,
             Capability::COMMENTS_REPLY => true,
@@ -130,11 +131,14 @@ class FakeSocialProvider implements DeletesRemotePosts, SocialProviderInterface
         }
 
         // Idempotencia: la misma idempotencyKey produce el mismo id remoto.
-        $remoteId = 'fake-post-' . ($payload->idempotencyKey !== ''
+        $kind = $payload->isStory() ? 'story' : 'post';
+        $remoteId = "fake-{$kind}-" . ($payload->idempotencyKey !== ''
             ? md5($payload->idempotencyKey)
             : Str::random(10));
 
-        return new PublishResult($remoteId, "https://fake.social/{$destinationExternalId}/{$remoteId}");
+        return new PublishResult($remoteId, $payload->isStory()
+            ? "https://fake.social/{$destinationExternalId}/stories/{$remoteId}"
+            : "https://fake.social/{$destinationExternalId}/{$remoteId}");
     }
 
     public function deleteRemotePost(OAuthTokens $tokens, string $remoteId, array $credentials): void

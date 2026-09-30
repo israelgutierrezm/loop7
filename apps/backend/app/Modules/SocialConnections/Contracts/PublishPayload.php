@@ -10,10 +10,13 @@ namespace App\Modules\SocialConnections\Contracts;
  * `mediaFiles` (mismo orden) da acceso a los bytes para las redes que exigen
  * subirlos. `checkpoint` conserva el progreso entre reintentos del mismo target.
  * `title` es el título interno del contenido (lo usan las redes con título
- * propio, como YouTube).
+ * propio, como YouTube). `format` = `story` publica una historia (una imagen o
+ * un video, sin texto) en las redes con la capacidad `story`.
  */
 final class PublishPayload
 {
+    public const FORMAT_STORY = 'story';
+
     /**
      * @param  list<string>  $mediaUrls
      * @param  list<string>  $mediaTypes
@@ -41,5 +44,10 @@ final class PublishPayload
     public function hasVideo(): bool
     {
         return in_array('video', $this->mediaTypes, true);
+    }
+
+    public function isStory(): bool
+    {
+        return $this->format === self::FORMAT_STORY;
     }
 }

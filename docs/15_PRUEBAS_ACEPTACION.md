@@ -62,6 +62,9 @@ aislado, como lo haría una persona:
   retirar la del Perfil con «Retirar de las redes»: ambas quedan «Borrado de la red» y
   el contenido, «Retirado». Y eliminar un contenido publicado marcando «Borrar también
   de las redes»: se borran sus dos publicaciones y desaparece del listado.
+- `stories.spec.ts`: un contenido de tipo «Historia» avisa de que falta la imagen y no
+  ofrece editar texto; se sube una imagen desde el selector de medios (PNG real: el
+  backend comprueba el tipo) y, al publicar, el enlace lleva a la historia.
 
 Los pasos comunes (registro, marca, cuenta simulada, contenido, aprobación, programar)
 están en `e2e/support.ts`, junto con `artisan()`, que ejecuta comandos contra el backend

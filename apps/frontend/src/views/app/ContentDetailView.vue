@@ -112,7 +112,11 @@ function pickSuggestion(iso: string): void {
 watch(() => `${content.value?.brand ?? ''}|${variantProviders.value.join(',')}|${schedulable.value}`, () => {
   if (schedulable.value && content.value) loadBest(content.value.brand, { providers: variantProviders.value })
 })
-const availableProviders = computed(() => providers.value.filter((p) => !content.value?.variants.some((v) => v.provider === p.key)))
+/** Historia: una imagen o un video sin texto, sólo en las redes que las admiten. */
+const isStory = computed(() => content.value?.type === 'story')
+const availableProviders = computed(() => providers.value.filter((p) =>
+  !content.value?.variants.some((v) => v.provider === p.key) && (!isStory.value || p.capabilities?.story === true),
+))
 
 function providerName(key: string): string {
   return providers.value.find((p) => p.key === key)?.name ?? key
@@ -121,7 +125,8 @@ function providerName(key: string): string {
 /** Instagram y otras redes sin texto solo exigen imagen o video. */
 function needsMedia(v: Variant): boolean {
   const caps = providers.value.find((p) => p.key === v.provider)?.capabilities
-  return caps?.text === false && v.media.length === 0
+  // En una historia lo avisa variantWarnings (exige exactamente un archivo).
+  return !isStory.value && caps?.text === false && v.media.length === 0
 }
 
 function textLimit(v: Variant): number | null {
@@ -138,6 +143,11 @@ function variantWarnings(v: Variant): string[] {
   const images = v.media.length - videos
   const name = provider.name
   const warnings: string[] = []
+  if (isStory.value) {
+    if (caps.story !== true) warnings.push(`${name} no admite historias.`)
+    else if (v.media.length !== 1) warnings.push('Una historia lleva una sola imagen o un video.')
+    return warnings
+  }
   if (caps.image === false && images > 0) warnings.push(`${name} no admite imágenes: sólo video.`)
   if (caps.video === false && videos > 0) warnings.push(`${name} no admite video.`)
   if (limits.text && (v.body ?? '').length > limits.text) warnings.push(`El texto supera los ${limits.text} caracteres de ${name}.`)
@@ -603,7 +613,10 @@ onUnmounted(stopPolling)
               </div>
               <div>
                 <label for="c-body" class="label">Texto base</label>
-                <textarea id="c-body" v-model="content.body" rows="5" class="input" />
+                <textarea id="c-body" v-model="content.body" rows="5" class="input" :aria-describedby="isStory ? 'c-body-story' : undefined" />
+                <p v-if="isStory" id="c-body-story" class="mt-1 text-xs text-slate-500">
+                  Las historias se publican sin texto: aquí sirve como nota interna.
+                </p>
               </div>
             </fieldset>
             <div v-if="canEdit" class="mt-4 flex justify-end">
@@ -613,8 +626,13 @@ onUnmounted(stopPolling)
 
           <!-- Variantes -->
           <section class="card p-6" aria-labelledby="var-title">
-            <h2 id="var-title" class="font-semibold text-slate-900 dark:text-white">Publicaciones por red</h2>
-            <p class="mb-4 text-sm text-slate-500">Cada red recibe su propio texto e imágenes; se publica en todas las cuentas conectadas de la marca.</p>
+            <h2 id="var-title" class="font-semibold text-slate-900 dark:text-white">{{ isStory ? 'Historia por red' : 'Publicaciones por red' }}</h2>
+            <p class="mb-4 text-sm text-slate-500">
+              <template v-if="isStory">
+                Se publica como historia (24 h) en las redes que las admiten, con una sola imagen o un video vertical (9:16; video de 3 a 60 s) y sin texto.
+              </template>
+              <template v-else>Cada red recibe su propio texto e imágenes; se publica en todas las cuentas conectadas de la marca.</template>
+            </p>
 
             <p v-if="content.variants.length === 0" class="rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-500 dark:border-slate-700">
               Añade al menos una red para poder programar o publicar.
@@ -626,7 +644,7 @@ onUnmounted(stopPolling)
                   <ProviderIcon :provider="v.provider" :size="24" /> {{ providerName(v.provider) }}
                 </span>
                 <div v-if="canEdit" class="flex items-center gap-1">
-                  <button v-if="editingVariant !== v.id" type="button" class="btn-ghost px-2 py-1 text-xs" @click="startEdit(v)">Editar texto</button>
+                  <button v-if="editingVariant !== v.id && !isStory" type="button" class="btn-ghost px-2 py-1 text-xs" @click="startEdit(v)">Editar texto</button>
                   <button type="button" class="grid h-7 w-7 place-items-center rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30" :aria-label="`Quitar ${providerName(v.provider)}`" @click="deleteVariant(v)">
                     <AppIcon name="close" :size="14" />
                   </button>
@@ -648,6 +666,7 @@ onUnmounted(stopPolling)
                   <button type="submit" class="btn-primary text-xs" :disabled="busy">Guardar</button>
                 </div>
               </form>
+              <p v-else-if="isStory" class="text-sm text-slate-500 dark:text-slate-400">Historia: se publica la imagen o el video, sin texto.</p>
               <p v-else class="whitespace-pre-line text-sm text-slate-600 dark:text-slate-300">{{ v.body || '(usa el texto base)' }}</p>
 
               <!-- Multimedia -->
@@ -735,18 +754,23 @@ onUnmounted(stopPolling)
                 <select id="nv-provider" v-model="newVariant.provider" class="input w-auto">
                   <option v-for="p in availableProviders" :key="p.key" :value="p.key">{{ p.name }}</option>
                 </select>
-                <button v-if="canUseAi" type="button" class="btn-secondary text-sm" :disabled="aiBusy" @click="adaptVariant">
+                <button v-if="canUseAi && !isStory" type="button" class="btn-secondary text-sm" :disabled="aiBusy" @click="adaptVariant">
                   <Spinner v-if="aiBusy" :size="14" /><AppIcon v-else name="sparkles" :size="14" /> Adaptar con IA
                 </button>
               </div>
-              <label for="nv-body" class="sr-only">Texto para esta red</label>
-              <textarea id="nv-body" v-model="newVariant.body" rows="2" class="input" placeholder="Texto para esta red (vacío = usa el texto base)" />
+              <template v-if="!isStory">
+                <label for="nv-body" class="sr-only">Texto para esta red</label>
+                <textarea id="nv-body" v-model="newVariant.body" rows="2" class="input" placeholder="Texto para esta red (vacío = usa el texto base)" />
+              </template>
               <div class="flex justify-end">
                 <button type="submit" class="btn-primary text-sm" :disabled="busy || !newVariant.provider">Añadir red</button>
               </div>
             </form>
             <p v-else-if="canEdit && providers.length === 0" class="mt-2 text-sm text-slate-500">
               No hay redes habilitadas en la plataforma.
+            </p>
+            <p v-else-if="canEdit && isStory && content.variants.length === 0" class="mt-2 text-sm text-slate-500">
+              Ninguna red habilitada admite historias (Instagram y Páginas de Facebook sí).
             </p>
           </section>
         </div>
@@ -775,6 +799,7 @@ onUnmounted(stopPolling)
       :open="pickerFor !== null"
       :brand-id="content.brand"
       :selected="pickerFor?.media.map((m) => m.id) ?? []"
+      :max="isStory ? 1 : undefined"
       @close="pickerFor = null"
       @confirm="(media) => pickerFor && setMedia(pickerFor, media)"
     />

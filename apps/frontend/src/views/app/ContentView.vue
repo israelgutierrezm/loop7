@@ -294,6 +294,9 @@ useQueryAction('crear', () => {
               <option value="video">Video</option>
               <option value="link">Enlace</option>
             </select>
+            <p v-if="form.type === 'story'" class="mt-1 text-xs text-slate-500">
+              Se publica como historia en Instagram y Páginas de Facebook: una imagen o un video vertical, sin texto.
+            </p>
           </div>
           <div v-if="campaigns.length">
             <label class="label" for="c-campaign">Campaña</label>

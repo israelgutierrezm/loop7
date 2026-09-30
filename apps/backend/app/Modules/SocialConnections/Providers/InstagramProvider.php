@@ -60,6 +60,7 @@ class InstagramProvider extends AbstractMetaProvider
             Capability::MULTI_IMAGE => true,
             Capability::VIDEO => true,
             Capability::SHORT_VIDEO => true,
+            Capability::STORY => true,
             Capability::CAROUSEL => true,
             Capability::COMMENTS_READ => true,
             Capability::COMMENTS_REPLY => true,
@@ -143,7 +144,15 @@ class InstagramProvider extends AbstractMetaProvider
         $urls = array_slice($payload->mediaUrls, 0, self::CAROUSEL_MAX);
         $checksLeft = self::STATUS_CHECKS;
 
-        if (count($urls) === 1) {
+        if ($payload->isStory()) {
+            // Historia: una imagen o un video, sin pie (Instagram no lo admite en historias).
+            $container = $this->prepare($graph, $account, $token, $checkpoint, 'main', $payload->isVideo(0)
+                ? ['media_type' => 'STORIES', 'video_url' => $urls[0]]
+                : ['media_type' => 'STORIES', 'image_url' => $urls[0]]);
+            if ($payload->isVideo(0)) {
+                $this->waitUntilReady($graph, $container, $token, $checksLeft, $checkpoint, 'main');
+            }
+        } elseif (count($urls) === 1) {
             $container = $this->prepare($graph, $account, $token, $checkpoint, 'main', $payload->isVideo(0)
                 ? ['media_type' => 'REELS', 'video_url' => $urls[0], 'caption' => $payload->body]
                 : ['image_url' => $urls[0], 'caption' => $payload->body]);

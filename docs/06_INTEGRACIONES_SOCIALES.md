@@ -72,8 +72,8 @@ implementarlas, como exige la regla de arriba. Resumen:
 
 | Red | Publica | Métricas | Inbox | Revisión de la app / límites clave |
 |---|---|---|---|---|
-| Facebook | texto, enlace, 1–N imágenes, video | página y publicación | comentarios | Meta App Review |
-| Instagram | imagen, reel, carrusel ≤ 10 | cuenta y publicación | comentarios | Meta App Review |
+| Facebook | texto, enlace, 1–N imágenes, video, historia | página y publicación | comentarios | Meta App Review |
+| Instagram | imagen, reel, carrusel ≤ 10, historia | cuenta y publicación | comentarios | Meta App Review; 100 publicaciones por API/24 h |
 | Threads | texto ≤ 500, imagen, video, carrusel 2–20 | cuenta y publicación | respuestas | App Review; app propia de Threads; 250 publicaciones/24 h |
 | LinkedIn | texto ≤ 3000, 1–20 imágenes, video | páginas (y perfil con CM API) | comentarios de páginas | Perfil: alta directa. Páginas: Community Management API |
 | X | texto 280 ponderado, ≤ 4 imágenes o 1 video/GIF | publicación y seguidores | menciones | Pago por uso: cada publicación y archivo se cobran |
@@ -146,6 +146,14 @@ Login) y usan `Providers/Meta/MetaGraph` (cliente Graph API):
 - **Publicar**: texto (con enlace → vista previa vía `link`), una imagen
   (`/{page}/photos`), **varias imágenes** en una sola publicación (fotos sin
   publicar + `attached_media`) y **video** (`/{page}/videos`, `file_url`).
+- **Historias** (Page Stories API, sin texto): foto → `/{page}/photos` con
+  `published=false` y `/{page}/photo_stories` con su `photo_id`; video →
+  `/{page}/video_stories` con `upload_phase=start` (devuelve `video_id` y `upload_url`),
+  subida por URL a `rupload.facebook.com` (cabeceras `Authorization: OAuth …` y
+  `file_url`; el token sólo se envía a ese dominio) y `upload_phase=finish`. Video
+  vertical 9:16 de 3 a 60 s. El `post_id` se guarda en el checkpoint (un reintento no la
+  duplica) y el enlace sale de `/{page}/stories` (si no, el de la Página). Mismos
+  permisos que publicar.
 - **Métricas de cuenta**: `followers_count` + Insights `page_media_view`,
   `page_total_media_view_unique`, `page_post_engagements`.
 - **Métricas de post**: reacciones/comentarios/compartidos + `post_media_view`,
@@ -166,6 +174,9 @@ Login) y usan `Providers/Meta/MetaGraph` (cliente Graph API):
   elementos (imágenes y/o videos). Instagram **no admite sólo texto**
   (`Capability::TEXT=false`) y descarga los archivos desde una URL pública: se usa
   la URL firmada temporal del archivo (120 min).
+- **Historias**: el mismo flujo con `media_type=STORIES` e `image_url` o `video_url`,
+  **sin pie** (Instagram no lo admite en historias), esperando a `FINISHED` si es video;
+  cuentan en el límite de 100 publicaciones por API cada 24 h.
 - **Métricas**: `followers_count`/`media_count` + Insights `reach`, `views`,
   `total_interactions` (`metric_type=total_value`); por publicación `like_count`,
   `comments_count` + `views`, `reach`, `shares`.
@@ -173,6 +184,17 @@ Login) y usan `Providers/Meta/MetaGraph` (cliente Graph API):
 - Scopes: `instagram_basic`, `instagram_content_publish`,
   `instagram_manage_comments`, `instagram_manage_insights`, `pages_show_list`,
   `pages_read_engagement`.
+
+### Historias (tipo de contenido «Historia»)
+Un contenido de tipo `story` se publica como historia en cada red
+(`PublishPayload::$format = 'story'`; el tipo manda sobre el formato de la variante).
+Sólo admiten historias las redes con `Capability::STORY` (Instagram, Facebook y el
+proveedor de prueba). `PublicationPlanner` exige esa capacidad y **exactamente una**
+imagen o video por red, y no aplica los límites de texto porque el texto no se envía.
+Las métricas de las historias no se guardan (caducan a las 24 h y las redes sólo las
+dan mientras siguen activas), así que no cuentan para la analítica ni los mejores
+horarios. En el editor: sólo se ofrecen redes con historias, se oculta el texto por red
+y el selector de medios admite un archivo.
 
 ### Validación antes de publicar
 `PublicationPlanner` valida al **programar** y al **publicar ahora**: la red debe

@@ -9,7 +9,10 @@ use App\Modules\Analytics\Jobs\SyncPostMetrics;
 use App\Modules\Analytics\Models\AccountMetricSnapshot;
 use App\Modules\Analytics\Models\PostMetricSnapshot;
 use App\Modules\Brands\Models\Brand;
+use App\Modules\Content\Enums\ContentType;
 use App\Modules\Content\Enums\TargetStatus;
+use App\Modules\Content\Models\ContentItem;
+use App\Modules\Content\Models\PostVariant;
 use App\Modules\Content\Models\PublicationTarget;
 use App\Modules\Organizations\Models\Organization;
 use App\Modules\SocialConnections\Enums\ConnectionStatus;
@@ -81,6 +84,16 @@ class MetricsSyncService
     {
         $date ??= Carbon::today();
         if ($target->status !== TargetStatus::PUBLISHED || $target->remote_id === null) {
+            return null;
+        }
+
+        // Las historias caducan a las 24 h y las redes sólo dan sus métricas mientras
+        // siguen activas: no se guardan (tampoco cuentan para los mejores horarios).
+        $isStory = ContentItem::query()->withoutGlobalScopes()
+            ->whereIn('id', PostVariant::query()->withoutGlobalScopes()->whereKey($target->post_variant_id)->select('content_item_id'))
+            ->where('type', ContentType::STORY->value)
+            ->exists();
+        if ($isStory) {
             return null;
         }
 

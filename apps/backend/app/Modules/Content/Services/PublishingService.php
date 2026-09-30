@@ -9,6 +9,7 @@ use App\Modules\Audit\Services\AuditLogger;
 use App\Modules\Billing\Exceptions\PlanLimitExceededException;
 use App\Modules\Billing\Services\EntitlementsService;
 use App\Modules\Content\Enums\ContentStatus;
+use App\Modules\Content\Enums\ContentType;
 use App\Modules\Content\Enums\TargetStatus;
 use App\Modules\Content\Events\ContentPublicationFailed;
 use App\Modules\Content\Events\ContentPublished;
@@ -131,7 +132,8 @@ class PublishingService
             $payload = new PublishPayload(
                 body: $variant->body ?? '',
                 mediaUrls: $urls,
-                format: $variant->format,
+                // El tipo del contenido manda: una «Historia» se publica como historia en cada red.
+                format: $content->type === ContentType::STORY ? PublishPayload::FORMAT_STORY : $variant->format,
                 idempotencyKey: $target->public_id,
                 mediaTypes: $variant->media->map(fn (MediaAsset $m) => $m->isVideo() ? 'video' : 'image')->values()->all(),
                 checkpoint: $this->checkpoint($target, $variant),

@@ -17,6 +17,7 @@ Conectar, reconectar, desconectar, listar capacidades/scopes, estado de token, e
 
 ## Content Studio
 Texto, imagen, carrusel, story, reel/video, thread, pin, documento y otros formatos según capacidades de red.
+Historias implementadas en Instagram y Páginas de Facebook (una imagen o un video, sin texto; docs/06).
 
 ## Variantes multicanal
 Una pieza base puede producir variantes por red. Las variantes pueden editarse de forma independiente.

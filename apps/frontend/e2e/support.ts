@@ -93,11 +93,12 @@ export async function connectFakeAccount(page: Page, brand: string): Promise<voi
   await expect(page.getByRole('button', { name: 'Desconectar' })).toBeVisible()
 }
 
-export async function createContent(page: Page, title: string): Promise<void> {
+export async function createContent(page: Page, title: string, type?: string): Promise<void> {
   await page.goto('/app/content')
   await page.getByRole('button', { name: 'Nuevo' }).click()
   const dialog = page.getByRole('dialog', { name: 'Nuevo contenido' })
   await dialog.getByLabel('Título').fill(title)
+  if (type) await dialog.getByLabel('Tipo').selectOption({ label: type })
   await dialog.getByLabel('Texto base').fill('¡Nuevo tueste de temporada! Pásate a probarlo.')
   await dialog.getByRole('button', { name: 'Crear' }).click()
   await expect(page).toHaveURL(/\/app\/content\/[0-9A-Z]{26}/)

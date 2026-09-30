@@ -81,6 +81,26 @@ final class MetaGraph
     }
 
     /**
+     * Subida a la URL que da Meta (rupload.facebook.com). El token va en la
+     * cabecera Authorization, nunca en la URL, y sólo se envía a ese dominio.
+     *
+     * @param  array<string, string>  $headers
+     * @return array<string, mixed>
+     */
+    public function upload(string $uploadUrl, array $headers, string $action): array
+    {
+        if (! str_starts_with($uploadUrl, 'https://rupload.facebook.com/')) {
+            throw new SocialProviderException('Meta devolvió una dirección de subida no válida.');
+        }
+
+        return $this->check($this->send(
+            fn () => Http::timeout(self::TIMEOUT_SECONDS)->withHeaders($headers)->send('POST', $uploadUrl),
+            'rupload',
+            $action,
+        ), $action);
+    }
+
+    /**
      * @param  array<string, mixed>  $query
      * @return array<string, mixed>
      */

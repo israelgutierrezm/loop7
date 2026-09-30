@@ -8,6 +8,7 @@ use App\Modules\Billing\Entitlements\Entitlement;
 use App\Modules\Billing\Exceptions\PlanLimitExceededException;
 use App\Modules\Billing\Services\EntitlementsService;
 use App\Modules\Billing\Services\UsageService;
+use App\Modules\Content\Enums\ContentType;
 use App\Modules\Content\Enums\TargetStatus;
 use App\Modules\Content\Models\ContentItem;
 use App\Modules\Content\Models\PostVariant;
@@ -62,6 +63,7 @@ class PublicationPlanner
 
         $errors = [];
         $withDestinations = 0;
+        $isStory = $content->type === ContentType::STORY;
 
         foreach ($content->variants as $variant) {
             if ($this->destinationsFor($content, $variant)->isEmpty()) {
@@ -72,6 +74,18 @@ class PublicationPlanner
             $name = $this->manager->record($variant->provider)->name ?? $variant->provider;
             $adapter = $this->manager->adapter($variant->provider);
             $capabilities = $adapter?->capabilities() ?? [];
+
+            // Historia: una imagen o un video, sin texto (no aplican los límites de texto).
+            if ($isStory) {
+                if (($capabilities[Capability::STORY] ?? false) !== true) {
+                    $errors[] = "{$name} no admite historias.";
+                } elseif ($variant->media->count() !== 1) {
+                    $errors[] = "La historia para {$name} lleva una sola imagen o un video.";
+                }
+
+                continue;
+            }
+
             $videos = $variant->media->filter(fn ($m) => $m->isVideo())->count();
             $images = $variant->media->count() - $videos;
 

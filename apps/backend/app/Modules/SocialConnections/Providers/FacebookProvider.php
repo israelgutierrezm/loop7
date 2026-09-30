@@ -28,6 +28,9 @@ use Illuminate\Support\Carbon;
  */
 class FacebookProvider extends AbstractMetaProvider implements DeletesRemotePosts
 {
+    /** Historia ya publicada en un intento anterior (no se duplica al reintentar). */
+    private const CHECKPOINT_STORY = 'facebook.story_post';
+
     public function key(): string
     {
         return 'facebook';
@@ -40,6 +43,7 @@ class FacebookProvider extends AbstractMetaProvider implements DeletesRemotePost
             Capability::IMAGE => true,
             Capability::MULTI_IMAGE => true,
             Capability::VIDEO => true,
+            Capability::STORY => true,
             Capability::LINK => true,
             Capability::COMMENTS_READ => true,
             Capability::COMMENTS_REPLY => true,
@@ -98,6 +102,10 @@ class FacebookProvider extends AbstractMetaProvider implements DeletesRemotePost
         $graph = MetaGraph::fromCredentials($credentials);
         $token = $this->pageToken($graph, $destinationExternalId, $tokens);
         $page = $destinationExternalId;
+
+        if ($payload->isStory()) {
+            return $this->publishStory($graph, $page, $token, $payload);
+        }
 
         if ($payload->hasVideo()) {
             // Un video por publicación: se publica el primero con el texto como descripción.
@@ -289,6 +297,77 @@ class FacebookProvider extends AbstractMetaProvider implements DeletesRemotePost
      * manual con token de usuario), se deriva al vuelo y, si tampoco es posible,
      * se usa el token tal cual (puede ser ya un page token).
      */
+    /**
+     * Historia de la Página (Page Stories API), sin texto: una foto se sube sin
+     * publicar y se publica con photo_stories; un video pasa por video_stories
+     * (start → subida por URL → finish, 3–60 s en vertical).
+     */
+    private function publishStory(MetaGraph $graph, string $page, string $token, PublishPayload $payload): PublishResult
+    {
+        $checkpoint = $payload->checkpoint;
+        $published = (string) $checkpoint->get(self::CHECKPOINT_STORY, '');
+        if ($published !== '') {
+            return new PublishResult($published, $this->storyUrl($graph, $page, $published, $token));
+        }
+
+        if ($payload->isVideo(0)) {
+            $session = $graph->post($page . '/video_stories', ['upload_phase' => 'start', 'access_token' => $token], 'preparar la historia');
+            $videoId = (string) ($session['video_id'] ?? '');
+            if ($videoId === '') {
+                throw new SocialProviderException('Meta no devolvió la sesión de subida de la historia.');
+            }
+            $graph->upload((string) ($session['upload_url'] ?? ''), [
+                'Authorization' => 'OAuth ' . $token,
+                'file_url' => $payload->mediaUrls[0],
+            ], 'subir el video de la historia');
+            $story = $graph->post($page . '/video_stories', [
+                'upload_phase' => 'finish',
+                'video_id' => $videoId,
+                'access_token' => $token,
+            ], 'publicar la historia');
+        } else {
+            $photo = $graph->post($page . '/photos', [
+                'url' => $payload->mediaUrls[0],
+                'published' => 'false',
+                'access_token' => $token,
+            ], 'subir la imagen de la historia');
+            $story = $graph->post($page . '/photo_stories', [
+                'photo_id' => (string) ($photo['id'] ?? ''),
+                'access_token' => $token,
+            ], 'publicar la historia');
+        }
+
+        $postId = (string) ($story['post_id'] ?? '');
+        if ($postId === '' || ($story['success'] ?? true) === false) {
+            throw new SocialProviderException('Meta no confirmó la publicación de la historia.');
+        }
+        // Antes que nada: si el worker muere ahora, el reintento no la publica otra vez.
+        $checkpoint->put(self::CHECKPOINT_STORY, $postId);
+
+        return new PublishResult($postId, $this->storyUrl($graph, $page, $postId, $token));
+    }
+
+    /**
+     * Enlace de la historia (GET /{page}/stories); si no aparece, el de la Página.
+     */
+    private function storyUrl(MetaGraph $graph, string $page, string $postId, string $token): string
+    {
+        try {
+            $stories = $graph->get($page . '/stories', ['access_token' => $token], 'consultar las historias');
+            foreach ((array) ($stories['data'] ?? []) as $story) {
+                if (is_array($story) && (string) ($story['post_id'] ?? '') === $postId && is_string($story['url'] ?? null)) {
+                    return $story['url'];
+                }
+            }
+        } catch (SocialTokenExpiredException $e) {
+            throw $e;
+        } catch (SocialProviderException) {
+            // Sin enlace directo: se usa el de la Página.
+        }
+
+        return 'https://www.facebook.com/' . $page;
+    }
+
     private function pageToken(MetaGraph $graph, string $pageId, OAuthTokens $tokens): string
     {
         if ($tokens->destinationToken !== null && $tokens->destinationToken !== '') {
