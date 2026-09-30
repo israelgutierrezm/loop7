@@ -92,6 +92,11 @@ class NewProvidersIntegrationTest extends TestCase
         $this->assertSame('v1.0', $providers['threads']['api_version']['default']);
         $this->assertNull($providers['x']['api_version']);
         $this->assertStringContainsString('Login Kit', $providers['tiktok']['setup']['redirect_hint']);
+        // Permisos opcionales que activan funciones (p. ej. borrar en Threads), sin pedirlos por defecto.
+        $this->assertContains('threads_delete', array_column($providers['threads']['optional_scopes'], 'scope'));
+        $this->assertNotContains('threads_delete', $providers['threads']['default_scopes']);
+        $this->assertContains('w_organization_social', array_column($providers['linkedin']['optional_scopes'], 'scope'));
+        $this->assertSame([], $providers['x']['optional_scopes']);
 
         $this->putJson('/api/v1/platform/social-providers/linkedin', ['api_version' => '202607'])
             ->assertOk()

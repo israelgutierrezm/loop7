@@ -69,6 +69,28 @@ class PlatformSocialProvidersController extends Controller
         ],
     ];
 
+    /**
+     * Permisos que no se piden por defecto y activan funciones (docs/06). Se
+     * añaden a los scopes tras aprobarlos en la app de la red, y las cuentas ya
+     * conectadas deben reconectarse para obtenerlos.
+     *
+     * @var array<string, array<string, string>>
+     */
+    private const OPTIONAL_SCOPES = [
+        'threads' => [
+            'threads_delete' => 'Borrar publicaciones desde Loop7 (añádelo también al caso de uso de la app de Meta).',
+        ],
+        'linkedin' => [
+            'w_organization_social' => 'Publicar y borrar en páginas de empresa (Community Management API).',
+            'r_organization_social' => 'Leer las publicaciones de las páginas.',
+            'rw_organization_admin' => 'Listar las páginas que administra la cuenta y sus estadísticas.',
+            'r_organization_social_feed' => 'Leer los comentarios de las páginas (inbox).',
+            'w_organization_social_feed' => 'Responder comentarios de las páginas (inbox).',
+            'r_member_postAnalytics' => 'Métricas de las publicaciones del perfil.',
+            'r_member_profileAnalytics' => 'Seguidores del perfil.',
+        ],
+    ];
+
     public function __construct(
         private readonly AuditLogger $audit,
         private readonly SocialProviderManager $manager,
@@ -227,6 +249,11 @@ class PlatformSocialProvidersController extends Controller
             ] : null,
             'scopes' => $this->manager->scopes($provider->key),
             'default_scopes' => $this->manager->adapter($provider->key)?->defaultScopes() ?? [],
+            'optional_scopes' => array_map(
+                fn (string $scope, string $purpose): array => ['scope' => $scope, 'purpose' => $purpose],
+                array_keys(self::OPTIONAL_SCOPES[$provider->key] ?? []),
+                array_values(self::OPTIONAL_SCOPES[$provider->key] ?? []),
+            ),
             'credential_labels' => [
                 'client_id' => self::SETUP[$provider->key]['client_id'] ?? 'Client ID',
                 'client_secret' => self::SETUP[$provider->key]['client_secret'] ?? 'Client Secret',

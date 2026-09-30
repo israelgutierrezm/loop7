@@ -22,6 +22,8 @@ interface Provider {
   credential_labels: { client_id: string; client_secret: string }
   scopes: string[]
   default_scopes: string[]
+  /** Permisos que no se piden por defecto y activan funciones (p. ej. borrar en Threads). */
+  optional_scopes: { scope: string; purpose: string }[]
   setup: {
     redirect_uri: string
     redirect_hint: string
@@ -107,9 +109,17 @@ async function saveCredentials(p: Provider): Promise<void> {
   }
 }
 
+function scopeList(p: Provider): string[] {
+  return forms[p.key].scopes.split(/[\s,]+/).map((s) => s.trim()).filter(Boolean)
+}
+
+function addScope(p: Provider, scope: string): void {
+  forms[p.key].scopes = [...scopeList(p), scope].join(', ')
+}
+
 async function saveAdvanced(p: Provider): Promise<void> {
   const form = forms[p.key]
-  const scopes = form.scopes.split(/[\s,]+/).map((s) => s.trim()).filter(Boolean)
+  const scopes = scopeList(p)
   saving.value = p.key
   try {
     const payload: Record<string, unknown> = {
@@ -299,6 +309,21 @@ onMounted(load)
                 Separados por coma. Cada permiso debe estar aprobado en la revisión de la app.
                 <button type="button" class="text-brand-600 hover:underline" @click="resetScopes(p)">Restablecer</button>
               </p>
+              <div v-if="p.optional_scopes.length" class="mt-3 rounded-lg bg-slate-50 p-3 text-xs dark:bg-slate-800/40">
+                <p class="mb-1.5 font-medium text-slate-600 dark:text-slate-300">
+                  Permisos opcionales: actívalos primero en la app de la red; las cuentas ya conectadas deben reconectarse para obtenerlos.
+                </p>
+                <ul class="space-y-1">
+                  <li v-for="o in p.optional_scopes" :key="o.scope" class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                    <code class="font-mono text-slate-700 dark:text-slate-200">{{ o.scope }}</code>
+                    <span class="text-slate-500">{{ o.purpose }}</span>
+                    <span v-if="scopeList(p).includes(o.scope)" class="text-emerald-600 dark:text-emerald-400">En la lista</span>
+                    <button v-else type="button" class="text-brand-600 hover:underline" :aria-label="`Añadir ${o.scope} a los permisos`" @click="addScope(p, o.scope)">
+                      Añadir
+                    </button>
+                  </li>
+                </ul>
+              </div>
             </div>
             <div class="flex justify-end lg:col-span-3">
               <button type="submit" class="btn-primary text-sm" :disabled="saving === p.key">Guardar ajustes</button>
