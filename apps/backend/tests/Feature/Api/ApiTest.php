@@ -7,6 +7,8 @@ namespace Tests\Feature\Api;
 use App\Modules\AccessControl\Enums\OrganizationRole;
 use App\Modules\Api\Services\ApiKeyService;
 use App\Modules\Api\Support\ApiScope;
+use App\Modules\Billing\Models\OrganizationEntitlementOverride;
+use App\Modules\Billing\Services\EntitlementsService;
 use App\Modules\Brands\Models\Brand;
 use App\Modules\Organizations\Models\Organization;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -228,6 +230,58 @@ class ApiTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('error.code', -32001);
+    }
+
+    public function test_mejores_horarios_por_api_y_mcp(): void
+    {
+        [$org, $key] = $this->orgWithKey([ApiScope::ANALYTICS_READ]);
+        $brand = Brand::factory()->create(['organization_id' => $org->id]);
+        $url = "/api/public/v1/brands/{$brand->public_id}/analytics/best-times";
+
+        $this->withToken($key)->getJson($url)
+            ->assertOk()
+            ->assertJsonPath('data.sufficient', false)
+            ->assertJsonPath('data.min_posts', 10)
+            ->assertJsonStructure(['data' => ['timezone', 'sample', 'heatmap', 'counts', 'top', 'occurrences']]);
+        $this->withToken($key)->getJson($url . '?providers[]=myspace')->assertUnprocessable();
+
+        $tools = $this->withToken($key)
+            ->postJson('/api/public/v1/mcp', ['jsonrpc' => '2.0', 'id' => 6, 'method' => 'tools/list'])
+            ->json('result.tools');
+        $this->assertContains('get_best_times', array_column($tools, 'name'));
+
+        $text = $this->withToken($key)->postJson('/api/public/v1/mcp', [
+            'jsonrpc' => '2.0', 'id' => 7, 'method' => 'tools/call',
+            'params' => ['name' => 'get_best_times', 'arguments' => ['brand' => $brand->public_id, 'days' => 14]],
+        ])->assertOk()->assertJsonMissingPath('result.isError')->json('result.content.0.text');
+        $payload = json_decode((string) $text, true);
+        $this->assertFalse($payload['sufficient']);
+        $this->assertSame([], $payload['top']);
+        $this->assertArrayNotHasKey('heatmap', $payload); // a un agente le basta lo recomendado
+    }
+
+    public function test_mejores_horarios_por_api_exigen_scope_y_analitica_avanzada(): void
+    {
+        [$org, $key] = $this->orgWithKey([ApiScope::BRANDS_READ]);
+        $brand = Brand::factory()->create(['organization_id' => $org->id]);
+        $this->withToken($key)->getJson("/api/public/v1/brands/{$brand->public_id}/analytics/best-times")->assertForbidden();
+
+        // Sin analítica avanzada (excepción para la organización): 402 y error de herramienta legible.
+        [$orgB, $keyB] = $this->orgWithKey([ApiScope::ANALYTICS_READ]);
+        OrganizationEntitlementOverride::query()->create([
+            'organization_id' => $orgB->id, 'entitlement_key' => 'feature.analytics_advanced', 'value' => '0',
+        ]);
+        app(EntitlementsService::class)->flush();
+        $brandB = Brand::factory()->create(['organization_id' => $orgB->id]);
+
+        $this->withToken($keyB)->getJson("/api/public/v1/brands/{$brandB->public_id}/analytics/best-times")
+            ->assertStatus(402)
+            ->assertJsonPath('errors.entitlement', 'feature.analytics_advanced');
+        $response = $this->withToken($keyB)->postJson('/api/public/v1/mcp', [
+            'jsonrpc' => '2.0', 'id' => 8, 'method' => 'tools/call',
+            'params' => ['name' => 'get_best_times', 'arguments' => ['brand' => $brandB->public_id]],
+        ])->assertOk()->assertJsonPath('result.isError', true);
+        $this->assertStringContainsString('analítica avanzada', (string) $response->json('result.content.0.text'));
     }
 
     public function test_mcp_crea_contenido_validado_y_sin_filtrar_detalles_internos(): void

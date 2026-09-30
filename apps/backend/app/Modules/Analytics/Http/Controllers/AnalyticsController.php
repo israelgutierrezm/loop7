@@ -101,7 +101,7 @@ class AnalyticsController extends Controller
     {
         $brandModel = $this->resolveBrand($brand);
         abort_unless($request->user()->can('analytics.view'), 403);
-        $this->ensureAdvanced('Los mejores horarios para publicar requieren un plan con analítica avanzada.');
+        $this->bestTimes->ensureAvailable($this->tenant->organization());
 
         [$from, $to] = $request->range();
 

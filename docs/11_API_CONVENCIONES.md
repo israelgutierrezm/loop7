@@ -64,6 +64,9 @@ Cada key concede scopes (`brands:read`, `content:read`, `content:write`,
 - `POST /brands/{brand}/content` — `content:write` (crea borrador).
 - `GET /brands/{brand}/analytics` — `analytics:read` (reutiliza Analytics;
   `from`/`to` opcionales, máximo 365 días por consulta, como en la app).
+- `GET /brands/{brand}/analytics/best-times` — `analytics:read` + analítica avanzada en
+  el plan (402 `plan_limit_reached` si no). Mismos parámetros y respuesta que en la app
+  (`providers[]`, `from`/`to`; docs/05, «Mejores horarios para publicar»).
 
 Los listados aceptan `per_page` (1–100, 30 por defecto). Los borradores creados por
 API o MCP pasan por el mismo `ContentService` que la app: quedan en la auditoría de la
@@ -73,7 +76,9 @@ organización con `via` (`api` | `mcp`), `api_key_id` y `api_key_name` (nunca el
 `POST /api/public/v1/mcp` — JSON-RPC 2.0 sobre la misma API y autenticación por
 key. Métodos: `initialize`, `ping`, `tools/list` (filtra herramientas por los
 scopes de la key), `tools/call`. Herramientas: `list_brands`, `list_content`,
-`create_content`, `get_analytics` (cada una exige su scope). Los errores de una
+`create_content`, `get_analytics` y `get_best_times` (franjas recomendadas con día,
+hora de la marca y mejora, y sus próximas fechas en los `days` indicados, 7 por
+defecto; sin el mapa de calor), cada una con su scope. Los errores de una
 herramienta vuelven como `isError` con un mensaje para el usuario (validación, marca
 inexistente); los fallos internos se registran y nunca exponen detalles.
 

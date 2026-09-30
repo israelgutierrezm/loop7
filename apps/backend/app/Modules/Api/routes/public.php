@@ -20,6 +20,7 @@ Route::middleware(['apikey', 'throttle:public-api'])->group(function (): void {
     Route::get('/brands/{brand}/content', [PublicContentController::class, 'index'])->middleware('scope:content:read');
     Route::post('/brands/{brand}/content', [PublicContentController::class, 'store'])->middleware('scope:content:write');
     Route::get('/brands/{brand}/analytics', [PublicAnalyticsController::class, 'overview'])->middleware('scope:analytics:read');
+    Route::get('/brands/{brand}/analytics/best-times', [PublicAnalyticsController::class, 'bestTimes'])->middleware('scope:analytics:read');
 
     // Servidor MCP (JSON-RPC): las herramientas se filtran por los scopes de la key.
     Route::post('/mcp', [McpController::class, 'handle']);

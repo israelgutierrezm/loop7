@@ -6,16 +6,22 @@ namespace App\Modules\Api\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Analytics\Services\AnalyticsQueryService;
+use App\Modules\Analytics\Services\BestTimesService;
 use App\Modules\Api\Models\ApiKey;
 use App\Modules\Api\Support\ApiScope;
+use App\Modules\Billing\Exceptions\PlanLimitExceededException;
 use App\Modules\Brands\Models\Brand;
 use App\Modules\Content\Models\ContentItem;
 use App\Modules\Content\Services\ContentService;
+use App\Modules\SocialConnections\Services\SocialProviderManager;
+use App\Support\Tenancy\TenantContext;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use LogicException;
 use Throwable;
@@ -26,9 +32,14 @@ use Throwable;
  */
 class McpController extends Controller
 {
+    private const WEEKDAYS = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
+
     public function __construct(
         private readonly AnalyticsQueryService $analytics,
         private readonly ContentService $content,
+        private readonly BestTimesService $bestTimes,
+        private readonly SocialProviderManager $providers,
+        private readonly TenantContext $tenant,
     ) {
     }
 
@@ -82,6 +93,8 @@ class McpController extends Controller
             $data = $this->execute($request, $name, $args);
         } catch (ModelNotFoundException) {
             return $this->toolError($id, 'No existe esa marca en la organización de la API key.');
+        } catch (PlanLimitExceededException $e) {
+            return $this->toolError($id, $e->getMessage());
         } catch (ValidationException $e) {
             return $this->toolError($id, (string) $e->validator->errors()->first());
         } catch (Throwable $e) {
@@ -115,8 +128,46 @@ class McpController extends Controller
                 Carbon::today()->subDays(29),
                 Carbon::today(),
             ),
+            'get_best_times' => $this->bestTimes($args),
             default => throw new LogicException("Herramienta sin implementar: {$name}"),
         };
+    }
+
+    /**
+     * Mejores horarios de una marca para un agente: franjas recomendadas (día y
+     * hora en la zona de la marca) y sus próximas fechas, sin el mapa de calor.
+     *
+     * @param  array<string, mixed>  $args
+     * @return array<string, mixed>
+     */
+    private function bestTimes(array $args): array
+    {
+        $brand = $this->brand($args);
+        $data = Validator::make($args, [
+            'providers' => ['sometimes', 'array', 'max:20'],
+            'providers.*' => ['string', Rule::in(array_keys($this->providers->all()))],
+            'days' => ['sometimes', 'integer', 'min:1', 'max:62'],
+        ])->validate();
+        $this->bestTimes->ensureAvailable($this->tenant->organization());
+
+        $providers = array_values(array_filter((array) ($data['providers'] ?? []), 'is_string'));
+        $from = CarbonImmutable::now();
+        $result = $this->bestTimes->forBrand($brand, $providers, $from, $from->addDays((int) ($data['days'] ?? 7)));
+
+        return [
+            'timezone' => $result['timezone'],
+            'sufficient' => $result['sufficient'],
+            'sample' => $result['sample'],
+            'min_posts' => $result['min_posts'],
+            'window_days' => $result['window_days'],
+            'top' => array_map(fn (array $slot): array => [
+                'day' => self::WEEKDAYS[$slot['weekday'] - 1],
+                'hour' => sprintf('%02d:00', $slot['hour']),
+                'lift_percent' => $slot['lift'],
+                'posts' => $slot['posts'],
+            ], $result['top']),
+            'next' => $result['occurrences'],
+        ];
     }
 
     /**
@@ -201,6 +252,24 @@ class McpController extends Controller
                 'inputSchema' => [
                     'type' => 'object',
                     'properties' => ['brand' => ['type' => 'string', 'description' => 'ID público de la marca']],
+                    'required' => ['brand'],
+                ],
+            ],
+            [
+                'name' => 'get_best_times',
+                'description' => 'Mejores horarios para publicar en una marca según su historial: franjas recomendadas (hora de la marca) y sus próximas fechas. Requiere analítica avanzada en el plan.',
+                'scope' => ApiScope::ANALYTICS_READ,
+                'inputSchema' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'brand' => ['type' => 'string', 'description' => 'ID público de la marca'],
+                        'providers' => [
+                            'type' => 'array',
+                            'items' => ['type' => 'string'],
+                            'description' => 'Redes a considerar (p. ej. ["instagram"]); vacío = todas',
+                        ],
+                        'days' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 62, 'description' => 'Días de fechas sugeridas desde ahora (7 por defecto)'],
+                    ],
                     'required' => ['brand'],
                 ],
             ],

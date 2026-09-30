@@ -5,21 +5,27 @@ declare(strict_types=1);
 namespace App\Modules\Api\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Analytics\Http\Requests\BestTimesRequest;
 use App\Modules\Analytics\Services\AnalyticsQueryService;
+use App\Modules\Analytics\Services\BestTimesService;
 use App\Modules\Brands\Models\Brand;
 use App\Support\Http\ApiResponse;
+use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 
 /**
- * Analítica de una marca vía API pública (scope analytics:read). Reutiliza el
- * servicio de consultas del módulo Analytics. Acotado por Organization.
+ * Analítica de una marca vía API pública (scope analytics:read). Reutiliza los
+ * servicios del módulo Analytics. Acotado por Organization.
  */
 class PublicAnalyticsController extends Controller
 {
-    public function __construct(private readonly AnalyticsQueryService $query)
-    {
+    public function __construct(
+        private readonly AnalyticsQueryService $query,
+        private readonly BestTimesService $bestTimes,
+        private readonly TenantContext $tenant,
+    ) {
     }
 
     public function overview(Request $request, string $brand): JsonResponse
@@ -41,5 +47,19 @@ class PublicAnalyticsController extends Controller
         }
 
         return ApiResponse::success($this->query->overview($brandModel, $from, $to));
+    }
+
+    /**
+     * Mejores horarios para publicar (mismos datos y reglas que la app; el plan
+     * debe incluir la analítica avanzada).
+     */
+    public function bestTimes(BestTimesRequest $request, string $brand): JsonResponse
+    {
+        $brandModel = Brand::query()->where('public_id', $brand)->firstOrFail();
+        $this->bestTimes->ensureAvailable($this->tenant->organization());
+
+        [$from, $to] = $request->range();
+
+        return ApiResponse::success($this->bestTimes->forBrand($brandModel, $request->providers(), $from, $to));
     }
 }

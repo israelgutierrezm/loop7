@@ -7,7 +7,11 @@ namespace App\Modules\Analytics\Services;
 use App\Modules\Analytics\BestTimes\BestTimesCalculator;
 use App\Modules\Analytics\BestTimes\PostSample;
 use App\Modules\Analytics\Models\PostMetricSnapshot;
+use App\Modules\Billing\Entitlements\Entitlement;
+use App\Modules\Billing\Exceptions\PlanLimitExceededException;
+use App\Modules\Billing\Services\EntitlementsService;
 use App\Modules\Brands\Models\Brand;
+use App\Modules\Organizations\Models\Organization;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Query\JoinClause;
@@ -27,8 +31,25 @@ class BestTimesService
     /** Antelación mínima de una fecha sugerida (la misma que al arrastrar en el calendario). */
     private const LEAD_MINUTES = 10;
 
-    public function __construct(private readonly BestTimesCalculator $calculator)
+    public function __construct(
+        private readonly BestTimesCalculator $calculator,
+        private readonly EntitlementsService $entitlements,
+    ) {
+    }
+
+    /**
+     * Los mejores horarios son parte de la analítica avanzada del plan (docs/08).
+     *
+     * @throws PlanLimitExceededException
+     */
+    public function ensureAvailable(?Organization $organization): void
     {
+        if ($organization === null || ! $this->entitlements->allows($organization, Entitlement::FEATURE_ANALYTICS_ADVANCED)) {
+            throw new PlanLimitExceededException(
+                'Los mejores horarios para publicar requieren un plan con analítica avanzada.',
+                Entitlement::FEATURE_ANALYTICS_ADVANCED,
+            );
+        }
     }
 
     /**
