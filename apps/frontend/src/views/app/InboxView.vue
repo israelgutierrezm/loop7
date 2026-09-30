@@ -76,8 +76,8 @@ const statuses = [
   { key: 'snoozed', label: 'Pospuestas' },
   { key: 'resolved', label: 'Resueltas' },
 ]
-const typeLabels: Record<string, string> = { comment: 'Comentario', dm: 'Mensaje directo', mention: 'Mención' }
-const typeIcons: Record<string, string> = { comment: 'content', dm: 'inbox', mention: 'bell' }
+const typeLabels: Record<string, string> = { comment: 'Comentario', dm: 'Mensaje directo', mention: 'Mención', review: 'Reseña' }
+const typeIcons: Record<string, string> = { comment: 'content', dm: 'inbox', mention: 'bell', review: 'star' }
 
 function listParams(p: number): Record<string, string | number> {
   const params: Record<string, string | number> = { page: p }

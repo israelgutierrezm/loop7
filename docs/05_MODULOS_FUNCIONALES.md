@@ -127,7 +127,8 @@ todas) y `from`/`to` (rango de las fechas sugeridas; por defecto la semana próx
 `replyToConversation(...): InboxReplyResult` (DTOs `InboxThread`/`InboxMessageData`/
 `InboxReplyResult`). `FakeSocialProvider` devuelve conversaciones de muestra
 (comentario/DM/mención); Facebook e Instagram sincronizan comentarios y responden con
-el token de página (ver docs/06).
+el token de página, y Google Business Profile trae las reseñas (tipo `review`, con
+estrellas) y las responde (ver docs/06).
 
 ### Modelo
 - `inbox_conversations`: tenant-owned, dedupe por (conexión, external_id); estado

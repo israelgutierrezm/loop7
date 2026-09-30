@@ -61,7 +61,7 @@ Antes de implementar una integración, revisar documentación oficial vigente, p
 
 El catálogo (`SocialProviderSeeder`) sólo contiene redes **con adaptador
 implementado**: `fake` (pruebas, deshabilitado en producción), `facebook`,
-`instagram`, `threads`, `linkedin`, `x`, `youtube` y `tiktok` (las nuevas llegan
+`instagram`, `threads`, `linkedin`, `x`, `youtube`, `tiktok` y `google_business` (las nuevas llegan
 **deshabilitadas** hasta que SUPERADMIN configura su app). Una red nueva se añade
 implementando `SocialProviderInterface`, registrándola en `SocialProviderManager` y
 añadiéndola al seeder. El seeder usa `firstOrCreate`: re-ejecutarlo no deshabilita lo
@@ -79,6 +79,7 @@ implementarlas, como exige la regla de arriba. Resumen:
 | X | texto 280 ponderado, ≤ 4 imágenes o 1 video/GIF | publicación y seguidores | menciones | Pago por uso: cada publicación y archivo se cobran |
 | YouTube | 1 video (Short si vertical ≤ 3 min) | canal y video | comentarios | Verificación OAuth + auditoría de YouTube; 100 subidas/día por proyecto |
 | TikTok | 1 video | cuenta y videos públicos | — (sin API) | Auditoría de TikTok; sin ella todo queda «Solo yo» |
+| Google Business Profile | novedad: texto ≤ 1500, 1 foto, botón de acción | ficha (impresiones y acciones); no por publicación | reseñas | Google debe aprobar el acceso del proyecto a sus APIs |
 
 ### Piezas comunes
 - **`Providers/OAuth2/AbstractOAuth2Provider`**: Authorization Code (+ PKCE salvo que
@@ -354,6 +355,34 @@ Revisado contra la documentación oficial (learn.microsoft.com/linkedin, sep-202
   `publish_id` (métricas 0). **Sin inbox**: TikTok no ofrece comentarios a apps
   comerciales.
 
+## Google Business Profile — implementado (`GoogleBusinessProvider`)
+
+- **App**: un proyecto de Google Cloud con las APIs de Business Profile habilitadas y el
+  **acceso aprobado por Google** (formulario de solicitud; sin él la cuota es 0) y un
+  cliente OAuth «Aplicación web» **propio**. Puede ser del mismo proyecto que YouTube,
+  pero no el mismo cliente: Google agrupa los permisos por cliente y cuenta, y revocar
+  el acceso de una red al desconectarla revocaría el de la otra. Scope
+  `business.manage`, `access_type=offline` + `prompt=consent` (refresh token).
+- **Destinos**: las fichas de cada cuenta (`mybusinessaccountmanagement` →
+  `mybusinessbusinessinformation/…/locations`, hasta 100), con id
+  `accounts/{a}/locations/{l}` (la forma de la API v4) y su dirección.
+- **Publicar** (novedad «estándar», API v4 `…/localPosts`): texto de hasta 1500
+  caracteres, **una foto** opcional (Google no admite video en las novedades ni se
+  publican historias) y un **botón** opcional (Reservar, Pedir en línea, Comprar, Más
+  información, Registrarse con enlace https, o Llamar, que usa el teléfono de la ficha),
+  elegido en el panel de la variante (`ProvidesPublishOptions`). Crear no es idempotente:
+  la publicación creada va al checkpoint. El enlace es su `searchUrl`. Borrar:
+  `DELETE /v4/{…/localPosts/{id}}`.
+- **Métricas**: de la ficha con la Performance API v1
+  (`locations/{l}:fetchMultiDailyMetricsTimeSeries`) del último día con datos (Google
+  publica con 2–3 días de retraso): impresiones en Búsqueda y Maps y acciones (llamadas,
+  visitas a la web, cómo llegar, mensajes y reservas). No hay seguidores. Google retiró
+  las métricas por publicación (`localPosts.reportInsights`, feb-2023).
+- **Inbox**: las **reseñas** (tipo `review`, con estrellas; las anónimas como «Usuario de
+  Google») y su respuesta. Responder (`PUT …/reviews/{id}/reply`, hasta 4096 bytes)
+  sustituye la anterior; los mensajes llevan la fecha de actualización en su id, así
+  que una reseña o respuesta editadas llegan como mensajes nuevos.
+
 ## Cumplimiento para Meta App Review
 
 Meta exige, además de la app (App ID/Secret) y el OAuth redirect HTTPS, tres cosas
@@ -379,7 +408,7 @@ que el App Review revisa. Ya están construidas del lado del código:
 ## Revocar el acceso al desconectar
 
 Al desconectar una cuenta, si la red lo permite (`RevokesAccess`: YouTube —sus
-políticas lo exigen—, X y TikTok) también se revoca el acceso en la red. No se
+políticas lo exigen—, X, TikTok y Google Business Profile) también se revoca el acceso en la red. No se
 revoca si otra conexión (de otra marca u organización) usa la misma cuenta, porque la
 red invalidaría también sus tokens, y un fallo de la red no impide desconectar (queda
 en el registro y la auditoría indica `revoked_remotely`).
@@ -397,6 +426,7 @@ existe, cuenta como borrada.
 | X | `DELETE /2/tweets/{id}` | `tweet.write` (ya se pide). `resource-not-found` cuenta como borrada. |
 | LinkedIn | `DELETE /rest/posts/{urn codificado}` + `X-RestLi-Method: DELETE` | Idempotente en LinkedIn (204). `w_member_social` o, para páginas, `w_organization_social`. |
 | YouTube | `DELETE /youtube/v3/videos?id=` | `youtube.force-ssl` (ya se pide); 50 unidades de la cuota diaria del proyecto. |
+| Google Business Profile | `DELETE /v4/accounts/*/locations/*/localPosts/*` | `business.manage` (ya se pide). |
 | Instagram, TikTok | — | Sus APIs de publicación no permiten borrar: Loop7 indica que se borre desde la red. |
 
 ## Webhooks de TikTok

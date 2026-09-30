@@ -134,6 +134,7 @@ class BrandContextBuilder
             'linkedin' => 'Adáptalo para LinkedIn: profesional, aporta valor, sin exceso de emojis.',
             'tiktok' => 'Adáptalo para TikTok: guion breve y enérgico para un video corto.',
             'threads' => 'Adáptalo para Threads: conversacional y breve.',
+            'google_business' => 'Adáptalo para una novedad de Google Business Profile: breve y útil para clientes cercanos (hasta 1500 caracteres), sin números de teléfono en el texto y con una acción clara.',
             default => '',
         };
     }

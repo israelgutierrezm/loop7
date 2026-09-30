@@ -67,6 +67,11 @@ class PlatformSocialProvidersController extends Controller
             'client_secret' => 'Client secret',
             'redirect_hint' => 'Regístrala en TikTok for Developers → tu app → Login Kit → Redirect URI.',
         ],
+        'google_business' => [
+            'client_id' => 'ID de cliente de OAuth',
+            'client_secret' => 'Secreto del cliente',
+            'redirect_hint' => 'Crea un cliente OAuth «Aplicación web» propio (puede ser del mismo proyecto que YouTube, pero no el mismo cliente) en Google Cloud → APIs y servicios → Credenciales y regístrala en URIs de redireccionamiento autorizados. El proyecto necesita además que Google apruebe su acceso a las APIs de Business Profile (formulario de solicitud de acceso).',
+        ],
     ];
 
     /**

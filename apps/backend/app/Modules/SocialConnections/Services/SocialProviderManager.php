@@ -9,6 +9,7 @@ use App\Modules\SocialConnections\Contracts\SocialProviderInterface;
 use App\Modules\SocialConnections\Models\SocialProvider;
 use App\Modules\SocialConnections\Providers\FacebookProvider;
 use App\Modules\SocialConnections\Providers\FakeSocialProvider;
+use App\Modules\SocialConnections\Providers\GoogleBusinessProvider;
 use App\Modules\SocialConnections\Providers\InstagramProvider;
 use App\Modules\SocialConnections\Providers\LinkedInProvider;
 use App\Modules\SocialConnections\Providers\ThreadsProvider;
@@ -21,7 +22,9 @@ class SocialProviderManager
 {
     /**
      * Proveedores que comparten la app (y por tanto las credenciales) de otro:
-     * Instagram se conecta con la misma app de Meta que Facebook.
+     * Instagram se conecta con la misma app de Meta que Facebook. Google Business
+     * Profile no comparte el cliente OAuth de YouTube: Google agrupa los permisos
+     * por cliente y cuenta, y revocar uno al desconectar revocaría el otro.
      */
     private const SHARED_APP = ['instagram' => 'facebook'];
 
@@ -42,6 +45,7 @@ class SocialProviderManager
             'x' => new XProvider(),
             'tiktok' => new TikTokProvider(),
             'threads' => new ThreadsProvider(),
+            'google_business' => new GoogleBusinessProvider(),
         ];
     }
 

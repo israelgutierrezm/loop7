@@ -27,6 +27,7 @@ class SocialProviderSeeder extends Seeder
             ['key' => 'x', 'name' => 'X', 'is_enabled' => false],
             ['key' => 'tiktok', 'name' => 'TikTok', 'is_enabled' => false],
             ['key' => 'threads', 'name' => 'Threads', 'is_enabled' => false],
+            ['key' => 'google_business', 'name' => 'Google Business Profile', 'is_enabled' => false],
         ];
 
         foreach ($providers as $provider) {

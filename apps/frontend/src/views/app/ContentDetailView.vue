@@ -17,6 +17,7 @@ import AppIcon from '@/components/AppIcon.vue'
 import ProviderIcon from '@/components/social/ProviderIcon.vue'
 import TikTokPostSettings from '@/components/content/TikTokPostSettings.vue'
 import YouTubePostSettings from '@/components/content/YouTubePostSettings.vue'
+import GoogleBusinessPostSettings from '@/components/content/GoogleBusinessPostSettings.vue'
 import MediaPicker, { type PickedMedia } from '@/components/media/MediaPicker.vue'
 import type { SocialProviderOption } from '@/types/models'
 
@@ -713,6 +714,13 @@ onUnmounted(stopPolling)
                 :options="v.options"
                 :editable="canEdit"
                 :default-title="content.title"
+                @saved="load(true)"
+              />
+              <GoogleBusinessPostSettings
+                v-else-if="v.provider === 'google_business'"
+                :variant-id="v.id"
+                :options="v.options"
+                :editable="canEdit"
                 @saved="load(true)"
               />
 

@@ -7,6 +7,7 @@ const NAMES: Record<string, string> = {
   x: 'X',
   youtube: 'YouTube',
   tiktok: 'TikTok',
+  google_business: 'Google Business Profile',
 }
 
 /** Nombre visible de una red social a partir de su clave. */

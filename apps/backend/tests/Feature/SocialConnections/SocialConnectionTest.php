@@ -234,7 +234,7 @@ class SocialConnectionTest extends TestCase
 
         // Sólo se listan redes con adaptador implementado.
         $keys = collect($this->getJson('/api/v1/platform/social-providers')->assertOk()->json('data'))->pluck('key');
-        $this->assertEqualsCanonicalizing(['fake', 'facebook', 'instagram', 'linkedin', 'threads', 'tiktok', 'x', 'youtube'], $keys->all());
+        $this->assertEqualsCanonicalizing(['fake', 'facebook', 'instagram', 'linkedin', 'threads', 'tiktok', 'x', 'youtube', 'google_business'], $keys->all());
     }
 
     public function test_superadmin_configura_proveedor_y_credenciales_cifradas(): void
