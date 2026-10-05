@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, onMounted, reactive, ref } from 'vue'
+import { nextTick, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import QRCode from 'qrcode'
 import http from '@/services/http'
@@ -10,6 +10,7 @@ import { useEmailVerification } from '@/composables/useEmailVerification'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import Spinner from '@/components/ui/Spinner.vue'
 import AppIcon from '@/components/AppIcon.vue'
+import NotificationSettings from '@/components/profile/NotificationSettings.vue'
 
 const auth = useAuthStore()
 const toasts = useToastStore()
@@ -21,43 +22,15 @@ const savingProfile = ref(false)
 // Las fechas y horas de la app se muestran e introducen en la zona del dispositivo.
 const deviceTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone
 
-// --- Notificaciones por correo ---
-interface NotificationCategory { key: string; label: string; description: string; mail: boolean }
-const categories = ref<NotificationCategory[]>([])
-const savingPrefs = ref<string | null>(null)
-
-async function loadPreferences(): Promise<void> {
-  try {
-    const { data } = await http.get('/me/notification-preferences')
-    categories.value = data.data.categories
-  } catch (e) {
-    toasts.error(apiErrorMessage(e))
-  }
-}
-
-async function toggleMail(category: NotificationCategory): Promise<void> {
-  const next = !category.mail
-  savingPrefs.value = category.key
-  try {
-    const { data } = await http.put('/me/notification-preferences', { mail: { [category.key]: next } })
-    categories.value = data.data.categories
-  } catch (e) {
-    toasts.error(apiErrorMessage(e))
-  } finally {
-    savingPrefs.value = null
-  }
-}
-
+// --- Notificaciones ---
 const route = useRoute()
 
-onMounted(async () => {
-  await loadPreferences()
-  // Enlace directo desde Notificaciones (/app/profile#notificaciones).
-  if (route.hash) {
-    await nextTick()
-    document.querySelector(route.hash)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
-})
+// Enlace directo desde Notificaciones (/app/profile#notificaciones), cuando ya cargaron.
+async function scrollToHash(): Promise<void> {
+  if (!route.hash) return
+  await nextTick()
+  document.querySelector(route.hash)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
 
 async function saveProfile(): Promise<void> {
   savingProfile.value = true
@@ -205,35 +178,7 @@ async function disableMfa(): Promise<void> {
     </form>
 
     <!-- Notificaciones -->
-    <section id="notificaciones" class="card scroll-mt-20 p-6" aria-labelledby="notif-title">
-      <h2 id="notif-title" class="font-semibold text-slate-900 dark:text-white">Notificaciones por correo</h2>
-      <p class="mt-1 text-sm text-slate-500">
-        En la app (campana) recibes todos los avisos. Elige cuáles quieres además por correo.
-      </p>
-      <ul class="mt-4 divide-y divide-slate-100 dark:divide-slate-800">
-        <li v-for="c in categories" :key="c.key" class="flex items-start justify-between gap-4 py-3">
-          <div class="min-w-0">
-            <p class="text-sm font-medium text-slate-800 dark:text-slate-100">{{ c.label }}</p>
-            <p class="text-xs text-slate-500">{{ c.description }}</p>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            :aria-checked="c.mail"
-            :aria-label="`Recibir por correo: ${c.label}`"
-            :disabled="savingPrefs === c.key"
-            class="relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 disabled:opacity-60 dark:focus-visible:ring-offset-slate-900"
-            :class="c.mail ? 'bg-brand-600' : 'bg-slate-300 dark:bg-slate-700'"
-            @click="toggleMail(c)"
-          >
-            <span
-              class="inline-block h-5 w-5 transform rounded-full bg-white shadow transition"
-              :class="c.mail ? 'translate-x-5' : 'translate-x-0.5'"
-            />
-          </button>
-        </li>
-      </ul>
-    </section>
+    <NotificationSettings @loaded="scrollToHash" />
 
     <!-- Contraseña -->
     <form class="card p-6" @submit.prevent="savePassword">

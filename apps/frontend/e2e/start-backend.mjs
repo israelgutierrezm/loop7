@@ -5,7 +5,7 @@
  * ni el puerto de desarrollo.
  */
 import { execFileSync, spawn } from 'node:child_process'
-import { rmSync, writeFileSync } from 'node:fs'
+import { existsSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -50,6 +50,14 @@ writeFileSync(
 
 rmSync(database, { force: true })
 writeFileSync(database, '')
+
+// En Windows, OpenSSL necesita su openssl.cnf para crear claves EC (avisos push):
+// se usa el que trae PHP si no hay uno configurado.
+if (process.platform === 'win32' && !env.OPENSSL_CONF) {
+  const phpDir = execFileSync(php, ['-r', 'echo dirname(PHP_BINARY);'], { env }).toString().trim()
+  const cnf = resolve(phpDir, 'extras/ssl/openssl.cnf')
+  if (existsSync(cnf)) env.OPENSSL_CONF = cnf
+}
 
 const artisan = (...args) => execFileSync(php, ['artisan', ...args, '--env=e2e'], { cwd: backend, env, stdio: 'inherit' })
 artisan('key:generate', '--force')

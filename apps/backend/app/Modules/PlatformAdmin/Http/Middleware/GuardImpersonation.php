@@ -15,7 +15,8 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Límites de la impersonación (docs/09): caduca a los 60 minutos y bloquea las
  * acciones que un administrador nunca debe hacer en nombre de otra persona
- * (credenciales, MFA, pagos, claves, crear, transferir o borrar organizaciones).
+ * (credenciales, MFA, pagos, claves, canales de aviso personales, crear,
+ * transferir o borrar organizaciones).
  */
 class GuardImpersonation
 {
@@ -33,6 +34,11 @@ class GuardImpersonation
         ['DELETE', 'api/v1/api-keys/*'],
         ['POST', 'api/v1/ai/keys'],
         ['DELETE', 'api/v1/ai/keys/*'],
+        // El navegador o el WhatsApp del administrador recibirían los avisos del usuario.
+        ['POST', 'api/v1/me/push-subscriptions*'],
+        ['DELETE', 'api/v1/me/push-subscriptions'],
+        ['POST', 'api/v1/me/whatsapp*'],
+        ['DELETE', 'api/v1/me/whatsapp'],
     ];
 
     public function __construct(private readonly AuditLogger $audit)

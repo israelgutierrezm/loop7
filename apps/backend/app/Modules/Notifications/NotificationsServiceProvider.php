@@ -6,19 +6,24 @@ namespace App\Modules\Notifications;
 
 use App\Modules\Notifications\Console\PruneNotificationsCommand;
 use App\Modules\Notifications\Listeners\SendDomainNotifications;
+use App\Modules\Notifications\Push\MinishlinkWebPushGateway;
+use App\Modules\Notifications\Push\WebPushGateway;
 use App\Support\Providers\ModuleServiceProvider;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Facades\Event;
 
 /**
- * Avisos in-app y por correo (docs/05 "Notifications"): escucha eventos de
- * dominio de los demás módulos y avisa a las personas adecuadas.
+ * Avisos in-app, por correo, push del navegador y WhatsApp (docs/05
+ * "Notifications"): escucha eventos de dominio de los demás módulos y avisa a
+ * las personas adecuadas.
  */
 class NotificationsServiceProvider extends ModuleServiceProvider
 {
     public function register(): void
     {
         $this->commands([PruneNotificationsCommand::class]);
+        // Con su propio cliente HTTP (tiempo límite, sin redirecciones).
+        $this->app->bind(WebPushGateway::class, fn (): WebPushGateway => new MinishlinkWebPushGateway());
     }
 
     protected function bootModule(): void

@@ -10,7 +10,10 @@ observabilidad de [13_OBSERVABILIDAD_CALIDAD.md](13_OBSERVABILIDAD_CALIDAD.md).
 `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` mínima y
 `Content-Security-Policy` (config `config/security.php`, override con `SECURITY_CSP`).
 `Strict-Transport-Security` sólo se envía sobre HTTPS (`SECURITY_HSTS=true`).
-El SPA define su propia CSP en su hosting estático.
+El SPA define su propia CSP en su hosting estático. Para los avisos push, el hosting
+debe servir `/sw.js` en la raíz del dominio del SPA (preferible con
+`Cache-Control: no-cache`) y su CSP permitir `worker-src 'self'` (lo cubre
+`default-src 'self'`).
 
 ## CORS (implementado)
 `config/cors.php` con orígenes por env `CORS_ALLOWED_ORIGINS` (coma-separados;
@@ -69,6 +72,9 @@ LOG_LEVEL=warning
   de gateways/IA, BYOK, MFA). Procedimiento: descifrar con clave antigua y re-cifrar
   con la nueva en una migración de datos controlada; nunca rotar sin este paso.
 - Credenciales de proveedor (SUPERADMIN): actualizar en el panel; quedan cifradas.
+- **Claves VAPID** (Canales de aviso): regenerarlas da de baja todos los navegadores;
+  cada persona vuelve a activar los avisos push en Mi perfil. El token de WhatsApp se
+  reemplaza escribiendo uno nuevo (el anterior no se muestra).
 - **API keys:** revocar desde `/app/api-keys` (deja de funcionar de inmediato) y
   emitir una nueva; el secreto sólo se muestra una vez.
 

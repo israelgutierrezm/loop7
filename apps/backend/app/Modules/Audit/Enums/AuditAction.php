@@ -88,6 +88,8 @@ final class AuditAction
     public const PAYMENT_WEBHOOK_PROCESSED = 'payment.webhook_processed';
     public const PAYMENT_RECORDED = 'payment.recorded';
     public const PLATFORM_SETTINGS_UPDATED = 'platform.settings_updated';
+    public const NOTIFICATION_CHANNEL_UPDATED = 'platform.notification_channel_updated';
+    public const PUSH_KEYS_GENERATED = 'platform.push_keys_generated';
 
     // Content / Campaigns
     public const CONTENT_CREATED = 'content.created';
@@ -141,4 +143,8 @@ final class AuditAction
     public const AI_KEY_UPDATED = 'ai.key_updated';
     public const AI_KEY_REMOVED = 'ai.key_removed';
     public const AI_PROVIDER_UPDATED = 'ai.provider_updated';
+
+    // Avisos
+    public const NOTIFICATIONS_WHATSAPP_VERIFIED = 'notifications.whatsapp_verified';
+    public const NOTIFICATIONS_WHATSAPP_REMOVED = 'notifications.whatsapp_removed';
 }

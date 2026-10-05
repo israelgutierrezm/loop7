@@ -32,6 +32,7 @@ const groups = [
     items: [
       { to: '/platform/social', label: 'Redes sociales', icon: 'social' },
       { to: '/platform/ai-providers', label: 'Proveedores de IA', icon: 'ai' },
+      { to: '/platform/notification-channels', label: 'Canales de aviso', icon: 'bell' },
     ],
   },
   {

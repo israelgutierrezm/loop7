@@ -48,6 +48,7 @@ final class PlanCatalog
                     Entitlement::FEATURE_API => false,
                     Entitlement::FEATURE_WHITE_LABEL => false,
                     Entitlement::FEATURE_CUSTOM_ROLES => false,
+                    Entitlement::FEATURE_WHATSAPP_NOTIFICATIONS => false,
                 ],
             ],
             'growth' => [
@@ -74,6 +75,7 @@ final class PlanCatalog
                     Entitlement::FEATURE_API => false,
                     Entitlement::FEATURE_WHITE_LABEL => false,
                     Entitlement::FEATURE_CUSTOM_ROLES => false,
+                    Entitlement::FEATURE_WHATSAPP_NOTIFICATIONS => false,
                 ],
             ],
             'professional' => [
@@ -100,6 +102,7 @@ final class PlanCatalog
                     Entitlement::FEATURE_API => true,
                     Entitlement::FEATURE_WHITE_LABEL => false,
                     Entitlement::FEATURE_CUSTOM_ROLES => true,
+                    Entitlement::FEATURE_WHATSAPP_NOTIFICATIONS => true,
                 ],
             ],
             'agency' => [
@@ -126,6 +129,7 @@ final class PlanCatalog
                     Entitlement::FEATURE_API => true,
                     Entitlement::FEATURE_WHITE_LABEL => true,
                     Entitlement::FEATURE_CUSTOM_ROLES => true,
+                    Entitlement::FEATURE_WHATSAPP_NOTIFICATIONS => true,
                 ],
             ],
             'enterprise' => [
@@ -152,6 +156,7 @@ final class PlanCatalog
                     Entitlement::FEATURE_API => true,
                     Entitlement::FEATURE_WHITE_LABEL => true,
                     Entitlement::FEATURE_CUSTOM_ROLES => true,
+                    Entitlement::FEATURE_WHATSAPP_NOTIFICATIONS => true,
                 ],
             ],
         ];

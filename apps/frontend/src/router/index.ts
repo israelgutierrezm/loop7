@@ -80,6 +80,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'gateways', name: 'platform-gateways', component: () => import('@/views/platform/PlatformGatewaysView.vue'), meta: { title: 'Pasarelas' } },
       { path: 'social', name: 'platform-social', component: () => import('@/views/platform/PlatformSocialProvidersView.vue'), meta: { title: 'Redes sociales' } },
       { path: 'ai-providers', name: 'platform-ai', component: () => import('@/views/platform/PlatformAiProvidersView.vue'), meta: { title: 'Proveedores de IA' } },
+      { path: 'notification-channels', name: 'platform-notification-channels', component: () => import('@/views/platform/PlatformNotificationChannelsView.vue'), meta: { title: 'Canales de aviso' } },
       { path: 'jobs', name: 'platform-jobs', component: () => import('@/views/platform/PlatformJobsView.vue'), meta: { title: 'Colas' } },
       { path: 'audit', name: 'platform-audit', component: () => import('@/views/platform/PlatformAuditView.vue'), meta: { title: 'Auditoría global' } },
       { path: 'settings', name: 'platform-settings', component: () => import('@/views/platform/PlatformSettingsView.vue'), meta: { title: 'Configuración' } },

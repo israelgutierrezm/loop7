@@ -21,6 +21,8 @@ const { legalName, email, country } = useCompany()
         <strong>cifrados</strong>. Nunca almacenamos tus contraseñas de las redes.</li>
       <li><strong>Métricas e interacciones:</strong> estadísticas y mensajes/comentarios que las plataformas nos permiten leer.</li>
       <li><strong>Uso de IA:</strong> los textos que envías para generar contenido y el consumo de créditos.</li>
+      <li><strong>Avisos:</strong> tus preferencias de aviso, los navegadores donde activas los avisos push y, si lo
+        añades, tu número de WhatsApp (verificado con un código y guardado cifrado).</li>
       <li><strong>Datos técnicos:</strong> registros de actividad e identificadores de solicitud, sin secretos.</li>
     </ul>
 
@@ -38,6 +40,8 @@ const { legalName, email, country } = useCompany()
       <li><strong>Plataformas sociales</strong> (p. ej. Meta/Facebook, Instagram) para publicar y leer interacciones.</li>
       <li><strong>Proveedores de IA</strong> (p. ej. OpenAI, Anthropic) para generar contenido.</li>
       <li><strong>Pasarelas de pago</strong> (p. ej. Stripe, Mercado Pago, Openpay) para procesar cobros. No almacenamos números de tarjeta.</li>
+      <li><strong>Servicios de avisos</strong>: el servicio push de tu navegador (p. ej. Google, Mozilla, Apple o
+        Microsoft) entrega los avisos push cifrados, y WhatsApp (Meta) los avisos por WhatsApp si los activas.</li>
       <li><strong>Infraestructura</strong> de alojamiento y almacenamiento.</li>
     </ul>
     <p>No vendemos tus datos personales.</p>

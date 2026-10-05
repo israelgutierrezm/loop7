@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Modules\Brands\Models\Brand;
+use App\Modules\Notifications\Models\PushSubscription;
 use App\Modules\Organizations\Models\Organization;
 use App\Support\Concerns\HasPublicId;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
@@ -30,7 +31,9 @@ use Spatie\Permission\Traits\HasRoles;
  * @property \Illuminate\Support\Carbon|null $last_login_at
  * @property \Illuminate\Support\Carbon|null $blocked_at
  * @property \Illuminate\Support\Carbon|null $email_verified_at
- * @property array{mail?: array<string, bool>}|null $notification_preferences
+ * @property array<string, array<string, bool>>|null $notification_preferences
+ * @property string|null $whatsapp_phone
+ * @property \Illuminate\Support\Carbon|null $whatsapp_verified_at
  * @property \Illuminate\Support\Carbon|null $created_at
  */
 class User extends Authenticatable implements MustVerifyEmail
@@ -62,6 +65,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'remember_token',
         'two_factor_secret',
         'two_factor_recovery_codes',
+        'whatsapp_phone',
     ];
 
     /**
@@ -79,7 +83,20 @@ class User extends Authenticatable implements MustVerifyEmail
             'last_login_at' => 'datetime',
             'blocked_at' => 'datetime',
             'notification_preferences' => 'array',
+            // Dato personal: cifrado en reposo y nunca en los registros.
+            'whatsapp_phone' => 'encrypted',
+            'whatsapp_verified_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Navegadores en los que el usuario activó los avisos push.
+     *
+     * @return HasMany<PushSubscription, $this>
+     */
+    public function pushSubscriptions(): HasMany
+    {
+        return $this->hasMany(PushSubscription::class);
     }
 
     // ---- Relaciones -------------------------------------------------------

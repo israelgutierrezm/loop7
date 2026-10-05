@@ -45,7 +45,8 @@ Snapshots, comparación de periodos, performance por post/canal/Brand/campaña, 
 Trigger + Conditions + Actions. Inicialmente RSS/webhook/eventos internos; posteriormente builder visual.
 
 ## Notifications
-In-app/email y futuras push/WhatsApp según configuración.
+In-app, correo, push del navegador y WhatsApp según las preferencias de cada usuario y la
+configuración de la plataforma (ver «Notifications — Implementación»).
 
 ---
 
@@ -282,22 +283,74 @@ activos con el permiso indicado y acceso a la marca (`MembershipService`):
 | Webhook desactivado por fallos repetidos | `api.manage` | Sí |
 
 ### Preferencias y retención
-En **Mi perfil → Notificaciones** cada usuario elige qué categorías recibe además por
-correo (aprobaciones, publicaciones con errores, cuentas sociales, facturación, inbox,
-automatizaciones, integraciones); en la app llegan siempre. `notifications:prune` borra a diario los
-avisos leídos de más de 90 días y los no leídos de más de 180. Los enlaces de los
-correos incluyen `?org=` para abrir la organización correcta; con marca blanca, el
-correo usa el nombre de la organización como remitente.
+En **Mi perfil → Notificaciones** cada usuario elige, por categoría (aprobaciones,
+publicaciones con errores, cuentas sociales, facturación, inbox, automatizaciones,
+integraciones), qué recibe además por **correo**, **push** y **WhatsApp**; en la app llegan
+siempre. Sólo se guardan las elecciones explícitas (`users.notification_preferences`,
+canal → categoría); por defecto, correo y push siguen `mailByDefault()` (todo menos inbox
+y automatizaciones) y WhatsApp sólo aprobaciones, publicaciones con errores y cuentas
+sociales (cada mensaje tiene coste). Los avisos marcados como «sólo app» (p. ej.
+«publicado en todas las redes») no salen por ningún canal. `notifications:prune` borra a
+diario los avisos leídos de más de 90 días y los no leídos de más de 180. Los enlaces de
+los correos y los push incluyen `?org=` para abrir la organización correcta; con marca
+blanca, el correo usa el nombre de la organización como remitente.
+
+### Push del navegador (Web Push)
+- **Envío**: `minishlink/web-push` (MIT) tras el contrato `WebPushGateway`; contenido
+  cifrado `aes128gcm` (RFC 8291) y firma VAPID (RFC 8292), TTL de 24 h, cliente HTTP con
+  tiempo límite de 10 s y sin redirecciones. Un job por canal (`WebPushChannel`); un
+  fallo se registra y no se reintenta (el aviso ya está en la app).
+- **Claves VAPID**: las genera SUPERADMIN en **Canales de aviso**; la privada se guarda
+  cifrada (`notification_channels.credentials`) y nunca se expone. Regenerarlas borra
+  todas las suscripciones (quedan ligadas a la clave anterior) y se audita.
+- **Suscripciones** (`push_subscriptions`, por usuario y navegador; máximo 10, se olvidan
+  las menos usadas): sólo se aceptan endpoints `https` de los servicios push de los
+  navegadores (FCM, Mozilla, Apple, WNS; `PushEndpoint`) para evitar SSRF, y claves
+  P-256/auth válidas. Si otra cuenta registra el mismo navegador, pasa a ser suya; al
+  cerrar sesión el SPA la da de baja. Los endpoints que responden 404/410 se borran.
+- **Service worker** (`apps/frontend/public/sw.js`): sólo muestra avisos y abre la ruta
+  del aviso en el propio origen; no intercepta peticiones. En iPhone requiere añadir la
+  app a la pantalla de inicio.
+- En Windows, OpenSSL necesita `OPENSSL_CONF` (p. ej. el `extras/ssl/openssl.cnf` de PHP)
+  para crear claves EC; sin él, generar claves responde 422 `push_keys_failed`.
+
+### WhatsApp (Cloud API de Meta)
+- **Configuración** (SUPERADMIN → Canales de aviso): identificador del número, token de
+  un usuario del sistema (cifrado, de solo escritura, se muestra `••••1234`), plantillas e
+  idioma (`es_MX` por defecto). «Probar conexión» consulta el número y, con un destino,
+  envía un aviso de prueba con la plantilla.
+- **Plantillas** a aprobar en WhatsApp Manager: avisos (Utilidad) con `{{1}}`
+  organización, `{{2}}` título y `{{3}}` detalle; código (Autenticación) con botón
+  «Copiar código». Las variables se envían sin saltos de línea y recortadas.
+- **Plan**: entitlement `feature.whatsapp_notifications` (Professional, Agency,
+  Enterprise). Decide el plan de la organización del aviso; un usuario puede registrar
+  su número si alguna de sus organizaciones lo incluye.
+- **Número del usuario**: se verifica con un código de 6 dígitos (HMAC en caché 10 min,
+  máximo 5 intentos con incremento atómico, 10 códigos/día por usuario y 5 por número,
+  `throttle:3,10`). Se guarda cifrado (`users.whatsapp_phone`) sólo tras confirmarlo;
+  verificar y quitar se auditan con el número enmascarado. Nunca se registra en logs.
+- Un fallo de envío se registra (sin número ni token) y no se reintenta: repetir podría
+  duplicar un mensaje con coste.
 
 ### Endpoints
 - `GET /notifications` (`unread=1`, paginado; `meta.unread`), `GET /notifications/unread-count`
 - `POST /notifications/{id}/read`, `POST /notifications/read-all`
-- `GET|PUT /me/notification-preferences`
+- `GET|PUT /me/notification-preferences` — `PUT` admite `{mail|push|whatsapp: {categoría: bool}}`;
+  `GET` incluye `channels` (disponibilidad, clave pública VAPID, nº de navegadores y
+  número de WhatsApp enmascarado)
+- `POST|DELETE /me/push-subscriptions` (`endpoint`, `keys.p256dh`, `keys.auth`),
+  `POST /me/push-subscriptions/test`
+- `POST /me/whatsapp` (`phone` E.164), `POST /me/whatsapp/verify` (`code`), `DELETE /me/whatsapp`
+- SUPERADMIN: `GET /platform/notification-channels`, `PUT /platform/notification-channels/webpush`,
+  `POST /platform/notification-channels/webpush/keys`, `PUT /platform/notification-channels/whatsapp`,
+  `POST /platform/notification-channels/whatsapp/test`
 
 ### Frontend
 Campana con contador (sondeo cada 60 s con la pestaña visible), últimos avisos y
 "marcar todo como leído"; página **Notificaciones** (`/app/notifications`) con filtro
-"sin leer" y paginación.
+"sin leer" y paginación. En **Mi perfil → Notificaciones**: tabla de categorías por
+canal, activar push en el navegador actual (con aviso de prueba) y número de WhatsApp
+con código. SUPERADMIN: **Canales de aviso** (`/platform/notification-channels`).
 
 ---
 

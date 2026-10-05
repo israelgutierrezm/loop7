@@ -6,7 +6,7 @@ namespace App\Modules\Notifications\Enums;
 
 /**
  * Categorías de aviso. En la app se muestran siempre; cada usuario decide
- * cuáles recibe además por correo.
+ * cuáles recibe además por correo, push o WhatsApp.
  */
 enum NotificationCategory: string
 {
@@ -52,6 +52,18 @@ enum NotificationCategory: string
         return match ($this) {
             self::INBOX, self::AUTOMATIONS => false,
             default => true,
+        };
+    }
+
+    /**
+     * ¿Se envía por el canal si el usuario no eligió otra cosa? Cada mensaje de
+     * WhatsApp tiene coste: por defecto sólo lo que pide actuar pronto.
+     */
+    public function enabledByDefault(DeliveryChannel $channel): bool
+    {
+        return match ($channel) {
+            DeliveryChannel::WHATSAPP => in_array($this, [self::APPROVALS, self::PUBLISHING, self::SOCIAL], true),
+            DeliveryChannel::MAIL, DeliveryChannel::PUSH => $this->mailByDefault(),
         };
     }
 

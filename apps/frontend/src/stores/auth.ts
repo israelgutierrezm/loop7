@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import http, { fetchCsrfCookie, setTenantHeaders } from '@/services/http'
+import { forgetPushSubscription } from '@/composables/usePushNotifications'
 import type { Brand, Branding, Organization, SubscriptionSummary, User } from '@/types/models'
 
 const ORG_STORAGE_KEY = 'loop7.currentOrganizationId'
@@ -160,6 +161,8 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function logout(): Promise<void> {
     try {
+      // Antes de cerrar la sesión: el backend sólo deja borrar las suscripciones propias.
+      await forgetPushSubscription()
       await http.post('/auth/logout')
     } finally {
       reset()

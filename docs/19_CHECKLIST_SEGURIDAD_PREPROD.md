@@ -29,6 +29,8 @@ Ver runbook: [21_RUNBOOK_OPERACION.md](21_RUNBOOK_OPERACION.md).
 - [x] ✅ webhooks de TikTok firmados (HMAC con el client secret) e idempotentes
 - [x] ✅ cupos por red en el plan (`x_posts.month`, `youtube_uploads.day`): un cliente no agota el saldo de X ni las subidas diarias de YouTube de la plataforma (`ProviderQuotaTest`)
 - [x] ✅ feeds RSS sin SSRF ni XXE — cada redirección revalidada, 2 MB, 10 s, XML sin entidades ni DTD externas (`InboundTriggersTest`)
+- [x] ✅ avisos push sin SSRF — sólo endpoints https de los servicios push de los navegadores (`PushEndpoint`, revalidado al enviar), claves VAPID privadas cifradas, sin redirecciones; el SPA da de baja el navegador al cerrar sesión (`PushNotificationsTest`)
+- [x] ✅ WhatsApp sin abuso ni fugas — número verificado con código de un solo uso (HMAC, 5 intentos atómicos, límites diarios por usuario y por número), cifrado en reposo, nunca en logs; token de Meta cifrado y de solo escritura; envío limitado al plan (`WhatsAppNotificationsTest`, `PlatformNotificationChannelsTest`)
 - [x] ✅ idempotencia — publicación (consolidación idempotente), webhooks de pago, créditos IA
 - [x] ✅ tests IDOR/tenant isolation — en cada módulo
 - [x] ✅ Brand Access — recursos hijos verifican acceso a su marca (`BrandAccessTest`)

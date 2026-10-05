@@ -21,6 +21,7 @@ webhooks fallidos, conexiones sociales que requieren atención).
 | Pasarelas | Activación, entorno, credenciales cifradas y enmascaradas, "Probar conexión" |
 | Redes sociales | Proveedores (Meta), credenciales, versión de Graph API, URLs de la app |
 | Proveedores de IA | Activación, credenciales cifradas, modelos (se refrescan desde la API del proveedor) |
+| Canales de aviso | Push del navegador (generar/regenerar claves VAPID, contacto del operador, activación) y WhatsApp Cloud API (número, token cifrado de solo escritura, plantillas, idioma, «Probar conexión» con aviso de prueba opcional); todo auditado |
 | Colas | Pendientes por cola (vía `Queue::size`, sirve con database o Redis) y jobs fallidos: reintentar o descartar uno a uno o todos, auditado. El error se muestra sin secretos (`SecretRedactor`) |
 | Auditoría global | Todas las acciones, filtrables por acción u organización |
 | Configuración | Datos legales de la empresa (páginas legales), registro abierto/cerrado, plan y días de prueba, días de gracia, aviso global |
@@ -59,7 +60,9 @@ una organización completa se usa la suspensión de Organizaciones.
 - **caduca a los 60 minutos** (`GuardImpersonation`): la siguiente petición devuelve la
   sesión al administrador (`401 impersonation_expired`) y el SPA vuelve a `/platform`;
 - **acciones bloqueadas** mientras dura (`403 impersonation_blocked`): contraseña, MFA,
-  pagos/suscripción, API keys, claves de IA y crear, transferir o borrar organizaciones;
+  pagos/suscripción, API keys, claves de IA, registrar o quitar navegadores para avisos
+  push y el número de WhatsApp (recibirían los avisos del usuario) y crear, transferir o
+  borrar organizaciones;
 - toda acción auditada durante la impersonación incluye `impersonated_by` (id público
   del administrador que actúa);
 - no revela secretos (las credenciales siguen cifradas y enmascaradas).

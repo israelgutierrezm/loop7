@@ -86,3 +86,10 @@ desarrollo encendido. Detalle en [15_PRUEBAS_ACEPTACION.md](15_PRUEBAS_ACEPTACIO
   ```bash
   XDEBUG_MODE=off php artisan test
   ```
+- Para generar claves VAPID y enviar avisos push, OpenSSL necesita su `openssl.cnf`
+  (en Linux/Docker ya está). En Windows define `OPENSSL_CONF` con el que trae PHP antes
+  de arrancar el backend; las pruebas E2E lo hacen solas y la prueba de la librería
+  push se omite si falta:
+  ```bash
+  export OPENSSL_CONF="C:/wamp64/bin/php/php8.3.6/extras/ssl/openssl.cnf"
+  ```

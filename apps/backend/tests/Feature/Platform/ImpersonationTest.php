@@ -64,6 +64,33 @@ class ImpersonationTest extends TestCase
         $this->assertSame($admin->public_id, $properties['impersonated_by']);
     }
 
+    public function test_no_registra_el_navegador_ni_el_whatsapp_del_administrador(): void
+    {
+        $admin = User::factory()->platformAdmin()->create();
+        [$target] = $this->createOwnerWithOrganization();
+        $endpoint = 'https://fcm.googleapis.com/fcm/send/navegador-del-admin';
+
+        $requests = [
+            ['POST', '/api/v1/me/push-subscriptions', ['endpoint' => $endpoint, 'keys' => ['p256dh' => 'x', 'auth' => 'y']]],
+            ['POST', '/api/v1/me/push-subscriptions/test', []],
+            ['DELETE', '/api/v1/me/push-subscriptions', ['endpoint' => $endpoint]],
+            ['POST', '/api/v1/me/whatsapp', ['phone' => '+5215512345678']],
+            ['POST', '/api/v1/me/whatsapp/verify', ['code' => '123456']],
+            ['DELETE', '/api/v1/me/whatsapp', []],
+        ];
+        foreach ($requests as [$method, $uri, $data]) {
+            $this->impersonating($admin, $target)
+                ->json($method, $uri, $data)
+                ->assertForbidden()
+                ->assertJsonPath('code', 'impersonation_blocked');
+        }
+
+        // Las preferencias sí puede ajustarlas (soporte).
+        $this->impersonating($admin, $target)
+            ->putJson('/api/v1/me/notification-preferences', ['mail' => ['billing' => false]])
+            ->assertOk();
+    }
+
     public function test_la_impersonacion_caduca_a_los_60_minutos(): void
     {
         $admin = User::factory()->platformAdmin()->create();
