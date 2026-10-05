@@ -9,6 +9,8 @@ function php(code: string): void {
 test.describe('Canales de aviso', () => {
   test('SUPERADMIN configura push y WhatsApp, y cada persona elige por dónde recibir avisos', async ({ page }, testInfo) => {
     test.setTimeout(120_000)
+    // La base E2E se comparte (y se reutiliza en los reintentos): canales sin configurar.
+    php('App\\Modules\\Notifications\\Models\\NotificationChannel::query()->delete(); App\\Modules\\Notifications\\Models\\PushSubscription::query()->delete();')
     const account = await register(page, 'Avisos E2E')
     php(`App\\Models\\User::where('email', '${account.email}')->update(['is_platform_admin' => true]);`)
 
@@ -42,7 +44,9 @@ test.describe('Canales de aviso', () => {
     await page.screenshot({ path: testInfo.outputPath('canales-superadmin.png'), fullPage: true })
 
     // --- Mi perfil: el plan incluye WhatsApp ---
-    php(`app(App\\Modules\\Billing\\Services\\SubscriptionService::class)->activatePlan(App\\Modules\\Organizations\\Models\\Organization::where('name', 'Avisos E2E')->firstOrFail(), App\\Modules\\Billing\\Models\\Plan::where('key', 'professional')->firstOrFail(), 'month', 'manual');`)
+    php(`app(App\\Modules\\Billing\\Services\\SubscriptionService::class)->activatePlan(App\\Models\\User::where('email', '${account.email}')->firstOrFail()->ownedOrganizations()->firstOrFail(), App\\Modules\\Billing\\Models\\Plan::where('key', 'professional')->firstOrFail(), 'month', 'manual');`)
+    // Chromium sin interfaz deniega las notificaciones por defecto; un usuario las permitiría.
+    await page.context().grantPermissions(['notifications'])
     await page.goto('/app/profile#notificaciones')
     const section = page.locator('#notificaciones')
     await expect(section.getByRole('heading', { name: 'Notificaciones' })).toBeVisible()
@@ -52,7 +56,10 @@ test.describe('Canales de aviso', () => {
     await expect(section.getByRole('columnheader', { name: 'WhatsApp' })).toHaveCount(0)
 
     await expect(section.getByText('Avisos push en este navegador')).toBeVisible()
-    await expect(section.getByRole('button', { name: 'Activar en este navegador' })).toBeVisible()
+    // Un navegador sin Push API (algunos Chromium sin interfaz) lo explica en lugar del botón.
+    await expect(
+      section.getByRole('button', { name: 'Activar en este navegador' }).or(section.getByText('Este navegador no admite avisos push')),
+    ).toBeVisible()
     await section.getByRole('button', { name: 'Añadir número' }).click()
     await expect(section.getByLabel('Número con código de país')).toBeVisible()
     await section.getByRole('button', { name: 'Cancelar' }).click()
