@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Automations;
 
 use App\Modules\Automations\Console\PollFeedsCommand;
+use App\Modules\Automations\Console\ResumeWaitingRunsCommand;
 use App\Modules\Automations\Listeners\DisableAutomationsOfDeletedBrand;
 use App\Modules\Automations\Listeners\RunAutomationsForContentPublished;
 use App\Modules\Automations\Listeners\RunAutomationsForInboxMessage;
@@ -22,7 +23,7 @@ class AutomationsServiceProvider extends ModuleServiceProvider
 {
     public function register(): void
     {
-        $this->commands([PollFeedsCommand::class]);
+        $this->commands([PollFeedsCommand::class, ResumeWaitingRunsCommand::class]);
     }
 
     protected function bootModule(): void
@@ -43,6 +44,8 @@ class AutomationsServiceProvider extends ModuleServiceProvider
 
         $this->callAfterResolving(Schedule::class, function (Schedule $schedule): void {
             $schedule->command('automations:poll-feeds')->everyFiveMinutes()->withoutOverlapping();
+            // Pasos «Esperar» vencidos.
+            $schedule->command('automations:resume-waiting')->everyMinute()->withoutOverlapping();
         });
     }
 }

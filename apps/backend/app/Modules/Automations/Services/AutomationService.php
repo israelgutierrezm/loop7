@@ -51,7 +51,7 @@ final class AutomationService
 
         $changes = array_values(array_intersect(
             array_keys($automation->getDirty()),
-            ['name', 'is_enabled', 'trigger', 'trigger_config', 'brand_id', 'conditions', 'actions'],
+            ['name', 'is_enabled', 'trigger', 'trigger_config', 'brand_id', 'flow'],
         ));
         $automation->save();
 
@@ -115,7 +115,8 @@ final class AutomationService
         return array_filter([
             'name' => $automation->name,
             'trigger' => $automation->trigger->value,
-            'actions' => array_map(fn (array $a) => $a['type'], $automation->actions),
+            'actions' => array_map(fn (array $a) => (string) ($a['action'] ?? ''), $automation->definition()->actions()),
+            'steps' => count($automation->definition()->all()),
             'feed_host' => ($url = $automation->feedUrl()) !== null ? parse_url($url, PHP_URL_HOST) : null,
         ], fn ($v) => $v !== null);
     }

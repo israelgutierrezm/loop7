@@ -21,6 +21,7 @@ use Tests\TestCase;
 
 class AutomationTest extends TestCase
 {
+    use BuildsAutomationFlows;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -52,8 +53,7 @@ class AutomationTest extends TestCase
             'name' => 'Regla de prueba',
             'is_enabled' => true,
             'trigger' => $trigger,
-            'conditions' => $conditions,
-            'actions' => $actions,
+            'flow' => $this->flow($actions, $conditions),
         ]);
     }
 
@@ -65,7 +65,7 @@ class AutomationTest extends TestCase
             ->postJson('/api/v1/automations', [
                 'name' => 'Avisar al publicar',
                 'trigger' => 'content.published',
-                'actions' => [['type' => 'notify', 'config' => ['message' => 'Publicado {content_title}']]],
+                'flow' => $this->flow([['type' => 'notify', 'config' => ['message' => 'Publicado {content_title}']]]),
             ])
             ->assertStatus(201)
             ->assertJsonPath('data.trigger', 'content.published');
@@ -159,10 +159,10 @@ class AutomationTest extends TestCase
             $this->actingInOrganization($owner, $org)
                 ->postJson('/api/v1/automations', [
                     'name' => 'SSRF', 'trigger' => 'content.published',
-                    'actions' => [['type' => 'webhook', 'config' => ['url' => $url]]],
+                    'flow' => $this->flow([['type' => 'webhook', 'config' => ['url' => $url]]]),
                 ])
                 ->assertStatus(422)
-                ->assertJsonValidationErrors(['actions.0.config.url']);
+                ->assertJsonValidationErrors(['flow.a1.url']);
         }
 
         // Aunque la regla ya existiera (p. ej. el DNS cambió), al ejecutarse tampoco sale.
@@ -257,7 +257,7 @@ class AutomationTest extends TestCase
                 'name' => 'Renombrada',
                 'trigger' => 'content.published',
                 'is_enabled' => false,
-                'actions' => [['type' => 'notify', 'config' => ['message' => 'y']]],
+                'flow' => $this->flow([['type' => 'notify', 'config' => ['message' => 'y']]]),
             ])
             ->assertOk()
             ->assertJsonPath('data.is_enabled', false);

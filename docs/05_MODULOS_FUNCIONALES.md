@@ -42,7 +42,8 @@ Donde APIs lo permitan: conversaciones/comentarios, asignación, respuesta, etiq
 Snapshots, comparación de periodos, performance por post/canal/Brand/campaña, exportación y reportes.
 
 ## Automation
-Trigger + Conditions + Actions. Inicialmente RSS/webhook/eventos internos; posteriormente builder visual.
+Disparador (eventos internos, webhook entrante o RSS) + flujo de pasos (acciones, esperas y
+condiciones con caminos «Sí»/«No») que se arma en un editor visual.
 
 ## Notifications
 In-app, correo, push del navegador y WhatsApp según las preferencias de cada usuario y la
@@ -204,55 +205,100 @@ que esos módulos conozcan a Automations.
   (`POST /automations/feed-preview`, 10/min) enseña el título y las últimas entradas
   antes de guardar.
 
-### Condiciones y acciones
-- Condiciones: lista de `{field, operator, value}` (operadores equals/not_equals/
-  contains/not_contains) evaluadas en AND contra un contexto plano del disparador.
-- Acciones (reutilizan módulos o efectos externos), con tokens `{campo}` del contexto:
-  - `notify` — **Avisar al equipo**: aviso in-app (y por correo según preferencias) a
-    una audiencia (`managers`, `approvers`, `publishers`, `team`) con acceso a la marca
-    del evento; enlaza al contenido o la conversación.
-  - `webhook` — POST saliente. **Anti-SSRF** (`App\Support\Security\OutboundUrl`): sólo
-    http(s) hacia servidores públicos; se rechazan localhost, IPs privadas/reservadas,
-    CGNAT, metadatos de la nube, credenciales embebidas y dominios internos. Se valida
-    al guardar y al ejecutar, la conexión se fija a la IP validada y no sigue
-    redirecciones.
-  - `create_draft` — **Crear borrador** en la marca de la regla (obligatoria) con título
-    y texto a partir de las variables (p. ej. cada entrada del blog → borrador). Usa
-    `ContentService` (auditado con `via: automation`); exige `content.create` a quien
-    guarda la regla, para que no sea una vía de escalada.
-  - `inbox_reply` (respuesta automática vía `InboxService`), `inbox_tag` (etiquetar):
-    sólo con el disparador del inbox (se valida al guardar).
-- La configuración de cada acción se valida al guardar (errores por campo).
-- El contexto incluye los identificadores públicos `content_id`/`conversation_id` y
-  `brand_id` (útiles para enlazar avisos y para integraciones por webhook).
-- Una automatización de una marca sólo la ve y gestiona quien tiene acceso a esa marca.
+### Flujo (editor visual)
+Cada regla tiene un **flujo de pasos** (`automations.flow` = `{steps: [...]}`) en lugar de la
+antigua lista de condiciones en Y + acciones (la migración convirtió cada regla en su
+equivalente: una condición con las acciones en «Sí»). Tipos de paso:
+
+- **Acción** `{id, type: action, action, config}` — reutilizan módulos o efectos externos, con
+  tokens `{campo}` del contexto:
+  - `notify` — **Avisar al equipo**: aviso in-app (y por correo/push/WhatsApp según
+    preferencias) a una audiencia (`managers`, `approvers`, `publishers`, `team`) con acceso
+    a la marca del evento; enlaza al contenido o la conversación.
+  - `webhook` — POST saliente con `{trigger, context}`. **Anti-SSRF**
+    (`App\Support\Security\OutboundUrl`): sólo http(s) hacia servidores públicos; se
+    rechazan localhost, IPs privadas/reservadas, CGNAT, metadatos de la nube, credenciales
+    embebidas y dominios internos. Se valida al guardar y al ejecutar, la conexión se fija a
+    la IP validada y no sigue redirecciones.
+  - `create_draft` — **Crear borrador** en la marca de la regla (obligatoria) con título y
+    texto a partir de las variables. Usa `ContentService` (auditado con `via: automation`);
+    exige `content.create` a quien guarda la regla, para que no sea una vía de escalada.
+  - `inbox_reply` (respuesta automática vía `InboxService`) e `inbox_tag` (etiquetar): sólo
+    con el disparador del inbox.
+- **Esperar** `{id, type: wait, amount, unit: minutes|hours|days}` — de 1 minuto a 30 días; no
+  puede ser el último paso de su camino.
+- **Condición** `{id, type: branch, match: all|any, conditions, yes, no}` — 1 a 10 condiciones
+  `{field, operator, value}` (operadores `equals`, `not_equals`, `contains`, `not_contains`,
+  `starts_with`, `is_empty`, `is_not_empty`; sin distinguir mayúsculas) combinadas con «se
+  cumplen todas» o «se cumple alguna». Sigue por «Sí» o por «No», cada uno con sus pasos. Es
+  siempre el **último paso de su lista** (árbol, sin uniones): lo que va después vive en sus
+  caminos. Un camino vacío termina ahí (un «No» vacío equivale a un filtro).
+
+Límites: 30 pasos, 10 acciones, 5 esperas y 4 condiciones anidadas. `FlowValidator` valida y
+normaliza el flujo al guardar (sólo los campos de cada acción, audiencia por defecto, ids
+`^[A-Za-z0-9_-]{1,40}$` únicos —los genera si faltan—) y devuelve los errores **por paso**
+(`flow.{id}.{campo}`, p. ej. `flow.a1.url`, `flow.b1.conditions.0.field`; generales en
+`flow`) para señalarlos en el diagrama. El contexto incluye `content_id`/`conversation_id` y
+`brand_id` públicos. Una automatización de una marca sólo la ve y gestiona quien tiene acceso
+a esa marca.
 
 ### Ejecución y trazabilidad
-Los listeners traducen el evento a `AutomationEngine::dispatchForTrigger`, que
-verifica el plan (`feature.automations`), busca reglas activas que coinciden y
-despacha un job `RunAutomation` por regla (cola `automations`, aísla fallos). Los
-disparadores externos usan `dispatchDirect` con su regla. El motor evalúa
-condiciones y ejecuta acciones, registrando cada intento en `automation_runs`
-(success/failed/skipped) y actualizando `run_count`/`last_run_at`. Crear, editar,
-eliminar y renovar la URL de una regla queda en la auditoría (`automation.*`, sin la
-URL ni el token).
+Los listeners traducen el evento a `AutomationEngine::dispatchForTrigger`, que verifica el
+plan (`feature.automations`), busca reglas activas que coinciden y despacha un job
+`RunAutomation` por regla (cola `automations`, 120 s, aísla fallos). Los disparadores externos
+usan `dispatchDirect` con su regla. El motor crea la ejecución (`automation_runs`) y recorre
+el flujo guardando la **traza por paso** (`steps`: id, tipo, estado, mensaje y camino de cada
+condición); una acción que falla detiene el flujo.
+
+- **Esperas**: la ejecución queda `waiting` con `resume_at` y `resume_step` (el id del paso
+  siguiente). `automations:resume-waiting` (cada minuto) reclama de forma atómica las
+  vencidas (`waiting` → `running`) y despacha `ResumeAutomationRun` (un intento: repetir
+  podría duplicar acciones), que continúa la misma traza desde ese paso.
+- Al reanudar se **cancela** (`cancelled`) si la regla se pausó o eliminó, si el plan ya no
+  incluye automatizaciones o si se quitó el paso siguiente (se busca por id: añadir o mover
+  otros pasos mientras espera no la descoloca).
+- Estados: `success`, `failed`, `skipped` (terminó sin hacer ninguna acción: no se cumplieron
+  las condiciones), `waiting`, `running`, `cancelled`. Sólo las terminadas con acciones o
+  fallidas cuentan en `run_count`/`last_run_at`.
+
+Crear, editar, eliminar y renovar la URL de una regla queda en la auditoría (`automation.*`,
+con las acciones y el nº de pasos, sin la URL ni el token).
+
+### Probar (simulación)
+`POST /automations/simulate` (`trigger`, `brand`, `flow`, `context` opcional; 30/min) valida
+el flujo igual que al guardar y lo recorre con datos de ejemplo **sin ejecutar nada** (ni
+avisos, ni webhooks, ni borradores, ni ejecuciones): devuelve por qué camino iría cada
+condición y, por acción, una vista previa con las variables ya sustituidas. Sin `context` usa
+los ejemplos del disparador (`AutomationTrigger::examples()`).
 
 ### Endpoints
-CRUD `GET|POST /automations`, `GET|PUT|DELETE /automations/{automation}`,
-`POST /automations/{automation}/rotate-inbound-url`, `POST /automations/feed-preview`
-y `GET /automations/meta` (catálogo de triggers con descripción/campos, acciones con
-los disparadores admitidos, operadores y audiencias). Requieren permisos
-`automations.*` + entitlement `feature.automations` (402). Público:
+CRUD `GET|POST /automations`, `GET|PUT|DELETE /automations/{automation}` (`flow` en lugar de
+`conditions`/`actions`; `GET` de una regla incluye las 20 últimas ejecuciones con su traza y
+`fields`: variables del disparador y las que trajo la última ejecución),
+`POST /automations/{automation}/rotate-inbound-url`, `POST /automations/feed-preview`,
+`POST /automations/simulate` y `GET /automations/meta` (disparadores con campos y ejemplos,
+acciones con los disparadores admitidos, operadores, combinaciones, unidades de espera,
+audiencias y límites). Requieren permisos `automations.*` + entitlement `feature.automations`
+(402); el alta y la edición validan con `SaveAutomationRequest`. Público:
 `POST /hooks/automations/{token}`.
 
 ### Frontend
-Vista **Automatizaciones** (`/app/automations`): listado con activar/pausar y
-eliminar, y un editor (modal) con disparador (y su explicación), marca, condiciones
-y acciones dinámicas según el tipo (mensaje y audiencia del aviso, URL del webhook,
-título y texto del borrador…), con la lista de variables disponibles del disparador.
-Según el disparador: URL del feed con «Probar feed» y el estado de la última lectura,
-o la URL secreta del webhook entrante con copiar y «Renovar URL». Al editar muestra
-las últimas ejecuciones con su resultado.
+**Automatizaciones** (`/app/automations`): listado con activar/pausar, eliminar y «Nueva
+automatización», que ofrece **plantillas** (en blanco, avisar al publicar, revisar al día
+siguiente, borrador por cada entrada del blog, responder preguntas de precios, enviar a
+Zapier/Make). **Editor visual** (`/app/automations/{id}`, `nueva?plantilla=`):
+
+- Diagrama vertical: disparador, pasos y las condiciones abiertas en dos columnas «Sí»/«No»;
+  «+» entre pasos para añadir una acción, una condición o una espera (una condición en medio
+  se lleva los pasos siguientes a «Sí»); subir/bajar, duplicar y quitar (al quitar una
+  condición se pueden conservar sus pasos de «Sí»); **arrastrar y soltar** un paso en otro
+  hueco; zoom con «Ajustar al ancho».
+- Panel del paso seleccionado: disparador (marca, feed con «Probar feed» y su estado, URL
+  secreta del webhook con copiar y «Renovar URL»), acción (con las variables insertables en el
+  cursor), espera y condición. Los errores del guardado se marcan en cada paso.
+- **Probar** con datos de ejemplo y **últimas ejecuciones**: cualquiera de las dos se ve
+  recorrida sobre el diagrama (camino seguido, resultado y vista previa de cada acción; lo no
+  recorrido queda atenuado). Aviso de cambios sin guardar al salir.
 
 ---
 

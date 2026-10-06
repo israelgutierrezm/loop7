@@ -19,6 +19,7 @@ use Tests\TestCase;
 
 class InboundTriggersTest extends TestCase
 {
+    use BuildsAutomationFlows;
     use RefreshDatabase;
 
     private const FEED = 'https://93.184.216.34/feed.xml';
@@ -82,10 +83,10 @@ class InboundTriggersTest extends TestCase
         [$owner, $org, $brand] = $this->proOrg();
         $data = $this->createAutomation($owner, $org, [
             'brand' => $brand->public_id,
-            'actions' => [['type' => 'create_draft', 'config' => [
+            'flow' => $this->flow([['type' => 'create_draft', 'config' => [
                 'title' => 'Pedido {pedido.id}',
                 'body' => '{cliente.nombre} pidió {productos}',
-            ]]],
+            ]]]),
         ]);
 
         $this->assertStringContainsString('/api/v1/hooks/automations/', (string) $data['inbound_url']);
@@ -116,7 +117,7 @@ class InboundTriggersTest extends TestCase
         [$owner, $org, $brand] = $this->proOrg();
         $data = $this->createAutomation($owner, $org, [
             'brand' => $brand->public_id,
-            'actions' => [['type' => 'notify', 'config' => ['message' => 'Llegó {evento}']]],
+            'flow' => $this->flow([['type' => 'notify', 'config' => ['message' => 'Llegó {evento}']]]),
         ]);
         $path = $this->inboundPath($data['inbound_url']);
 
@@ -137,7 +138,7 @@ class InboundTriggersTest extends TestCase
         [$owner, $org, $brand] = $this->proOrg();
         $data = $this->createAutomation($owner, $org, [
             'brand' => $brand->public_id,
-            'actions' => [['type' => 'create_draft', 'config' => ['title' => 'Idea {n}']]],
+            'flow' => $this->flow([['type' => 'create_draft', 'config' => ['title' => 'Idea {n}']]]),
         ]);
         $path = $this->inboundPath($data['inbound_url']);
 
@@ -153,7 +154,7 @@ class InboundTriggersTest extends TestCase
         [$owner, $org, $brand] = $this->proOrg();
         $data = $this->createAutomation($owner, $org, [
             'brand' => $brand->public_id,
-            'actions' => [['type' => 'notify', 'config' => ['message' => 'Hola']]],
+            'flow' => $this->flow([['type' => 'notify', 'config' => ['message' => 'Hola']]]),
         ]);
 
         $new = $this->actingInOrganization($owner, $org)
@@ -172,7 +173,7 @@ class InboundTriggersTest extends TestCase
         [$owner, $org, $brand] = $this->proOrg();
         $data = $this->createAutomation($owner, $org, [
             'brand' => $brand->public_id,
-            'actions' => [['type' => 'notify', 'config' => ['message' => 'Hola']]],
+            'flow' => $this->flow([['type' => 'notify', 'config' => ['message' => 'Hola']]]),
         ]);
 
         $this->actingInOrganization($owner, $org)
@@ -180,7 +181,7 @@ class InboundTriggersTest extends TestCase
                 'name' => 'Ahora al publicar',
                 'trigger' => 'content.published',
                 'brand' => $brand->public_id,
-                'actions' => [['type' => 'notify', 'config' => ['message' => 'Hola']]],
+                'flow' => $this->flow([['type' => 'notify', 'config' => ['message' => 'Hola']]]),
             ])
             ->assertOk()
             ->assertJsonPath('data.inbound_url', null);
@@ -204,7 +205,7 @@ class InboundTriggersTest extends TestCase
             'trigger' => 'rss.item_published',
             'trigger_config' => ['feed_url' => self::FEED],
             'brand' => $brand->public_id,
-            'actions' => [['type' => 'create_draft', 'config' => ['title' => '{title}', 'body' => '{summary} {link} ({feed_title})']]],
+            'flow' => $this->flow([['type' => 'create_draft', 'config' => ['title' => '{title}', 'body' => '{summary} {link} ({feed_title})']]]),
         ]);
 
         $this->artisan('automations:poll-feeds')->assertSuccessful();
@@ -239,7 +240,7 @@ class InboundTriggersTest extends TestCase
             'trigger' => 'rss.item_published',
             'trigger_config' => ['feed_url' => self::FEED],
             'brand' => $brand->public_id,
-            'actions' => [['type' => 'notify', 'config' => ['message' => '{title}']]],
+            'flow' => $this->flow([['type' => 'notify', 'config' => ['message' => '{title}']]]),
         ]);
 
         $this->artisan('automations:poll-feeds')->assertSuccessful();
@@ -260,7 +261,7 @@ class InboundTriggersTest extends TestCase
                     'trigger' => 'rss.item_published',
                     'trigger_config' => ['feed_url' => $url],
                     'brand' => $brand->public_id,
-                    'actions' => [['type' => 'notify', 'config' => ['message' => '{title}']]],
+                    'flow' => $this->flow([['type' => 'notify', 'config' => ['message' => '{title}']]]),
                 ])
                 ->assertStatus(422)
                 ->assertJsonValidationErrors('trigger_config.feed_url');
@@ -314,10 +315,10 @@ class InboundTriggersTest extends TestCase
             ->postJson('/api/v1/automations', [
                 'name' => 'Sin marca',
                 'trigger' => 'webhook.received',
-                'actions' => [['type' => 'create_draft', 'config' => ['title' => '{t}']]],
+                'flow' => $this->flow([['type' => 'create_draft', 'config' => ['title' => '{t}']]]),
             ])
             ->assertStatus(422)
-            ->assertJsonValidationErrors('actions.0.type');
+            ->assertJsonValidationErrors('flow.a1.action');
 
         $this->actingInOrganization($owner, $org)
             ->postJson('/api/v1/automations', [
@@ -325,10 +326,10 @@ class InboundTriggersTest extends TestCase
                 'trigger' => 'rss.item_published',
                 'trigger_config' => ['feed_url' => self::FEED],
                 'brand' => $brand->public_id,
-                'actions' => [['type' => 'inbox_reply', 'config' => ['message' => 'Hola']]],
+                'flow' => $this->flow([['type' => 'inbox_reply', 'config' => ['message' => 'Hola']]]),
             ])
             ->assertStatus(422)
-            ->assertJsonValidationErrors('actions.0.type');
+            ->assertJsonValidationErrors('flow.a1.action');
 
         // Un rol con automatizaciones pero sin crear contenido no puede crear borradores por esta vía.
         $billing = $this->addMember($org, OrganizationRole::BILLING->value);
@@ -338,10 +339,10 @@ class InboundTriggersTest extends TestCase
                 'name' => 'Escalada',
                 'trigger' => 'webhook.received',
                 'brand' => $brand->public_id,
-                'actions' => [['type' => 'create_draft', 'config' => ['title' => '{t}']]],
+                'flow' => $this->flow([['type' => 'create_draft', 'config' => ['title' => '{t}']]]),
             ])
             ->assertStatus(422)
-            ->assertJsonValidationErrors('actions.0.type');
+            ->assertJsonValidationErrors('flow.a1.action');
     }
 
     public function test_eliminar_automatizacion_queda_auditado(): void
@@ -349,7 +350,7 @@ class InboundTriggersTest extends TestCase
         [$owner, $org, $brand] = $this->proOrg();
         $data = $this->createAutomation($owner, $org, [
             'brand' => $brand->public_id,
-            'actions' => [['type' => 'notify', 'config' => ['message' => 'Hola']]],
+            'flow' => $this->flow([['type' => 'notify', 'config' => ['message' => 'Hola']]]),
         ]);
 
         $this->actingInOrganization($owner, $org)->deleteJson("/api/v1/automations/{$data['id']}")->assertOk();

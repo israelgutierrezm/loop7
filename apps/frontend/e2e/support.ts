@@ -46,7 +46,8 @@ export async function register(page: Page, organization = 'Tostadores E2E'): Pro
   await page.getByRole('checkbox', { name: /Acepto los términos/ }).check()
   await page.getByRole('button', { name: 'Crear cuenta' }).click()
 
-  await expect(page).toHaveURL(/\/app/)
+  // La primera petición al backend recién arrancado puede tardar (cachés en frío).
+  await expect(page).toHaveURL(/\/app/, { timeout: 45_000 })
   await expect(page.getByRole('heading', { name: /Hola, Ana/ })).toBeVisible()
 
   return account

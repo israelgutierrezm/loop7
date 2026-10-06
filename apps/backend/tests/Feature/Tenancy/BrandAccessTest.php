@@ -14,6 +14,7 @@ use App\Modules\Inbox\Models\InboxConversation;
 use App\Modules\Organizations\Models\Organization;
 use App\Modules\SocialConnections\Models\SocialConnection;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Feature\Automations\BuildsAutomationFlows;
 use Tests\TestCase;
 
 /**
@@ -22,6 +23,7 @@ use Tests\TestCase;
  */
 class BrandAccessTest extends TestCase
 {
+    use BuildsAutomationFlows;
     use RefreshDatabase;
 
     private Organization $org;
@@ -121,7 +123,7 @@ class BrandAccessTest extends TestCase
     {
         $payload = fn (Brand $b) => [
             'name' => 'Aviso ' . $b->name, 'trigger' => 'content.published', 'brand' => $b->public_id,
-            'actions' => [['type' => 'webhook', 'config' => ['url' => 'https://93.184.216.34/hook']]],
+            'flow' => $this->flow([['type' => 'webhook', 'config' => ['url' => 'https://93.184.216.34/hook']]]),
         ];
         $foreignId = $this->actingInOrganization($this->owner, $this->org)
             ->postJson('/api/v1/automations', $payload($this->other))

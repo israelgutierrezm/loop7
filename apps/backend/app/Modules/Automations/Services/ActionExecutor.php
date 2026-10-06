@@ -7,6 +7,7 @@ namespace App\Modules\Automations\Services;
 use App\Modules\Automations\Enums\AutomationActionType;
 use App\Modules\Automations\Enums\NotifyAudience;
 use App\Modules\Automations\Models\Automation;
+use App\Modules\Automations\Support\TemplateRenderer;
 use App\Modules\Brands\Models\Brand;
 use App\Modules\Content\Services\ContentService;
 use App\Modules\Inbox\Models\InboxConversation;
@@ -224,15 +225,10 @@ class ActionExecutor
     }
 
     /**
-     * Sustituye tokens {campo} por valores del contexto (admite los campos
-     * anidados de un webhook entrante: {cliente.nombre}).
-     *
      * @param  array<string, mixed>  $context
      */
     private function interpolate(string $template, array $context): string
     {
-        return preg_replace_callback('/\{([\w.-]+)\}/u', function (array $m) use ($context): string {
-            return (string) ($context[$m[1]] ?? $m[0]);
-        }, $template) ?? $template;
+        return TemplateRenderer::render($template, $context);
     }
 }

@@ -26,7 +26,8 @@ class RunAutomation implements ShouldQueue
 
     public int $tries = 2;
 
-    public int $timeout = 30;
+    /** Hasta 10 acciones (p. ej. webhooks de 10 s cada uno). */
+    public int $timeout = 120;
 
     /**
      * @param  array<string, mixed>  $context

@@ -11,7 +11,9 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function (): void {
     Route::get('/automations', [AutomationController::class, 'index']);
     Route::post('/automations', [AutomationController::class, 'store']);
     // Descarga un feed externo: con límite propio.
-    Route::post('/automations/feed-preview', [AutomationController::class, 'feedPreview'])->middleware('throttle:10,1');
+    Route::post('/automations/feed-preview', [AutomationController::class, 'feedPreview'])->middleware('throttle:10,1,automations-feed-preview');
+    // «Probar» del editor: recorre el flujo sin ejecutar nada.
+    Route::post('/automations/simulate', [AutomationController::class, 'simulate'])->middleware('throttle:30,1,automations-simulate');
     Route::get('/automations/{automation}', [AutomationController::class, 'show']);
     Route::put('/automations/{automation}', [AutomationController::class, 'update']);
     Route::delete('/automations/{automation}', [AutomationController::class, 'destroy']);

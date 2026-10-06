@@ -60,6 +60,8 @@ const routes: RouteRecordRaw[] = [
       { path: 'inbox', name: 'inbox', component: () => import('@/views/app/InboxView.vue'), meta: { title: 'Inbox', permission: 'social_accounts.inbox' } },
       { path: 'analytics', name: 'analytics', component: () => import('@/views/app/AnalyticsView.vue'), meta: { title: 'Analítica', permission: 'analytics.view' } },
       { path: 'automations', name: 'automations', component: () => import('@/views/app/AutomationsView.vue'), meta: { title: 'Automatizaciones', permission: 'automations.view' } },
+      // «nueva» crea una (desde una plantilla con ?plantilla=); si no, el id público.
+      { path: 'automations/:automation', name: 'automation-edit', component: () => import('@/views/app/AutomationEditorView.vue'), meta: { title: 'Automatización', permission: 'automations.view' } },
       { path: 'billing', name: 'billing', component: () => import('@/views/app/BillingView.vue'), meta: { title: 'Facturación', permission: 'billing.view' } },
       { path: 'api-keys', name: 'api-keys', component: () => import('@/views/app/ApiKeysView.vue'), meta: { title: 'API y accesos', permission: 'api.manage' } },
     ],

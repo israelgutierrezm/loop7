@@ -48,7 +48,8 @@ class BrandDeletionTest extends TestCase
         ]);
         $automation = Automation::query()->create([
             'organization_id' => $org->id, 'brand_id' => $brand->id, 'name' => 'Regla', 'is_enabled' => true,
-            'trigger' => 'content.published', 'conditions' => [], 'actions' => [['type' => 'notify', 'config' => ['message' => 'x']]],
+            'trigger' => 'content.published',
+            'flow' => ['steps' => [['id' => 'a1', 'type' => 'action', 'action' => 'notify', 'config' => ['message' => 'x']]]],
         ]);
 
         return [$content, $target, $connection, $automation];

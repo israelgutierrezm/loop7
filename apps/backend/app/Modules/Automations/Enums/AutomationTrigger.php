@@ -52,6 +52,29 @@ enum AutomationTrigger: string
     }
 
     /**
+     * Valores de ejemplo para probar el flujo sin esperar a un evento real.
+     *
+     * @return array<string, string>
+     */
+    public function examples(): array
+    {
+        return match ($this) {
+            self::CONTENT_PUBLISHED => ['content_title' => 'Lanzamiento de otoño', 'content_status' => 'published', 'brand' => 'Café Aurora'],
+            self::INBOX_MESSAGE_RECEIVED => ['provider' => 'instagram', 'type' => 'comment', 'participant' => 'Ana López', 'text' => '¿Hacen envíos a Monterrey?'],
+            self::WEBHOOK_RECEIVED => [],
+            self::RSS_ITEM_PUBLISHED => [
+                'title' => 'Cinco recetas con café de olla',
+                'link' => 'https://tu-blog.com/recetas-cafe',
+                'summary' => 'Ideas fáciles para preparar en casa.',
+                'author' => 'Equipo Aurora',
+                'published_at' => '2026-10-05T10:00:00+00:00',
+                'image' => 'https://tu-blog.com/recetas-cafe.jpg',
+                'feed_title' => 'Blog de Café Aurora',
+            ],
+        };
+    }
+
+    /**
      * ¿Llega desde fuera de Loop7 (sin marca de evento)?
      */
     public function isExternal(): bool

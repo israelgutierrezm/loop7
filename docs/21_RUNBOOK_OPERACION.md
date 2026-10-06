@@ -139,7 +139,7 @@ Redis (`QUEUE_CONNECTION=redis`; la imagen incluye phpredis) con uno o más work
 | `default` | Webhooks de pago, correos y avisos |
 | `inbox` | Sincronización de conversaciones |
 | `analytics` | Métricas de cuentas y publicaciones |
-| `automations` | Ejecución de reglas y lectura de feeds RSS |
+| `automations` | Ejecución de reglas (y su reanudación tras un paso «Esperar») y lectura de feeds RSS |
 | `webhooks` | Entrega de webhooks salientes firmados (reintentos propios, hasta 7 en ~21 h) |
 
 | Tarea programada | Frecuencia |
@@ -149,6 +149,7 @@ Redis (`QUEUE_CONNECTION=redis`; la imagen incluye phpredis) con uno o más work
 | `social:refresh-tokens` | Cada hora |
 | `inbox:sync-due` | Cada 15 minutos |
 | `automations:poll-feeds` (feeds RSS de automatizaciones) | Cada 5 minutos |
+| `automations:resume-waiting` (ejecuciones cuya espera venció) | Cada minuto |
 | `analytics:sync-due` | Diaria, 05:00 |
 | `notifications:prune` (leídos > 90 días, no leídos > 180) | Diaria, 03:30 |
 | `webhooks:prune` (entregas resueltas > 30 días) | Diaria, 03:45 |
