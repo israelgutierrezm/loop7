@@ -154,4 +154,15 @@ final class AuditAction
     // Avisos
     public const NOTIFICATIONS_WHATSAPP_VERIFIED = 'notifications.whatsapp_verified';
     public const NOTIFICATIONS_WHATSAPP_REMOVED = 'notifications.whatsapp_removed';
+
+    // Inicio de sesión único (SAML)
+    public const SSO_CONNECTION_UPDATED = 'sso.connection_updated';
+    public const SSO_DOMAIN_ADDED = 'sso.domain_added';
+    public const SSO_DOMAIN_VERIFIED = 'sso.domain_verified';
+    public const SSO_DOMAIN_REMOVED = 'sso.domain_removed';
+    public const SSO_LOGIN = 'sso.login';
+    public const SSO_LOGIN_FAILED = 'sso.login_failed';
+    public const SSO_USER_PROVISIONED = 'sso.user_provisioned';
+    public const SSO_TESTED = 'sso.tested';
+    public const SSO_PASSWORD_LOGIN_BLOCKED = 'sso.password_login_blocked';
 }

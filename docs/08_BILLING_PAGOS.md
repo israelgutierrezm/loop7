@@ -52,6 +52,7 @@ Catálogo en código (`App\Modules\Billing\Entitlements\Entitlement`); `-1` = il
 | `feature.white_label` | Marca blanca | Configuración → Marca blanca |
 | `feature.custom_roles` | Roles personalizados (Professional, Agency, Enterprise) | Crear y editar roles (`POST|PATCH /roles`); eliminar siempre se permite |
 | `feature.whatsapp_notifications` | Avisos por WhatsApp (Professional, Agency, Enterprise): cada mensaje tiene coste para la plataforma | Registrar el número (`POST /me/whatsapp`) y enviar avisos de esa organización por WhatsApp |
+| `feature.sso` | Inicio de sesión único SAML (Enterprise) | Configurar el SSO (402) y entrar con él; sin el plan, el SSO deja de funcionar y vuelve la contraseña (también si era obligatorio) |
 
 Sin suscripción vigente (prueba vencida, suspendida, cancelada) todos los límites valen 0
 y las funciones quedan desactivadas (los datos se conservan). Un 402

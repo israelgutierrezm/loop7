@@ -155,6 +155,26 @@ Redis (`QUEUE_CONNECTION=redis`; la imagen incluye phpredis) con uno o más work
 | `notifications:prune` (leídos > 90 días, no leídos > 180) | Diaria, 03:30 |
 | `webhooks:prune` (entregas resueltas > 30 días) | Diaria, 03:45 |
 
+## SSO (SAML): soporte
+- **Alguien no puede entrar con SSO**: el motivo técnico está en la auditoría de su
+  organización (`sso.login_failed`, con `reason` y `detail`: firma, emisor, audiencia,
+  dominio…). Quien administra puede usar «Probar conexión» en Configuración, que muestra
+  lo que envía el IdP sin iniciar sesión.
+- **El IdP no funciona y el SSO es obligatorio**: la persona propietaria entra con su
+  contraseña (acceso de emergencia) y desactiva el SSO o lo deja no obligatorio. Si nadie
+  puede, SUPERADMIN puede desactivarlo:
+  ```bash
+  php artisan tinker --execute="App\Modules\Sso\Models\SsoConnection::withoutGlobalScopes()->where('organization_id', <id>)->update(['enforced' => false]);"
+  ```
+- **Certificado del IdP a punto de caducar**: Configuración lo avisa 30 días antes; se
+  pega el nuevo certificado junto al actual (se admiten hasta 3) y se quita el viejo
+  después de la rotación en el IdP.
+- **Un dominio verificado lo necesita otra organización** (cambio de dueño del dominio):
+  la organización actual debe quitarlo; si ya no existe, SUPERADMIN borra la fila de
+  `organization_domains` tras confirmar la titularidad.
+- Cambiar `APP_URL` cambia el Entity ID y el ACS de todas las organizaciones: cada cliente
+  debe actualizar su IdP.
+
 ## Notas de cumplimiento del checklist
 - Tokens OAuth, credenciales e IA (BYOK) cifrados at-rest (`encrypted`/`encrypted:array`).
 - API keys: sólo hash SHA-256 en BD.

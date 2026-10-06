@@ -7,6 +7,7 @@ return [
 
     // Módulos del monolito modular
     App\Modules\Identity\IdentityServiceProvider::class,
+    App\Modules\Sso\SsoServiceProvider::class,
     App\Modules\Organizations\OrganizationServiceProvider::class,
     App\Modules\Brands\BrandServiceProvider::class,
     App\Modules\AccessControl\AccessControlServiceProvider::class,

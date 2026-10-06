@@ -2,6 +2,7 @@
 
 ## Autenticación y cuenta
 Registro, login, email verification, reset password, MFA, sesiones, perfil, preferencias, idioma.
+Inicio de sesión único SAML 2.0 por organización (ver «SSO — Implementación» y docs/03).
 
 ## Onboarding
 Wizard: Organization -> plan/trial -> primera Brand -> identidad -> conectar red -> primer contenido.
@@ -187,6 +188,60 @@ seguidores en % (comparable entre cuentas de tamaños distintos), «Lo que mejor
 (publicaciones con más interacción) y la lista de competidores con sus cuentas, estado y
 acciones (actualizar, añadir cuenta, renombrar en línea, quitar). Sin el plan, invitación a
 ver planes; las redes no disponibles explican por qué.
+
+## SSO — Implementación
+
+Módulo `Sso` (onelogin/php-saml 4.x + xmlseclibs, MIT). Las decisiones de seguridad están
+en docs/03 («Inicio de sesión único»).
+
+### Modelo
+`organization_domains` (dominio, token del registro TXT, `verified_at` y `verified_domain`
+—copia única sólo si está verificado—; hasta 10 por organización) y `sso_connections` (una
+por organización: activada, obligatoria, Entity ID y URL de inicio de sesión del IdP,
+certificados PEM, alta automática y rol por defecto, atributos opcionales del correo y el
+nombre, último acceso). El certificado del IdP es público: no se cifra.
+
+### Datos para el IdP
+Por organización: Entity ID = URL de metadatos `{APP_URL}/api/v1/sso/{org}/metadata` y ACS
+`{APP_URL}/api/v1/sso/{org}/acs` (HTTP-POST). La petición al IdP va por HTTP-Redirect, sin
+exigir formato de NameID. El correo sale del atributo configurado o, si no, de los habituales
+(`email`, `mail`, `emailaddress`, el claim de Entra ID, el OID LDAP…) y por último del
+NameID; el nombre, de `displayName`/`name`… o nombre + apellidos.
+
+### Flujo
+1. **Login** «Continuar con SSO»: el SPA crea el verificador, `POST /sso/discover` (`email`,
+   `challenge` = SHA-256 hex del verificador) → `redirect_url` del IdP (404
+   `sso_not_available` si el dominio no tiene SSO activo).
+2. El IdP envía la respuesta a `POST /sso/{org}/acs` → 303 a `/sso/callback#code=…` (o a
+   `/login?sso_error=<motivo>`: `expired`, `not_enabled`, `invalid_response`, `no_email`,
+   `domain_not_verified`, `not_member`, `suspended`, `seats`, `blocked`, `platform_admin`).
+3. `POST /sso/exchange` (`code`, `verifier`) inicia la sesión del SPA y devuelve la
+   organización con la que entró (el SPA la selecciona).
+4. **Prueba de conexión** (`POST /organization/sso/test`): mismo viaje pero el ACS no inicia
+   sesión; vuelve a `/app/settings#sso_test=<token>` y `GET /organization/sso/test/{token}`
+   (sólo para quien la hizo, 10 min) muestra si funcionó, el detalle técnico si falló, el
+   correo, el NameID, los atributos recibidos y qué pasaría al entrar (miembro o alta).
+   Funciona aunque el SSO aún no esté activado.
+
+### Endpoints de configuración (organización actual, `organization.update`, plan con `feature.sso`)
+- `GET /organization/sso` — disponibilidad, datos para el IdP, conexión (con asunto y
+  caducidad de cada certificado) y dominios con su registro TXT.
+- `PUT /organization/sso` — conexión. Activar exige Entity ID, URL https y certificado
+  válidos y un dominio verificado; obligatorio exige activado; el rol por defecto debe poder
+  asignarlo quien guarda.
+- `POST /organization/sso/metadata` (`xml`) — lee los metadatos del IdP pegados (no se
+  descargan de URLs) y devuelve los campos sin guardar.
+- `POST /organization/sso/domains` (`domain`: acepta correo o URL), `POST
+  /organization/sso/domains/{id}/verify` (consulta el TXT; 10/min) y `DELETE
+  /organization/sso/domains/{id}` (no el último verificado con el SSO activo).
+
+### Frontend
+**Login**: botón «Continuar con SSO» (correo de trabajo) y, si la contraseña devuelve
+`sso_required`, cambia a ese modo; muestra los `sso_error` traducidos. **`/sso/callback`**
+canjea el código y lo borra de la URL. **Configuración → Inicio de sesión único (SSO)**
+(con `organization.update`): datos para el IdP con botón copiar, dominios con su valor TXT y
+«Verificar», importar metadatos XML, conexión, atributos, alta automática con rol por
+defecto, activar / hacer obligatorio, «Probar conexión» y el resultado de la prueba.
 
 ## Inbox — Implementación (Fase 9)
 

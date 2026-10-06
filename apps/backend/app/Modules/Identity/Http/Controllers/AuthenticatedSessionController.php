@@ -11,6 +11,7 @@ use App\Modules\Audit\Services\AuditLogger;
 use App\Modules\Identity\Http\Requests\LoginRequest;
 use App\Modules\Identity\Http\Resources\UserResource;
 use App\Modules\Identity\Services\TwoFactorService;
+use App\Modules\Sso\Services\SsoEnforcement;
 use App\Support\Http\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -24,6 +25,7 @@ class AuthenticatedSessionController extends Controller
     public function __construct(
         private readonly TwoFactorService $twoFactor,
         private readonly AuditLogger $audit,
+        private readonly SsoEnforcement $ssoEnforcement,
     ) {
     }
 
@@ -49,6 +51,18 @@ class AuthenticatedSessionController extends Controller
             $this->audit->log(AuditAction::AUTH_LOGIN_FAILED, $user, ['reason' => 'blocked'], actor: $user);
 
             return ApiResponse::error('Tu cuenta está bloqueada. Escribe a soporte para más información.', 'account_blocked', status: 403);
+        }
+
+        // SSO obligatorio en su organización: la contraseña ya no basta (docs/03).
+        $ssoOrganization = $this->ssoEnforcement->requiredBy($user);
+        if ($ssoOrganization !== null) {
+            $this->audit->log(AuditAction::SSO_PASSWORD_LOGIN_BLOCKED, $user, actor: $user, organizationId: $ssoOrganization->id);
+
+            return ApiResponse::error(
+                'Tu organización exige iniciar sesión con su proveedor de identidad (SSO).',
+                'sso_required',
+                status: 403,
+            );
         }
 
         // Segundo factor si el usuario lo tiene activo.

@@ -71,9 +71,12 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         // Webhooks/callbacks públicos (llamadas servidor-a-servidor): sin CSRF.
+        // El ACS de SAML lo envía el IdP: lo protegen la firma, el RelayState de
+        // un solo uso y el InResponseTo (docs/03).
         $middleware->validateCsrfTokens(except: [
             'api/v1/webhooks/payments/*',
             'api/v1/data-deletion/*',
+            'api/v1/sso/*/acs',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

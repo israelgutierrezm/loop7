@@ -39,6 +39,10 @@ class GuardImpersonation
         ['DELETE', 'api/v1/me/push-subscriptions'],
         ['POST', 'api/v1/me/whatsapp*'],
         ['DELETE', 'api/v1/me/whatsapp'],
+        // Quién puede entrar a la organización (IdP, dominios, SSO obligatorio).
+        ['PUT', 'api/v1/organization/sso'],
+        ['POST', 'api/v1/organization/sso/*'],
+        ['DELETE', 'api/v1/organization/sso/*'],
     ];
 
     public function __construct(private readonly AuditLogger $audit)

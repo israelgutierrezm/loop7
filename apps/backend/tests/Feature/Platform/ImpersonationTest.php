@@ -91,6 +91,34 @@ class ImpersonationTest extends TestCase
             ->assertOk();
     }
 
+    public function test_no_cambia_el_inicio_de_sesion_unico_de_la_organizacion(): void
+    {
+        $admin = User::factory()->platformAdmin()->create();
+        [$target, $org] = $this->createOwnerWithOrganization();
+
+        $requests = [
+            ['PUT', '/api/v1/organization/sso', ['is_enabled' => false, 'enforced' => false, 'jit_provisioning' => false, 'default_role' => 'VIEWER']],
+            ['POST', '/api/v1/organization/sso/domains', ['domain' => 'empresa.com']],
+            ['POST', '/api/v1/organization/sso/domains/01ARZ3NDEKTSV4RRFFQ69G5FAV/verify', []],
+            ['DELETE', '/api/v1/organization/sso/domains/01ARZ3NDEKTSV4RRFFQ69G5FAV', []],
+            ['POST', '/api/v1/organization/sso/test', []],
+            ['POST', '/api/v1/organization/sso/metadata', ['xml' => '<x/>']],
+        ];
+        foreach ($requests as [$method, $uri, $data]) {
+            $this->impersonating($admin, $target)
+                ->withHeader('X-Organization', $org->public_id)
+                ->json($method, $uri, $data)
+                ->assertForbidden()
+                ->assertJsonPath('code', 'impersonation_blocked');
+        }
+
+        // Consultarla sí (soporte).
+        $this->impersonating($admin, $target)
+            ->withHeader('X-Organization', $org->public_id)
+            ->getJson('/api/v1/organization/sso')
+            ->assertOk();
+    }
+
     public function test_la_impersonacion_caduca_a_los_60_minutos(): void
     {
         $admin = User::factory()->platformAdmin()->create();

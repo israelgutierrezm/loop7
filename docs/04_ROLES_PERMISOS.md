@@ -21,7 +21,7 @@ Los roles agrupan permisos. Las Policies verifican permisos + Organization + Bra
 ## Permisos base
 ### Organization
 - organization.view
-- organization.update
+- organization.update (incluye la auditoría y el inicio de sesión único: IdP, dominios, SSO obligatorio)
 - organization.delete
 - organization.transfer_ownership
 

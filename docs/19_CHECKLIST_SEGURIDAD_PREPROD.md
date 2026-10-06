@@ -32,6 +32,8 @@ Ver runbook: [21_RUNBOOK_OPERACION.md](21_RUNBOOK_OPERACION.md).
 - [x] ✅ avisos push sin SSRF — sólo endpoints https de los servicios push de los navegadores (`PushEndpoint`, revalidado al enviar), claves VAPID privadas cifradas, sin redirecciones; el SPA da de baja el navegador al cerrar sesión (`PushNotificationsTest`)
 - [x] ✅ WhatsApp sin abuso ni fugas — número verificado con código de un solo uso (HMAC, 5 intentos atómicos, límites diarios por usuario y por número), cifrado en reposo, nunca en logs; token de Meta cifrado y de solo escritura; envío limitado al plan (`WhatsAppNotificationsTest`, `PlatformNotificationChannelsTest`)
 - [x] ✅ competencia sólo con APIs oficiales — datos públicos, token de la conexión propia que nunca sale del servidor, usuarios normalizados antes de ir a la API, recursos resueltos dentro de la marca (`CompetitorsTest`)
+- [x] ✅ SSO SAML estricto — sólo iniciado por Loop7 (RelayState de un solo uso + InResponseTo), aserción firmada (RSA-SHA256), audiencia/destino/destinatario exactos, sin XXE, anti-repetición, correo de un dominio verificado por DNS de esa organización, código de un solo uso atado al navegador (verificador tipo PKCE), el IdP no toma cuentas existentes y la propietaria conserva el acceso con contraseña si es obligatorio (`SsoTest`, E2E `sso.spec.ts`)
+- [ ] ⚙️ `APP_URL` definitiva (https) antes de que los clientes configuren su IdP: el Entity ID y la URL del ACS de cada organización salen de ella (cambiarla obliga a reconfigurar cada IdP)
 - [x] ✅ idempotencia — publicación (consolidación idempotente), webhooks de pago, créditos IA
 - [x] ✅ tests IDOR/tenant isolation — en cada módulo
 - [x] ✅ Brand Access — recursos hijos verifican acceso a su marca (`BrandAccessTest`)
