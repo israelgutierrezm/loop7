@@ -13,11 +13,16 @@ const backend = resolve(dirname(fileURLToPath(import.meta.url)), '../../backend'
  * preparar datos que la interfaz no puede crear (p. ej. historial ya medido).
  */
 export function artisan(...args: string[]): void {
-  execFileSync(process.env.PHP_BINARY ?? 'php', ['artisan', ...args, '--env=e2e'], {
+  artisanOutput(...args)
+}
+
+/** Igual que `artisan`, pero devuelve lo que imprime (p. ej. `tinker --execute=echo …`). */
+export function artisanOutput(...args: string[]): string {
+  return execFileSync(process.env.PHP_BINARY ?? 'php', ['artisan', ...args, '--env=e2e'], {
     cwd: backend,
     env: { ...process.env, XDEBUG_MODE: 'off' },
     stdio: 'pipe',
-  })
+  }).toString()
 }
 
 export interface Account {

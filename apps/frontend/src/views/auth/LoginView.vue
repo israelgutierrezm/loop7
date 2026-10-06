@@ -4,19 +4,41 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { usePublicConfigStore } from '@/stores/publicConfig'
 import { apiErrorCode, apiErrorMessage, apiValidationErrors } from '@/utils/errors'
+import { ssoErrorMessage } from '@/utils/sso'
 import Spinner from '@/components/ui/Spinner.vue'
 
 const auth = useAuthStore()
 const router = useRouter()
 const route = useRoute()
 const publicConfig = usePublicConfigStore()
-onMounted(() => publicConfig.load())
 
 const form = reactive({ email: '', password: '', code: '', remember: false })
 const errors = ref<Record<string, string[]>>({})
 const generalError = ref('')
 const mfaRequired = ref(false)
 const loading = ref(false)
+/** Contraseña o inicio de sesión único con el proveedor de identidad de la empresa. */
+const mode = ref<'password' | 'sso'>('password')
+
+onMounted(() => {
+  publicConfig.load()
+  // Vuelta del proveedor de identidad con un error: se muestra y se limpia la URL.
+  const ssoError = route.query.sso_error
+  if (typeof ssoError === 'string') {
+    mode.value = 'sso'
+    generalError.value = ssoErrorMessage(ssoError)
+    const query = { ...route.query }
+    delete query.sso_error
+    router.replace({ query })
+  }
+})
+
+function useMode(next: 'password' | 'sso'): void {
+  mode.value = next
+  errors.value = {}
+  generalError.value = ''
+  mfaRequired.value = false
+}
 
 async function submit(): Promise<void> {
   loading.value = true
@@ -35,6 +57,10 @@ async function submit(): Promise<void> {
       generalError.value = 'Introduce el código de tu app de autenticación.'
     } else if (code === 'mfa_invalid') {
       generalError.value = 'El código de verificación no es válido.'
+    } else if (code === 'sso_required') {
+      mode.value = 'sso'
+      form.password = ''
+      generalError.value = 'Tu organización exige entrar con su proveedor de identidad (SSO).'
     } else {
       errors.value = apiValidationErrors(e)
       generalError.value = Object.keys(errors.value).length ? '' : apiErrorMessage(e)
@@ -43,14 +69,30 @@ async function submit(): Promise<void> {
     loading.value = false
   }
 }
+
+async function submitSso(): Promise<void> {
+  loading.value = true
+  errors.value = {}
+  generalError.value = ''
+  try {
+    // Si todo va bien, el navegador sale hacia el proveedor de identidad.
+    await auth.startSso(form.email)
+  } catch (e) {
+    errors.value = apiValidationErrors(e)
+    generalError.value = Object.keys(errors.value).length ? '' : apiErrorMessage(e, 'No se pudo iniciar sesión con SSO.')
+    loading.value = false
+  }
+}
 </script>
 
 <template>
   <div>
     <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Inicia sesión</h1>
-    <p class="mt-1 text-sm text-slate-500">Bienvenido de nuevo a Loop7.</p>
+    <p class="mt-1 text-sm text-slate-500">
+      {{ mode === 'sso' ? 'Entra con la cuenta de tu empresa.' : 'Bienvenido de nuevo a Loop7.' }}
+    </p>
 
-    <form class="mt-8 space-y-4" @submit.prevent="submit">
+    <form v-if="mode === 'password'" class="mt-8 space-y-4" @submit.prevent="submit">
       <div>
         <label class="label" for="email">Correo electrónico</label>
         <input id="email" v-model="form.email" type="email" autocomplete="email" required class="input" />
@@ -78,7 +120,7 @@ async function submit(): Promise<void> {
         Mantener sesión iniciada
       </label>
 
-      <p v-if="generalError" class="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/30">
+      <p v-if="generalError" role="alert" class="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/30">
         {{ generalError }}
       </p>
 
@@ -86,6 +128,30 @@ async function submit(): Promise<void> {
         <Spinner v-if="loading" :size="18" />
         {{ mfaRequired ? 'Verificar y entrar' : 'Entrar' }}
       </button>
+
+      <div class="flex items-center gap-3 text-xs text-slate-400" aria-hidden="true">
+        <span class="h-px flex-1 bg-slate-200 dark:bg-slate-700" /> o <span class="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
+      </div>
+      <button type="button" class="btn-secondary w-full" @click="useMode('sso')">Continuar con SSO</button>
+    </form>
+
+    <form v-else class="mt-8 space-y-4" @submit.prevent="submitSso">
+      <div>
+        <label class="label" for="sso-email">Correo de trabajo</label>
+        <input id="sso-email" v-model="form.email" type="email" autocomplete="email" required class="input" placeholder="tu@empresa.com" />
+        <p class="mt-1 text-xs text-slate-500">Te llevaremos al proveedor de identidad de tu empresa (Microsoft Entra ID, Okta, Google…).</p>
+        <p v-if="errors.email" class="mt-1 text-xs text-rose-600">{{ errors.email[0] }}</p>
+      </div>
+
+      <p v-if="generalError" role="alert" class="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/30">
+        {{ generalError }}
+      </p>
+
+      <button type="submit" class="btn-primary w-full" :disabled="loading">
+        <Spinner v-if="loading" :size="18" />
+        Continuar con SSO
+      </button>
+      <button type="button" class="btn-ghost w-full text-sm" @click="useMode('password')">Entrar con contraseña</button>
     </form>
 
     <p v-if="publicConfig.registrationOpen" class="mt-6 text-center text-sm text-slate-500">

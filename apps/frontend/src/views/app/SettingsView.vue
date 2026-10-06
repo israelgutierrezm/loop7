@@ -10,6 +10,7 @@ import Spinner from '@/components/ui/Spinner.vue'
 import TimezoneSelect from '@/components/ui/TimezoneSelect.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import OrganizationDangerZone from '@/components/settings/OrganizationDangerZone.vue'
+import SsoSettings from '@/components/settings/SsoSettings.vue'
 
 const auth = useAuthStore()
 const toasts = useToastStore()
@@ -264,6 +265,8 @@ onMounted(() => {
         </div>
       </form>
     </section>
+
+    <SsoSettings v-if="canEdit" />
 
     <OrganizationDangerZone v-if="auth.currentOrganization?.is_owner && !auth.impersonating" />
   </div>

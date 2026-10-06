@@ -26,6 +26,8 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/layouts/AuthLayout.vue'),
     children: [
       { path: 'login', name: 'login', component: () => import('@/views/auth/LoginView.vue'), meta: { guestOnly: true, title: 'Iniciar sesión' } },
+      // Vuelta del proveedor de identidad (SSO): canjea el código del fragmento por la sesión.
+      { path: 'sso/callback', name: 'sso-callback', component: () => import('@/views/auth/SsoCallbackView.vue'), meta: { title: 'Iniciando sesión' } },
       { path: 'registro', name: 'register', component: () => import('@/views/auth/RegisterView.vue'), meta: { guestOnly: true, title: 'Crear cuenta' } },
       { path: 'recuperar-contrasena', name: 'forgot-password', component: () => import('@/views/auth/ForgotPasswordView.vue'), meta: { guestOnly: true, title: 'Recuperar contraseña' } },
       { path: 'restablecer-contrasena', name: 'reset-password', component: () => import('@/views/auth/ResetPasswordView.vue'), meta: { guestOnly: true, title: 'Restablecer contraseña' } },

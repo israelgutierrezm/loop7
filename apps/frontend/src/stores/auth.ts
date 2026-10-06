@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import http, { fetchCsrfCookie, setTenantHeaders } from '@/services/http'
 import { forgetPushSubscription } from '@/composables/usePushNotifications'
+import { createSsoChallenge, takeSsoVerifier } from '@/utils/sso'
 import type { Brand, Branding, Organization, SubscriptionSummary, User } from '@/types/models'
 
 const ORG_STORAGE_KEY = 'loop7.currentOrganizationId'
@@ -77,6 +78,29 @@ export const useAuthStore = defineStore('auth', () => {
   async function login(payload: LoginPayload): Promise<void> {
     await fetchCsrfCookie()
     await http.post('/auth/login', payload)
+    await fetchMe()
+  }
+
+  /** Lleva al proveedor de identidad de la organización del correo (SSO). */
+  async function startSso(email: string): Promise<void> {
+    const challenge = await createSsoChallenge()
+    await fetchCsrfCookie()
+    const { data } = await http.post('/sso/discover', { email, challenge })
+    const url = String(data.data.redirect_url ?? '')
+    // Sólo direcciones web: nunca javascript: u otros esquemas.
+    if (!/^https?:\/\//i.test(url)) throw new Error('sso_invalid_redirect')
+    window.location.assign(url)
+  }
+
+  /** Vuelta del proveedor de identidad: canjea el código por la sesión. */
+  async function completeSso(code: string): Promise<void> {
+    const verifier = takeSsoVerifier()
+    if (!verifier) throw new Error('sso_verifier_missing')
+    await fetchCsrfCookie()
+    const { data } = await http.post('/sso/exchange', { code, verifier })
+    // Entra en la organización del SSO.
+    currentOrganization.value = null
+    persistOrg(data.data.organization)
     await fetchMe()
   }
 
@@ -197,6 +221,8 @@ export const useAuthStore = defineStore('auth', () => {
     hasRole,
     register,
     login,
+    startSso,
+    completeSso,
     fetchMe,
     selectOrganization,
     markCurrentSuspended,
