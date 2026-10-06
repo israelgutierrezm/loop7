@@ -25,10 +25,10 @@ test.describe('Competencia', () => {
     const dialog = page.getByRole('dialog', { name: 'Añadir competidor' })
     await dialog.getByLabel('Nombre del competidor').fill('Café Rival')
     await expect(dialog.getByLabel('Red de la cuenta 1')).toHaveValue('fake')
-    await dialog.getByLabel('Cuenta 1').fill('@noexiste')
+    await dialog.getByLabel('Cuenta 1', { exact: true }).fill('@noexiste')
     await dialog.getByRole('button', { name: 'Guardar' }).click()
     await expect(dialog.getByText('No encontramos @noexiste en la red de prueba.')).toBeVisible()
-    await dialog.getByLabel('Cuenta 1').fill('@CafeRival')
+    await dialog.getByLabel('Cuenta 1', { exact: true }).fill('@CafeRival')
     await dialog.getByRole('button', { name: 'Guardar' }).click()
     await expectToast(page, 'Competidor añadido.')
 
