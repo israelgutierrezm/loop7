@@ -88,6 +88,8 @@ class ProviderQuotaTest extends TestCase
 
     public function test_programar_en_x_respeta_el_cupo_mensual_del_mes_elegido(): void
     {
+        // A mitad de mes: en su última hora, «fin de mes menos una hora» ya habría pasado.
+        $this->travelTo(now()->startOfMonth()->addDays(14)->setTime(12, 0));
         [$owner, $org, $brand, $destination] = $this->connected('x', 'x_posts.month', 2);
         $this->publishedTarget($org, $brand, $destination, 'x', now()->startOfMonth()->addHour());
         $this->publishedTarget($org, $brand, $destination, 'x', now()->startOfMonth()->addHours(2));
@@ -110,6 +112,8 @@ class ProviderQuotaTest extends TestCase
 
     public function test_al_publicar_sin_cupo_la_publicacion_falla_sin_llamar_a_la_red(): void
     {
+        // A mediodía: justo después de medianoche, «hace 30 minutos» sería otro día.
+        $this->travelTo(now()->setTime(12, 0));
         [, $org, $brand, $destination] = $this->connected('youtube', 'youtube_uploads.day', 1);
         $this->publishedTarget($org, $brand, $destination, 'youtube', now()->subMinutes(30));
         $content = $this->content($org, $brand, 'youtube');
