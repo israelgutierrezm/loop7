@@ -45,7 +45,7 @@ test.describe('Canales de aviso', () => {
 
     // --- Mi perfil: el plan incluye WhatsApp ---
     php(`app(App\\Modules\\Billing\\Services\\SubscriptionService::class)->activatePlan(App\\Models\\User::where('email', '${account.email}')->firstOrFail()->ownedOrganizations()->firstOrFail(), App\\Modules\\Billing\\Models\\Plan::where('key', 'professional')->firstOrFail(), 'month', 'manual');`)
-    // Chromium sin interfaz deniega las notificaciones por defecto; un usuario las permitiría.
+    // Como un usuario que ya permitió los avisos en el sitio.
     await page.context().grantPermissions(['notifications'])
     await page.goto('/app/profile#notificaciones')
     const section = page.locator('#notificaciones')
@@ -56,9 +56,12 @@ test.describe('Canales de aviso', () => {
     await expect(section.getByRole('columnheader', { name: 'WhatsApp' })).toHaveCount(0)
 
     await expect(section.getByText('Avisos push en este navegador')).toBeVisible()
-    // Un navegador sin Push API (algunos Chromium sin interfaz) lo explica en lugar del botón.
+    // Sin Push API o con las notificaciones bloqueadas (el Chromium sin interfaz de CI las
+    // deniega siempre) se explica en lugar de ofrecer el botón.
     await expect(
-      section.getByRole('button', { name: 'Activar en este navegador' }).or(section.getByText('Este navegador no admite avisos push')),
+      section.getByRole('button', { name: 'Activar en este navegador' })
+        .or(section.getByText('Este navegador no admite avisos push'))
+        .or(section.getByText('Bloqueaste los avisos de este sitio')),
     ).toBeVisible()
     await section.getByRole('button', { name: 'Añadir número' }).click()
     await expect(section.getByLabel('Número con código de país')).toBeVisible()
