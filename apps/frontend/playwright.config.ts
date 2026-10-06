@@ -38,7 +38,8 @@ export default defineConfig({
       url: `http://127.0.0.1:${BACKEND_PORT}/up`,
       env: { E2E_BACKEND_PORT: String(BACKEND_PORT), E2E_FRONTEND_URL: FRONTEND_URL },
       reuseExistingServer: false,
-      timeout: 180_000,
+      // Migra y siembra una base nueva: en una máquina cargada puede tardar minutos.
+      timeout: 300_000,
       stdout: 'ignore',
       stderr: 'pipe',
     },
@@ -47,7 +48,7 @@ export default defineConfig({
       url: FRONTEND_URL,
       env: { VITE_API_PROXY_TARGET: `http://127.0.0.1:${BACKEND_PORT}` },
       reuseExistingServer: false,
-      timeout: 120_000,
+      timeout: 180_000,
     },
   ],
 })

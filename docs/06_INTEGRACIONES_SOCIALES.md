@@ -405,6 +405,15 @@ que el App Review revisa. Ya están construidas del lado del código:
   conexiones pierden los tokens y quedan «Expiradas» (con aviso para reconectar).
   SUPERADMIN muestra las dos URLs de cada app para registrarlas.
 
+## Competencia (cuentas ajenas)
+El análisis de competidores (docs/05) lee datos públicos de cuentas que no son del cliente
+con la propia conexión de la organización: Instagram con **Business Discovery** (basta
+`instagram_basic`; cuentas profesionales), Facebook con la función **Page Public Metadata
+Access** (pedirla en la revisión de Meta; sin ella la API responde (#10) y se explica en la
+cuenta) y Threads con **`threads_profile_discovery`** (permiso opcional en SUPERADMIN →
+Redes sociales → Threads; hay que reconectar la cuenta tras activarlo). YouTube no se usa
+para esto por sus políticas de datos de canales ajenos.
+
 ## Revocar el acceso al desconectar
 
 Al desconectar una cuenta, si la red lo permite (`RevokesAccess`: YouTube —sus

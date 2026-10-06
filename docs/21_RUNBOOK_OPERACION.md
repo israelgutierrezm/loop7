@@ -151,6 +151,7 @@ Redis (`QUEUE_CONNECTION=redis`; la imagen incluye phpredis) con uno o más work
 | `automations:poll-feeds` (feeds RSS de automatizaciones) | Cada 5 minutos |
 | `automations:resume-waiting` (ejecuciones cuya espera venció) | Cada minuto |
 | `analytics:sync-due` | Diaria, 05:00 |
+| `competitors:sync-due` (foto diaria de la competencia; borra fotos > 400 días y publicaciones > 120) | Diaria, 06:15 |
 | `notifications:prune` (leídos > 90 días, no leídos > 180) | Diaria, 03:30 |
 | `webhooks:prune` (entregas resueltas > 30 días) | Diaria, 03:45 |
 

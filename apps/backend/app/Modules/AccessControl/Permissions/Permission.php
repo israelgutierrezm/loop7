@@ -65,6 +65,7 @@ final class Permission
     // Analytics
     public const ANALYTICS_VIEW = 'analytics.view';
     public const ANALYTICS_EXPORT = 'analytics.export';
+    public const ANALYTICS_COMPETITORS = 'analytics.competitors';
 
     // Billing
     public const BILLING_VIEW = 'billing.view';
@@ -152,6 +153,7 @@ final class Permission
             'analytics' => [
                 self::ANALYTICS_VIEW,
                 self::ANALYTICS_EXPORT,
+                self::ANALYTICS_COMPETITORS,
             ],
             'automations' => [
                 self::AUTOMATIONS_VIEW,
@@ -261,6 +263,7 @@ final class Permission
             self::CAMPAIGNS_DELETE => 'Eliminar campañas',
             self::ANALYTICS_VIEW => 'Ver analítica',
             self::ANALYTICS_EXPORT => 'Exportar analítica',
+            self::ANALYTICS_COMPETITORS => 'Gestionar competidores',
             self::AUTOMATIONS_VIEW => 'Ver automatizaciones',
             self::AUTOMATIONS_CREATE => 'Crear automatizaciones',
             self::AUTOMATIONS_UPDATE => 'Editar automatizaciones',

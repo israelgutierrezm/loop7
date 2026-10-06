@@ -84,6 +84,7 @@ class PlatformSocialProvidersController extends Controller
     private const OPTIONAL_SCOPES = [
         'threads' => [
             'threads_delete' => 'Borrar publicaciones desde Loop7 (añádelo también al caso de uso de la app de Meta).',
+            'threads_profile_discovery' => 'Seguir perfiles de la competencia (Profile Discovery; requiere acceso avanzado aprobado por Meta).',
         ],
         'linkedin' => [
             'w_organization_social' => 'Publicar y borrar en páginas de empresa (Community Management API).',

@@ -144,6 +144,13 @@ final class AuditAction
     public const AI_KEY_REMOVED = 'ai.key_removed';
     public const AI_PROVIDER_UPDATED = 'ai.provider_updated';
 
+    // Competencia
+    public const COMPETITOR_CREATED = 'competitor.created';
+    public const COMPETITOR_UPDATED = 'competitor.updated';
+    public const COMPETITOR_DELETED = 'competitor.deleted';
+    public const COMPETITOR_ACCOUNT_ADDED = 'competitor.account_added';
+    public const COMPETITOR_ACCOUNT_REMOVED = 'competitor.account_removed';
+
     // Avisos
     public const NOTIFICATIONS_WHATSAPP_VERIFIED = 'notifications.whatsapp_verified';
     public const NOTIFICATIONS_WHATSAPP_REMOVED = 'notifications.whatsapp_removed';

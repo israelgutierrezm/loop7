@@ -41,6 +41,10 @@ Donde APIs lo permitan: conversaciones/comentarios, asignación, respuesta, etiq
 ## Analytics
 Snapshots, comparación de periodos, performance por post/canal/Brand/campaña, exportación y reportes.
 
+## Competencia
+Cuentas públicas de la competencia en las redes cuya API oficial lo permite, con una foto
+diaria de sus métricas y la comparación con la marca (ver «Competencia — Implementación»).
+
 ## Automation
 Disparador (eventos internos, webhook entrante o RSS) + flujo de pasos (acciones, esperas y
 condiciones con caminos «Sí»/«No») que se arma en un editor visual.
@@ -121,6 +125,68 @@ todas) y `from`/`to` (rango de las fechas sugeridas; por defecto la semana próx
   programación con un clic.
 
 ---
+
+## Competencia — Implementación
+
+### Qué redes y por qué
+Sólo APIs oficiales, nunca scraping (backlog: «donde datos/APIs lo permitan»). Contrato
+`CompetitorSource` (`Competitors/Contracts`) con una fuente por red:
+
+| Red | API | Qué da | Requisito |
+|---|---|---|---|
+| Instagram | Business Discovery (API de Instagram con inicio de sesión de Facebook) | Seguidores, nº de publicaciones y las 25 últimas con «me gusta», comentarios y vistas | Cuenta **profesional**; se consulta desde una cuenta de Instagram conectada (`instagram_basic`) |
+| Facebook | Page Public Metadata Access | Seguidores («me gusta» si no hay seguidores) de la página | Función de la app aprobada en la revisión de Meta |
+| Threads | Profile Discovery (`/profile_lookup`) | Seguidores y totales de 7 días («me gusta», citas, republicaciones, vistas) | Permiso `threads_profile_discovery` (opcional en SUPERADMIN, acceso avanzado) y perfil público con ≥ 100 seguidores; 1000 consultas/24 h |
+| Red de prueba | — | Datos deterministas (`noexiste` simula una cuenta que no se encuentra) | Proveedor `fake` activo (fuera de producción) |
+
+No se ofrecen: **YouTube** (sus políticas impiden guardar estadísticas de canales ajenos más
+de 30 días y calcular métricas derivadas), **TikTok** y **LinkedIn** (sin API para cuentas
+ajenas) ni **X** (cada lectura tiene coste; pendiente de decidir).
+
+### Modelo y sincronización
+`competitors` (de una marca) → `competitor_accounts` (red + usuario normalizado, estado y
+último error) → `competitor_snapshots` (una foto por día: seguidores, publicaciones, totales
+de 7 días) y `competitor_posts` (últimas 50 con interacciones). La consulta se hace con la
+cuenta propia conectada de esa red (de la misma marca si la hay; si no, de otra marca de la
+organización): su token nunca sale del servidor. Al añadir una cuenta se busca en la red
+**antes** de guardarla (el error sale al momento, por cuenta). `competitors:sync-due` (diario,
+06:15) encola `SyncCompetitorAccount` (cola `analytics`, escalonado 3 s) para las cuentas sin
+foto de hoy de organizaciones cuyo plan lo incluye; un fallo queda en la cuenta (`error`,
+`last_error`, `failures`) y se reintenta al día siguiente. Retención: fotos 400 días,
+publicaciones 120 días. Al borrar la marca o el competidor se borra todo en cascada.
+
+### Comparación
+`CompetitorBenchmark` (7, 30 o 90 días; todas las redes o una) compara las cuentas propias
+(de la analítica: seguidores de `account_metric_snapshots`, publicaciones del periodo y su
+última medición) con las de la competencia: seguidores, variación absoluta y %,
+publicaciones, **interacción media** («me gusta» + comentarios por publicación, lo comparable
+entre cuentas) y **tasa de interacción** (interacción media / seguidores). Facebook y Threads
+no dan publicaciones: esas columnas quedan vacías (Threads muestra sus totales de 7 días).
+Incluye la serie diaria de seguidores y las 10 publicaciones de la competencia con más
+interacción.
+
+### Plan, permisos y auditoría
+Entitlement `competitor_accounts.max` (Starter 0, Growth 3, Professional 10, Agency 30,
+Enterprise 100; 402 `plan_limit_reached`). Ver exige `analytics.view` (y acceso a la marca);
+gestionar, `analytics.competitors`. Auditoría `competitor.created|updated|deleted` y
+`competitor.account_added|account_removed`.
+
+### Endpoints
+- `GET /brands/{brand}/competitors` — competidores con sus cuentas, redes disponibles (con
+  el motivo si no) y uso del plan.
+- `GET /brands/{brand}/competitors/benchmark?days=30&provider=` — comparación, serie y top.
+- `POST /brands/{brand}/competitors` (`name`, `accounts[]: {provider, handle}`, hasta 6),
+  `PATCH|DELETE /brands/{brand}/competitors/{competitor}`,
+  `POST|DELETE /brands/{brand}/competitors/{competitor}/accounts[/{account}]` y
+  `POST /brands/{brand}/competitors/{competitor}/sync` (actualizar ahora; 10/min).
+
+### Frontend
+**Competencia** (`/app/competitors`, en Gestión): marca, periodo y red; tabla «Tú frente a
+tu competencia» ordenable por columna (tus cuentas marcadas «Tú»), gráfico de crecimiento de
+seguidores en % (comparable entre cuentas de tamaños distintos), «Lo que mejor les funciona»
+(publicaciones con más interacción) y la lista de competidores con sus cuentas, estado y
+acciones (actualizar, añadir cuenta, renombrar en línea, quitar). Sin el plan, invitación a
+ver planes; las redes no disponibles explican por qué.
 
 ## Inbox — Implementación (Fase 9)
 

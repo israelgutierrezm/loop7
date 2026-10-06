@@ -32,6 +32,7 @@ export const navigation: NavGroup[] = [
       { label: 'Campañas', to: '/app/campaigns', icon: 'sparkles', permission: 'campaigns.view' },
       { label: 'Inbox', to: '/app/inbox', icon: 'inbox', permission: 'social_accounts.inbox' },
       { label: 'Analítica', to: '/app/analytics', icon: 'analytics', permission: 'analytics.view' },
+      { label: 'Competencia', to: '/app/competitors', icon: 'building', permission: 'analytics.view' },
     ],
   },
   {
