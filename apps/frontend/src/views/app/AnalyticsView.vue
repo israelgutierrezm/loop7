@@ -168,6 +168,9 @@ onMounted(load)
         <button v-if="data?.can_export" class="btn-secondary text-sm" @click="exportCsv">
           <AppIcon name="analytics" :size="16" /> Exportar CSV
         </button>
+        <RouterLink to="/app/reports" class="btn-secondary text-sm">
+          <AppIcon name="document" :size="16" /> Informes para clientes
+        </RouterLink>
         <button class="btn-secondary text-sm" :disabled="syncing || !brandId" @click="sync">
           <AppIcon name="refresh" :size="16" :class="syncing ? 'animate-spin' : ''" /> Actualizar datos
         </button>

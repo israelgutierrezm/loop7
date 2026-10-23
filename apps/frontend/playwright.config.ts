@@ -48,7 +48,8 @@ export default defineConfig({
       url: FRONTEND_URL,
       env: { VITE_API_PROXY_TARGET: `http://127.0.0.1:${BACKEND_PORT}` },
       reuseExistingServer: false,
-      timeout: 180_000,
+      // En una máquina cargada Vite puede tardar minutos en arrancar (como el backend).
+      timeout: 300_000,
     },
   ],
 })
