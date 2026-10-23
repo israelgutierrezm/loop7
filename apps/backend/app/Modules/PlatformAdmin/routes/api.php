@@ -12,7 +12,7 @@ use App\Modules\PlatformAdmin\Http\Controllers\PlatformUsersController;
 use Illuminate\Support\Facades\Route;
 
 // Configuración pública: datos legales, registro abierto y aviso del sistema.
-Route::get('/public-config', [PlatformSettingsController::class, 'publicConfig'])->middleware('throttle:60,1');
+Route::get('/public-config', [PlatformSettingsController::class, 'publicConfig'])->middleware('throttle:60,1,public-config');
 
 Route::prefix('platform')->group(function (): void {
     // Panel SUPERADMIN.

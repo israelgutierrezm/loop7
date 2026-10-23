@@ -23,9 +23,16 @@ class TwoFactorController extends Controller
     /**
      * Inicia el alta de MFA: genera secreto + códigos de recuperación (sin
      * confirmar aún). Devuelve el secreto y el otpauth URI SÓLO en este paso.
+     * Pide la contraseña: con una sesión robada no se puede activar el doble
+     * factor con una app ajena y dejar fuera al titular.
      */
     public function enable(Request $request): JsonResponse
     {
+        $request->validate(['password' => ['required', 'current_password']], [
+            'password.required' => 'Confirma tu contraseña para activar el doble factor.',
+            'password.current_password' => 'La contraseña no es correcta.',
+        ]);
+
         $user = $request->user();
 
         if ($user->hasTwoFactorEnabled()) {

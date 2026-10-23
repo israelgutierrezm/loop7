@@ -92,13 +92,15 @@ const setup = ref<{ secret: string; recovery: string[]; qr: string } | null>(nul
 const confirmCode = ref('')
 const mfaBusy = ref(false)
 const disablePassword = ref('')
+const enablePassword = ref('')
 
 async function startMfa(): Promise<void> {
   mfaBusy.value = true
   try {
-    const { data } = await http.post('/me/two-factor/enable')
+    const { data } = await http.post('/me/two-factor/enable', { password: enablePassword.value })
     const qr = await QRCode.toDataURL(data.data.otpauth_uri, { width: 200, margin: 1 })
     setup.value = { secret: data.data.secret, recovery: data.data.recovery_codes, qr }
+    enablePassword.value = ''
   } catch (e) {
     toasts.error(apiErrorMessage(e))
   } finally {
@@ -141,6 +143,20 @@ async function disableMfa(): Promise<void> {
 <template>
   <div class="max-w-2xl space-y-6">
     <PageHeader title="Mi perfil" description="Gestiona tu información personal y seguridad." />
+
+    <!-- El panel de plataforma exige el doble factor (llega desde allí con ?mfa=requerido). -->
+    <p
+      v-if="route.query.mfa === 'requerido'"
+      role="alert"
+      class="rounded-lg px-4 py-3 text-sm"
+      :class="enabled ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300' : 'bg-amber-50 text-amber-800 dark:bg-amber-950/30 dark:text-amber-300'"
+    >
+      <template v-if="enabled">
+        Verificación en dos pasos activa.
+        <RouterLink to="/platform" class="font-semibold underline">Volver al panel de plataforma</RouterLink>
+      </template>
+      <template v-else>El panel de plataforma exige la verificación en dos pasos: actívala abajo para continuar.</template>
+    </p>
 
     <!-- Perfil -->
     <form class="card p-6" @submit.prevent="saveProfile">
@@ -280,12 +296,16 @@ async function disableMfa(): Promise<void> {
         </form>
       </div>
 
-      <!-- Desactivado: iniciar -->
-      <div v-else class="mt-5">
-        <button class="btn-primary" :disabled="mfaBusy" @click="startMfa">
+      <!-- Desactivado: iniciar (pide la contraseña) -->
+      <form v-else class="mt-5 flex items-end gap-3" @submit.prevent="startMfa">
+        <div class="flex-1">
+          <label class="label" for="ep">Confirma tu contraseña para activarlo</label>
+          <input id="ep" v-model="enablePassword" type="password" autocomplete="current-password" required class="input" />
+        </div>
+        <button type="submit" class="btn-primary" :disabled="mfaBusy">
           <Spinner v-if="mfaBusy" :size="18" /> Activar doble factor
         </button>
-      </div>
+      </form>
     </div>
   </div>
 </template>

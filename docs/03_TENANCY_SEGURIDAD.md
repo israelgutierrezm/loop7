@@ -110,9 +110,14 @@ Microsoft Entra ID, Okta, Google Workspace, ADFS…). Decisiones de seguridad:
 - CSP restrictiva.
 - HSTS en producción.
 - clickjacking protection.
-- rate limiting.
+- rate limiting: limitadores con nombre (`api`, `auth`, `public-api`…) y, en rutas
+  sensibles, `throttle:N,M,prefijo` (el prefijo es obligatorio: sin él Laravel usa un
+  único contador por usuario/IP para todas esas rutas). Las que piden la contraseña
+  actual (cambiarla, activar/desactivar el doble factor, cerrar las demás sesiones,
+  eliminar o transferir la organización) comparten `password-confirm` (6/min).
 - bloqueo progresivo ante abuso.
-- MFA/TOTP.
+- MFA/TOTP: activarlo y desactivarlo pide la contraseña (una sesión robada no puede
+  atarlo a una app ajena).
 - verificación de correo: el enlace firmado (60 min) vuelve siempre al SPA, también si
   caducó (`/verificar-correo?status=invalid`, con botón para pedir otro). Mientras no se
   verifica, el panel muestra un aviso con «Enviar enlace» y Mi perfil indica el estado

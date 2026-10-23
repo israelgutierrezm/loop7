@@ -11,10 +11,10 @@ use Illuminate\Support\Facades\Route;
 // Callback OAuth público (valida el state internamente).
 Route::get('/social/callback/{provider}', [SocialCallbackController::class, 'handle'])
     ->name('social.callback')
-    ->middleware('throttle:30,1');
+    ->middleware('throttle:30,1,social-callback');
 
 // Webhooks de TikTok (públicos; firma HMAC con el secreto de la app).
-Route::post('/social/webhooks/tiktok', TikTokWebhookController::class)->middleware('throttle:120,1');
+Route::post('/social/webhooks/tiktok', TikTokWebhookController::class)->middleware('throttle:120,1,tiktok-webhooks');
 
 // Conexiones sociales del cliente.
 Route::middleware(['auth:sanctum', 'tenant'])->group(function (): void {
@@ -31,5 +31,5 @@ Route::prefix('platform')->middleware(['auth:sanctum', 'superadmin'])->group(fun
     Route::put('/social-providers/{provider}', [PlatformSocialProvidersController::class, 'update']);
     Route::put('/social-providers/{provider}/credentials', [PlatformSocialProvidersController::class, 'setCredentials']);
     Route::post('/social-providers/{provider}/test', [PlatformSocialProvidersController::class, 'test'])
-        ->middleware('throttle:20,1');
+        ->middleware('throttle:20,1,social-provider-test');
 });

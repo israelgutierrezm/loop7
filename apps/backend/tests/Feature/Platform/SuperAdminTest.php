@@ -47,6 +47,22 @@ class SuperAdminTest extends TestCase
             ]);
     }
 
+    public function test_con_mfa_obligatorio_el_panel_exige_el_doble_factor(): void
+    {
+        config(['platform.require_mfa_for_superadmin' => true]);
+        $admin = User::factory()->platformAdmin()->create();
+        Sanctum::actingAs($admin);
+
+        $this->getJson('/api/v1/platform/dashboard')
+            ->assertForbidden()
+            ->assertJsonPath('code', 'mfa_required');
+        // Su perfil (donde lo activa) sigue disponible.
+        $this->getJson('/api/v1/me')->assertOk();
+
+        $admin->forceFill(['two_factor_secret' => 'JBSWY3DPEHPK3PXP', 'two_factor_confirmed_at' => now()])->save();
+        $this->getJson('/api/v1/platform/dashboard')->assertOk();
+    }
+
     public function test_superadmin_puede_impersonar_y_finalizar(): void
     {
         $admin = User::factory()->platformAdmin()->create();

@@ -23,6 +23,7 @@ let onImpersonationExpired: (() => void) | null = null
 let onAccountBlocked: (() => void) | null = null
 let onOrganizationSuspended: (() => void) | null = null
 let onOrganizationLost: (() => void) | null = null
+let onMfaRequired: (() => void) | null = null
 
 export function setTenantHeaders(organizationId: string | null, brandId: string | null = null): void {
   currentOrganizationId = organizationId
@@ -53,6 +54,11 @@ export function setOrganizationLostHandler(handler: () => void): void {
   onOrganizationLost = handler
 }
 
+/** El panel de plataforma exige el doble factor y el administrador no lo tiene activo. */
+export function setMfaRequiredHandler(handler: () => void): void {
+  onMfaRequired = handler
+}
+
 http.interceptors.request.use((config) => {
   if (currentOrganizationId) {
     config.headers.set('X-Organization', currentOrganizationId)
@@ -78,6 +84,9 @@ http.interceptors.response.use(
       onOrganizationSuspended()
     } else if (status === 403 && code === 'organization_not_resolved' && onOrganizationLost) {
       onOrganizationLost()
+    } else if (status === 403 && code === 'mfa_required' && onMfaRequired) {
+      // (El login pide el código con un 423, no pasa por aquí.)
+      onMfaRequired()
     } else if (status === 401 && !url.includes('/auth/login') && onUnauthorized) {
       // 401 en cualquier endpoint distinto del login implica sesión expirada.
       onUnauthorized()

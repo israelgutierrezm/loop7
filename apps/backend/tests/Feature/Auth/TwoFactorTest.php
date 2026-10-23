@@ -24,7 +24,12 @@ class TwoFactorTest extends TestCase
         $user = User::factory()->create(['password' => 'Password123']);
         $this->actingInOrganization($user);
 
-        $enable = $this->postJson('/api/v1/me/two-factor/enable')->assertOk();
+        // Sin la contraseña (o con otra) no se inicia.
+        $this->postJson('/api/v1/me/two-factor/enable')->assertUnprocessable()->assertJsonValidationErrors('password');
+        $this->postJson('/api/v1/me/two-factor/enable', ['password' => 'Otra-clave-1'])->assertUnprocessable();
+        $this->assertNull($user->fresh()->two_factor_secret);
+
+        $enable = $this->postJson('/api/v1/me/two-factor/enable', ['password' => 'Password123'])->assertOk();
         $secret = $enable->json('data.secret');
 
         $this->assertNotEmpty($secret);

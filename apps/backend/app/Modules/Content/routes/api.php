@@ -22,7 +22,7 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function (): void {
 
     Route::post('/content/{content}/variants', [ContentVariantsController::class, 'store']);
     Route::patch('/variants/{variant}', [ContentVariantsController::class, 'update']);
-    Route::get('/variants/{variant}/publish-options', [ContentVariantsController::class, 'publishOptions'])->middleware('throttle:30,1');
+    Route::get('/variants/{variant}/publish-options', [ContentVariantsController::class, 'publishOptions'])->middleware('throttle:30,1,publish-options');
     Route::put('/variants/{variant}/media', [ContentVariantsController::class, 'syncMedia']);
     Route::delete('/variants/{variant}', [ContentVariantsController::class, 'destroy']);
 
@@ -36,5 +36,5 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function (): void {
 
     // Publicaciones ya hechas: borrarlas de su red.
     Route::delete('/publication-targets/{target}/remote', [PublicationTargetsController::class, 'destroyRemote'])
-        ->middleware('throttle:20,1');
+        ->middleware('throttle:20,1,remote-delete');
 });

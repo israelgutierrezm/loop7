@@ -5,6 +5,7 @@ import router from './router'
 import {
   setAccountBlockedHandler,
   setImpersonationExpiredHandler,
+  setMfaRequiredHandler,
   setOrganizationLostHandler,
   setOrganizationSuspendedHandler,
   setUnauthorizedHandler,
@@ -60,6 +61,13 @@ setOrganizationLostHandler(async () => {
   } finally {
     reloadingOrganizations = false
   }
+})
+
+// El panel de plataforma exige el doble factor (PLATFORM_REQUIRE_MFA_SUPERADMIN):
+// a su perfil del panel para activarlo (también sirve sin organizaciones).
+setMfaRequiredHandler(() => {
+  if (router.currentRoute.value.name === 'platform-profile') return
+  router.push({ name: 'platform-profile', query: { mfa: 'requerido' } })
 })
 
 // La impersonación caducó (60 min): la sesión ya es otra vez la del administrador.

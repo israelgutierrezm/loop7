@@ -16,7 +16,7 @@ Route::middleware(['auth:sanctum', 'tenant', EnsureWebhooksEnabled::class])->gro
     Route::get('/webhooks/{endpoint}/deliveries', [WebhookEndpointsController::class, 'deliveries']);
 
     // Envían peticiones a servidores externos: con límite propio.
-    Route::middleware('throttle:10,1')->group(function (): void {
+    Route::middleware('throttle:10,1,webhook-send')->group(function (): void {
         Route::post('/webhooks/{endpoint}/test', [WebhookEndpointsController::class, 'test']);
         Route::post('/webhooks/{endpoint}/deliveries/{delivery}/redeliver', [WebhookEndpointsController::class, 'redeliver']);
     });

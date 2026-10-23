@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Route;
 
 // Webhooks entrantes de pasarelas (público; se valida por firma).
 Route::post('/webhooks/payments/{gateway}', [WebhookController::class, 'handle'])
-    ->middleware('throttle:120,1');
+    ->middleware('throttle:120,1,payment-webhooks');
 
 // Configuración de pasarelas (SUPERADMIN).
 Route::prefix('platform')->middleware(['auth:sanctum', 'superadmin'])->group(function (): void {

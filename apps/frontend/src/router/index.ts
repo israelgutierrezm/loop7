@@ -89,6 +89,8 @@ const routes: RouteRecordRaw[] = [
       { path: 'jobs', name: 'platform-jobs', component: () => import('@/views/platform/PlatformJobsView.vue'), meta: { title: 'Colas' } },
       { path: 'audit', name: 'platform-audit', component: () => import('@/views/platform/PlatformAuditView.vue'), meta: { title: 'Auditoría global' } },
       { path: 'settings', name: 'platform-settings', component: () => import('@/views/platform/PlatformSettingsView.vue'), meta: { title: 'Configuración' } },
+      // El perfil también dentro del panel: un SUPERADMIN sin organizaciones no llega a /app.
+      { path: 'profile', name: 'platform-profile', component: () => import('@/views/app/ProfileView.vue'), meta: { title: 'Mi perfil' } },
     ],
   },
 

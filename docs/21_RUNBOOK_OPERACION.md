@@ -46,6 +46,7 @@ SANCTUM_STATEFUL_DOMAINS=app.tudominio.com
 CORS_ALLOWED_ORIGINS=https://app.tudominio.com
 SECURITY_HSTS=true
 TRUSTED_PROXIES=*          # o la lista de IP/CIDR de tus balanceadores
+PLATFORM_REQUIRE_MFA_SUPERADMIN=true   # el panel de plataforma exige el doble factor
 QUEUE_CONNECTION=redis
 CACHE_STORE=redis
 FILESYSTEM_DISK=s3

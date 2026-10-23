@@ -3,6 +3,12 @@
 Panel de la plataforma (`/platform`), separado de los roles de cliente: sólo usuarios con
 `is_platform_admin`. Toda acción que cambia algo queda en la auditoría global.
 
+**Doble factor obligatorio**: con `PLATFORM_REQUIRE_MFA_SUPERADMIN=true` (recomendado en
+producción, docs/19) las rutas del panel responden `403 mfa_required` a quien no lo tenga
+activo, y el SPA le lleva a **Mi perfil** dentro del panel (`/platform/profile`, también
+para administradores sin organizaciones) con un aviso hasta que lo active. Activarlo pide
+la contraseña.
+
 ## Dashboard
 MRR, ingresos y conversiones de los últimos 30 días, bajas, pagos fallidos, suscripciones
 por estado, organizaciones y usuarios, publicaciones (7 días) publicadas/fallidas/

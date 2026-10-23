@@ -100,6 +100,9 @@ async function logout(): Promise<void> {
       </nav>
 
       <div class="space-y-1 border-t border-white/10 p-3 text-sm">
+        <RouterLink to="/platform/profile" class="flex items-center gap-2 rounded-lg px-2.5 py-2 hover:bg-white/10 hover:text-white" active-class="!bg-white/10 !text-white">
+          <AppIcon name="user" :size="16" /> Mi perfil
+        </RouterLink>
         <RouterLink to="/app" class="flex items-center gap-2 rounded-lg px-2.5 py-2 hover:bg-white/10 hover:text-white">
           <AppIcon name="chevron-left" :size="16" /> Volver a la app
         </RouterLink>

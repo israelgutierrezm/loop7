@@ -16,7 +16,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::middleware('tenant')->group(function (): void {
         Route::get('/billing/subscription', [BillingController::class, 'subscription']);
         Route::get('/billing/invoices', [BillingController::class, 'invoices']);
-        Route::post('/billing/subscribe', [BillingController::class, 'subscribe'])->middleware('throttle:10,1');
+        Route::post('/billing/subscribe', [BillingController::class, 'subscribe'])->middleware('throttle:10,1,billing-subscribe');
         Route::post('/billing/cancel', [BillingController::class, 'cancel']);
         Route::post('/billing/resume', [BillingController::class, 'resume']);
     });

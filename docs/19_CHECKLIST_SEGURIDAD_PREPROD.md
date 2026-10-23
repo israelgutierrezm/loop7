@@ -10,7 +10,7 @@ Ver runbook: [21_RUNBOOK_OPERACION.md](21_RUNBOOK_OPERACION.md).
 - [ ] ⚙️ cookies Secure/HttpOnly/SameSite — `SESSION_SECURE_COOKIE=true` (HttpOnly/SameSite ya por defecto)
 - [x] ✅ CORS restrictivo — `config/cors.php` por `CORS_ALLOWED_ORIGINS` (sin `*`)
 - [x] ✅ MFA disponible (TOTP)
-- [x] ✅ rate limits — `api`, `auth`, `public-api`, `social-publish`
+- [x] ✅ rate limits — `api`, `auth`, `public-api`, `social-publish` y uno propio por ruta sensible: cada `throttle:N,M` lleva prefijo (sin él, todas compartían un contador por usuario o IP); las rutas que piden la contraseña actual comparten `password-confirm` (6/min) contra adivinarla con una sesión robada (`RateLimitsTest`)
 - [x] ✅ brute-force protection — limitador `auth` (10/min por IP)
 - [x] ✅ email verification
 - [ ] ⚙️ backups automáticos (cron + almacenamiento externo; ver runbook)
@@ -43,7 +43,7 @@ Ver runbook: [21_RUNBOOK_OPERACION.md](21_RUNBOOK_OPERACION.md).
 - [x] ✅ documentos del Brand Brain — tipo real vs extensión, 10 MB, sin imágenes del PDF ni zip bombs de Word, archivo privado; los fragmentos se dan a la IA como datos y se le indica no seguir instrucciones que contengan
 - [x] ✅ exportaciones CSV sin inyección de fórmulas — `CsvWriter` prefija con apóstrofo lo que empieza por `= + - @` (y añade BOM UTF-8)
 - [x] ✅ URLs firmadas para privados — MediaService y logos de marca blanca (URL temporal)
-- [ ] ⚙️ SUPERADMIN con MFA obligatorio (recomendado activar antes de prod)
+- [ ] ⚙️ SUPERADMIN con MFA obligatorio — `PLATFORM_REQUIRE_MFA_SUPERADMIN=true` (activar el doble factor en Mi perfil antes de encenderlo)
 - [x] ✅ impersonación auditada, con caducidad (60 min), acciones críticas bloqueadas e `impersonated_by` en la auditoría
 - [x] ✅ bloqueo de cuentas por SUPERADMIN: rechaza el login y corta la sesión abierta (`EnsureAccountActive`, `PlatformUsersTest`)
 - [ ] ⚙️ secret rotation procedure — documentado (runbook)
