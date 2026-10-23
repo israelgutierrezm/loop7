@@ -16,6 +16,7 @@ use App\Modules\SocialConnections\Enums\ConnectionStatus;
 use App\Modules\SocialConnections\Models\SocialConnection;
 use App\Modules\SocialConnections\Models\SocialConnectionDestination;
 use App\Support\Tenancy\OrganizationScope;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
@@ -36,9 +37,10 @@ final class CompetitorBenchmark
     /**
      * @return array<string, mixed>
      */
-    public function build(Brand $brand, int $days, ?string $provider): array
+    public function build(Brand $brand, int $days, ?string $provider, ?CarbonInterface $until = null): array
     {
-        $to = Carbon::today();
+        // Hasta hoy, o hasta el último día de un periodo cerrado (informes para clientes).
+        $to = $until !== null ? Carbon::parse($until->toDateString()) : Carbon::today();
         $from = $to->copy()->subDays($days - 1);
         $providers = $provider !== null ? [$provider] : self::PROVIDERS;
 

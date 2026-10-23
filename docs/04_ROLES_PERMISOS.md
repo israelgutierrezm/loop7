@@ -74,6 +74,7 @@ Los roles agrupan permisos. Las Policies verifican permisos + Organization + Bra
 - analytics.view
 - analytics.export
 - analytics.competitors (seguir competidores: alta, cuentas, actualizar y eliminar; ANALYST, MANAGER, ADMIN y OWNER)
+- analytics.reports (informes para clientes: crear, editar, generar, enviar y programar; ANALYST, MANAGER, ADMIN y OWNER)
 
 ### Billing
 - billing.view

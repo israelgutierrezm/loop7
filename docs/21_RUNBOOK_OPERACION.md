@@ -139,7 +139,7 @@ Redis (`QUEUE_CONNECTION=redis`; la imagen incluye phpredis) con uno o más work
 | `publishing` | Publicación de cada target en su red (3 intentos: 10 s, 30 s, 60 s) |
 | `default` | Webhooks de pago, correos y avisos |
 | `inbox` | Sincronización de conversaciones |
-| `analytics` | Métricas de cuentas y publicaciones |
+| `analytics` | Métricas de cuentas y publicaciones, competencia e informes para clientes (PDF y su envío) |
 | `automations` | Ejecución de reglas (y su reanudación tras un paso «Esperar») y lectura de feeds RSS |
 | `webhooks` | Entrega de webhooks salientes firmados (reintentos propios, hasta 7 en ~21 h) |
 
@@ -153,6 +153,8 @@ Redis (`QUEUE_CONNECTION=redis`; la imagen incluye phpredis) con uno o más work
 | `automations:resume-waiting` (ejecuciones cuya espera venció) | Cada minuto |
 | `analytics:sync-due` | Diaria, 05:00 |
 | `competitors:sync-due` (foto diaria de la competencia; borra fotos > 400 días y publicaciones > 120) | Diaria, 06:15 |
+| `reports:send-due` (envíos programados de informes para clientes) | Cada 15 minutos |
+| `reports:prune` (informes generados > 400 días con su PDF; cierra los que quedaron a medias) | Diaria, 03:50 |
 | `notifications:prune` (leídos > 90 días, no leídos > 180) | Diaria, 03:30 |
 | `webhooks:prune` (entregas resueltas > 30 días) | Diaria, 03:45 |
 

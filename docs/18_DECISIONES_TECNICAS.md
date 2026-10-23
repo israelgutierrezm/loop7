@@ -23,3 +23,10 @@ Maximiza mantenibilidad sin sacrificar experiencia local.
 
 ## 8. SUPERADMIN fuera del RBAC normal del customer
 Evita escalamiento accidental de privilegios y simplifica auditoría.
+
+## 9. PDF de informes con dompdf
+Los informes para clientes se pintan con `dompdf/dompdf` (LGPL-2.1; usa `php-font-lib`
+LGPL-2.1 y `php-svg-lib` LGPL-3.0), sin modificar, como dependencia de Composer (igual que
+`smalot/pdfparser`, LGPL-3.0). Es PHP puro: no hace falta Chrome/Node en el servidor ni un
+servicio aparte. A cambio sólo entiende CSS 2.1 (tablas, sin flexbox) y los gráficos van como
+SVG incrustado. Queda detrás del contrato `ReportRenderer` por si se cambia de motor.

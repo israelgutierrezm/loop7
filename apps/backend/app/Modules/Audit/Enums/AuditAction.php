@@ -155,6 +155,14 @@ final class AuditAction
     public const NOTIFICATIONS_WHATSAPP_VERIFIED = 'notifications.whatsapp_verified';
     public const NOTIFICATIONS_WHATSAPP_REMOVED = 'notifications.whatsapp_removed';
 
+    // Informes para clientes
+    public const REPORT_CREATED = 'report.created';
+    public const REPORT_UPDATED = 'report.updated';
+    public const REPORT_DELETED = 'report.deleted';
+    public const REPORT_GENERATED = 'report.generated';
+    public const REPORT_SENT = 'report.sent';
+    public const REPORT_FAILED = 'report.failed';
+
     // Inicio de sesión único (SAML)
     public const SSO_CONNECTION_UPDATED = 'sso.connection_updated';
     public const SSO_DOMAIN_ADDED = 'sso.domain_added';

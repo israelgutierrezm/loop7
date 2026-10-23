@@ -34,7 +34,8 @@ Ver runbook: [21_RUNBOOK_OPERACION.md](21_RUNBOOK_OPERACION.md).
 - [x] ✅ competencia sólo con APIs oficiales — datos públicos, token de la conexión propia que nunca sale del servidor, usuarios normalizados antes de ir a la API, recursos resueltos dentro de la marca (`CompetitorsTest`)
 - [x] ✅ SSO SAML estricto — sólo iniciado por Loop7 (RelayState de un solo uso + InResponseTo), aserción firmada (RSA-SHA256), audiencia/destino/destinatario exactos, sin XXE, anti-repetición, correo de un dominio verificado por DNS de esa organización, código de un solo uso atado al navegador (verificador tipo PKCE), el IdP no toma cuentas existentes y la propietaria conserva el acceso con contraseña si es obligatorio (`SsoTest`, E2E `sso.spec.ts`)
 - [ ] ⚙️ `APP_URL` definitiva (https) antes de que los clientes configuren su IdP: el Entity ID y la URL del ACS de cada organización salen de ella (cambiarla obliga a reconfigurar cada IdP)
-- [x] ✅ idempotencia — publicación (consolidación idempotente), webhooks de pago, créditos IA
+- [x] ✅ informes para clientes — PDF sin recursos remotos ni PHP/JS (`dompdf` con `isRemoteEnabled=false`; logo y gráficos incrustados), todo escapado y enlaces sólo https; PDF privado con URL firmada de 30 min; correo con HTML propio (sin markdown: lo escrito por personas no se convierte en enlaces), uno por destinatario, máximo 10, límites por ruta y bloqueado al impersonar; envíos programados con reclamo atómico (`ClientReportsTest`)
+- [x] ✅ idempotencia — publicación (consolidación idempotente), webhooks de pago, créditos IA, envíos de informes (sin repetir correos al reintentar)
 - [x] ✅ tests IDOR/tenant isolation — en cada módulo
 - [x] ✅ Brand Access — recursos hijos verifican acceso a su marca (`BrandAccessTest`)
 - [x] ✅ dependency audit Composer/NPM — pasos en CI

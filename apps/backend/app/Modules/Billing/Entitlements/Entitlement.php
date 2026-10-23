@@ -27,6 +27,8 @@ final class Entitlement
     public const YOUTUBE_UPLOADS_DAY = 'youtube_uploads.day';
     // Cuentas de la competencia seguidas: cada una consulta la API de la red a diario.
     public const COMPETITOR_ACCOUNTS_MAX = 'competitor_accounts.max';
+    // Informes para clientes (definiciones con PDF y envío programado); 0 = no incluido.
+    public const CLIENT_REPORTS_MAX = 'client_reports.max';
 
     // Features
     public const FEATURE_APPROVALS = 'feature.approvals';
@@ -65,6 +67,7 @@ final class Entitlement
             self::X_POSTS_MONTH => ['type' => self::TYPE_LIMIT, 'label' => 'Publicaciones en X/mes'],
             self::YOUTUBE_UPLOADS_DAY => ['type' => self::TYPE_LIMIT, 'label' => 'Subidas a YouTube/día'],
             self::COMPETITOR_ACCOUNTS_MAX => ['type' => self::TYPE_LIMIT, 'label' => 'Cuentas de la competencia'],
+            self::CLIENT_REPORTS_MAX => ['type' => self::TYPE_LIMIT, 'label' => 'Informes para clientes'],
             self::FEATURE_APPROVALS => ['type' => self::TYPE_BOOL, 'label' => 'Flujos de aprobación'],
             self::FEATURE_ANALYTICS_ADVANCED => ['type' => self::TYPE_BOOL, 'label' => 'Analítica avanzada'],
             self::FEATURE_INBOX => ['type' => self::TYPE_BOOL, 'label' => 'Inbox'],

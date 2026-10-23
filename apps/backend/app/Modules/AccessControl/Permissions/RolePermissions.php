@@ -53,6 +53,7 @@ final class RolePermissions
         $analyst = array_merge($viewer, [
             Permission::ANALYTICS_EXPORT,
             Permission::ANALYTICS_COMPETITORS,
+            Permission::ANALYTICS_REPORTS,
             Permission::SOCIAL_ACCOUNTS_ANALYTICS,
         ]);
 

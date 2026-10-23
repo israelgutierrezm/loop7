@@ -46,6 +46,12 @@ Snapshots, comparación de periodos, performance por post/canal/Brand/campaña, 
 Cuentas públicas de la competencia en las redes cuya API oficial lo permite, con una foto
 diaria de sus métricas y la comparación con la marca (ver «Competencia — Implementación»).
 
+## Informes para clientes
+PDF con los resultados de una marca en un periodo (resumen, redes, evolución, publicaciones
+destacadas, actividad, mejores horarios y competencia), con la marca blanca de la agencia,
+para descargar o enviar por correo a mano o de forma programada (ver «Informes para
+clientes — Implementación»).
+
 ## Automation
 Disparador (eventos internos, webhook entrante o RSS) + flujo de pasos (acciones, esperas y
 condiciones con caminos «Sí»/«No») que se arma en un editor visual.
@@ -188,6 +194,70 @@ seguidores en % (comparable entre cuentas de tamaños distintos), «Lo que mejor
 (publicaciones con más interacción) y la lista de competidores con sus cuentas, estado y
 acciones (actualizar, añadir cuenta, renombrar en línea, quitar). Sin el plan, invitación a
 ver planes; las redes no disponibles explican por qué.
+
+## Informes para clientes — Implementación
+
+Módulo `Reports`. El PDF lo pinta `dompdf` (LGPL-2.1, docs/18) detrás del contrato
+`ReportRenderer`; la plantilla Blade vive en el módulo (`resources/views`).
+
+### Modelo
+`client_reports` (de una marca): nombre, periodo (`last_7_days`, `last_30_days`,
+`last_90_days`, `previous_week`, `previous_month`), secciones, mensaje para el cliente,
+hasta 10 destinatarios y envío automático (`weekly` día ISO 1–7 o `monthly` día 1–28, a una
+hora de la marca; `next_send_at` en UTC). `client_report_runs`: cada informe generado, con el
+periodo, cómo se pidió (`manual` = sólo PDF, `send`, `scheduled`), estado, la **foto de los
+datos** con que se hizo (nunca se recalcula), el PDF en el disco privado
+(`reports/{org}/{run}.pdf`), a quién debía enviarse y a quién se envió ya.
+
+### Datos (`ReportDataBuilder`)
+Días completos en la **zona horaria de la marca** (hoy no cuenta; una publicación de las 23:30
+del último día es de ese periodo aunque en UTC ya sea el siguiente). Comparación con el
+periodo anterior de igual duración.
+- **Resumen**: seguidores al final y su crecimiento (por cuenta, primera y última medición
+  del periodo), alcance, impresiones e interacciones (con variación) de los snapshots de
+  cuenta, publicaciones publicadas en el periodo e interacciones por cada 100 alcanzados.
+- **Por red**: una fila por cuenta con lo anterior y sus publicaciones.
+- **Evolución de seguidores**: total diario (cada cuenta arrastra su última medición).
+- **Destacadas**: las 10 publicaciones del periodo con más interacciones (última medición).
+- **Actividad**: publicadas por red y por día de la semana, y las que fallaron.
+- **Mejores horarios** (con `feature.analytics_advanced`) y **competencia** (si el plan
+  incluye competidores); si el plan ya no las incluye, se omiten del PDF.
+
+### Generar y enviar
+`POST …/runs` (sólo PDF) y `POST …/send` (PDF + correo) crean el informe y encolan
+`GenerateClientReport` (cola `analytics`). El envío es **un correo por destinatario** (nadie
+ve a los demás) con el PDF adjunto, desde el nombre de la organización si tiene marca blanca
+y con respuesta a quien creó el informe (o al correo de facturación). Idempotente: un
+reintento no rehace el PDF ni repite correos ya enviados. Sólo uno a la vez por informe.
+`reports:send-due` (cada 15 min) reclama de forma atómica los vencidos moviendo
+`next_send_at` (nunca sale dos veces) y omite la ocurrencia si la marca se eliminó, la
+organización está suspendida o el plan ya no los incluye; `reports:prune` (diaria) borra los
+de más de 400 días con su PDF y cierra los que quedaron a medias.
+
+### Plan, permisos y auditoría
+Entitlement `client_reports.max` (Starter 0, Growth 2, Professional 10, Agency 50, Enterprise
+ilimitados; además, 25 por marca). Ver y descargar: `analytics.view` y acceso a la marca;
+crear, editar, generar y enviar: `analytics.reports`. «Enviar ahora» se bloquea al impersonar.
+Auditoría `report.created|updated|deleted|generated|sent|failed` (los envíos, con los
+destinatarios). Límites: generar 10 cada 10 min, enviar 5 cada 10 min.
+
+### Endpoints
+- `GET /brands/{brand}/reports` — informes con sus 5 últimos generados (con enlace firmado
+  al PDF), uso del plan, secciones (y si el plan las incluye), periodos y zona horaria.
+- `POST /brands/{brand}/reports`, `PATCH|DELETE /brands/{brand}/reports/{report}`.
+- `GET /brands/{brand}/reports/{report}/runs` — historial paginado.
+- `POST /brands/{brand}/reports/{report}/runs` y `…/send` (`period` predefinido o `custom`
+  con `from`/`to`, hasta 366 días y nunca en el futuro) → 202 con el informe en marcha.
+- `GET /reports/runs/{run}/download` — PDF por URL firmada de 30 minutos (`?download=1` para
+  descargarlo en lugar de abrirlo).
+
+### Frontend
+**Informes** (`/app/reports`, en Gestión; también desde Analítica): por marca, tarjetas con la
+configuración, «Generar PDF», «Enviar ahora», editar y eliminar, y los últimos generados con
+su estado y el enlace al PDF; se actualizan solas mientras se generan. El formulario elige
+secciones (las que el plan no incluye aparecen deshabilitadas), periodo, mensaje para el
+cliente, destinatarios (chips) y envío automático; al elegir semanal o mensual propone el
+periodo que encaja.
 
 ## SSO — Implementación
 

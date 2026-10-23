@@ -66,6 +66,7 @@ final class Permission
     public const ANALYTICS_VIEW = 'analytics.view';
     public const ANALYTICS_EXPORT = 'analytics.export';
     public const ANALYTICS_COMPETITORS = 'analytics.competitors';
+    public const ANALYTICS_REPORTS = 'analytics.reports';
 
     // Billing
     public const BILLING_VIEW = 'billing.view';
@@ -154,6 +155,7 @@ final class Permission
                 self::ANALYTICS_VIEW,
                 self::ANALYTICS_EXPORT,
                 self::ANALYTICS_COMPETITORS,
+                self::ANALYTICS_REPORTS,
             ],
             'automations' => [
                 self::AUTOMATIONS_VIEW,
@@ -264,6 +266,7 @@ final class Permission
             self::ANALYTICS_VIEW => 'Ver analítica',
             self::ANALYTICS_EXPORT => 'Exportar analítica',
             self::ANALYTICS_COMPETITORS => 'Gestionar competidores',
+            self::ANALYTICS_REPORTS => 'Crear, enviar y programar informes para clientes',
             self::AUTOMATIONS_VIEW => 'Ver automatizaciones',
             self::AUTOMATIONS_CREATE => 'Crear automatizaciones',
             self::AUTOMATIONS_UPDATE => 'Editar automatizaciones',

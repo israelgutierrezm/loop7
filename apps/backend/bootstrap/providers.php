@@ -22,6 +22,7 @@ return [
     App\Modules\Knowledge\KnowledgeServiceProvider::class,
     App\Modules\Analytics\AnalyticsServiceProvider::class,
     App\Modules\Competitors\CompetitorsServiceProvider::class,
+    App\Modules\Reports\ReportsServiceProvider::class,
     App\Modules\Inbox\InboxServiceProvider::class,
     App\Modules\Automations\AutomationsServiceProvider::class,
     App\Modules\Notifications\NotificationsServiceProvider::class,

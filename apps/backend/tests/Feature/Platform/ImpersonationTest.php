@@ -103,6 +103,8 @@ class ImpersonationTest extends TestCase
             ['DELETE', '/api/v1/organization/sso/domains/01ARZ3NDEKTSV4RRFFQ69G5FAV', []],
             ['POST', '/api/v1/organization/sso/test', []],
             ['POST', '/api/v1/organization/sso/metadata', ['xml' => '<x/>']],
+            // Enviar informes a los clientes de la organización en su nombre.
+            ['POST', '/api/v1/brands/01ARZ3NDEKTSV4RRFFQ69G5FAV/reports/01ARZ3NDEKTSV4RRFFQ69G5FAV/send', []],
         ];
         foreach ($requests as [$method, $uri, $data]) {
             $this->impersonating($admin, $target)
