@@ -31,6 +31,20 @@ class RateLimitsTest extends TestCase
             ->assertJsonValidationErrors('current_password');
     }
 
+    public function test_ninguna_ruta_usa_un_limite_numerico_sin_prefijo(): void
+    {
+        $missing = [];
+        foreach (app('router')->getRoutes() as $route) {
+            foreach ($route->gatherMiddleware() as $middleware) {
+                if (is_string($middleware) && preg_match('/^throttle:\d+,\d+$/', $middleware) === 1) {
+                    $missing[] = implode('|', $route->methods()) . ' ' . $route->uri() . " ({$middleware})";
+                }
+            }
+        }
+
+        $this->assertSame([], $missing, 'Usa throttle:N,M,prefijo: sin prefijo todas esas rutas comparten un contador.');
+    }
+
     public function test_las_rutas_que_piden_la_contrasena_comparten_el_limite(): void
     {
         [$owner, $org] = $this->createOwnerWithOrganization();

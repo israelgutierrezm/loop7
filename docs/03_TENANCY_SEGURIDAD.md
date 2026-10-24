@@ -112,7 +112,8 @@ Microsoft Entra ID, Okta, Google Workspace, ADFS…). Decisiones de seguridad:
 - clickjacking protection.
 - rate limiting: limitadores con nombre (`api`, `auth`, `public-api`…) y, en rutas
   sensibles, `throttle:N,M,prefijo` (el prefijo es obligatorio: sin él Laravel usa un
-  único contador por usuario/IP para todas esas rutas). Las que piden la contraseña
+  único contador por usuario/IP para todas esas rutas; `RateLimitsTest` recorre todas las
+  rutas registradas y falla si alguna lo olvida). Las que piden la contraseña
   actual (cambiarla, activar/desactivar el doble factor, cerrar las demás sesiones,
   eliminar o transferir la organización) comparten `password-confirm` (6/min).
 - bloqueo progresivo ante abuso.
