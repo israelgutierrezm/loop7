@@ -29,9 +29,10 @@ FROM php:8.3-fpm-alpine AS runtime
 
 # Extensiones PHP requeridas por la app (pdo_mysql, intl, gd, zip, bcmath,
 # opcache, pcntl para colas, mbstring y redis para caché/cola/sesión en prod).
-RUN apk add --no-cache nginx supervisor icu-libs libzip libpng libjpeg-turbo freetype oniguruma \
-    && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS icu-dev libzip-dev libpng-dev libjpeg-turbo-dev freetype-dev oniguruma-dev \
-    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+# GD con WEBP: los logos de marca blanca en WEBP también salen en los informes PDF.
+RUN apk add --no-cache nginx supervisor icu-libs libzip libpng libjpeg-turbo libwebp freetype oniguruma \
+    && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS icu-dev libzip-dev libpng-dev libjpeg-turbo-dev libwebp-dev freetype-dev oniguruma-dev \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
     && docker-php-ext-install -j"$(nproc)" pdo_mysql bcmath intl zip gd opcache pcntl mbstring \
     && pecl install redis \
     && docker-php-ext-enable redis \

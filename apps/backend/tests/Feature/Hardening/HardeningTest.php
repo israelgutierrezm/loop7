@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace Tests\Feature\Hardening;
 
 use App\Modules\Audit\Services\AuditLogger;
+use App\Modules\Billing\Exceptions\PlanLimitExceededException;
+use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 use Tests\TestCase;
 
 class HardeningTest extends TestCase
@@ -22,6 +25,14 @@ class HardeningTest extends TestCase
         $response->assertHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
         $this->assertNotEmpty($response->headers->get('Content-Security-Policy'));
         $this->assertNotEmpty($response->headers->get('Permissions-Policy'));
+    }
+
+    public function test_el_limite_del_plan_no_se_registra_como_error(): void
+    {
+        $handler = app(ExceptionHandler::class);
+
+        $this->assertFalse($handler->shouldReport(new PlanLimitExceededException()));
+        $this->assertTrue($handler->shouldReport(new RuntimeException('fallo real')));
     }
 
     public function test_hsts_no_se_envia_sobre_http(): void

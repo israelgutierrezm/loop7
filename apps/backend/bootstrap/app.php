@@ -6,6 +6,7 @@ use App\Http\Middleware\RequestId;
 use App\Http\Middleware\SecurityHeaders;
 use App\Modules\Api\Http\Middleware\AuthenticateApiKey;
 use App\Modules\Api\Http\Middleware\EnsureApiScope;
+use App\Modules\Billing\Exceptions\PlanLimitExceededException;
 use App\Modules\Identity\Http\Middleware\EnsureAccountActive;
 use App\Modules\Identity\Http\Middleware\EnsureSuperAdmin;
 use App\Modules\Organizations\Http\Middleware\ResolveTenant;
@@ -80,6 +81,9 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // Límite del plan alcanzado: una respuesta 402 prevista, no un fallo que registrar.
+        $exceptions->dontReport([PlanLimitExceededException::class]);
+
         // Respuestas JSON consistentes para la API (mensajes en español + code estable).
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
