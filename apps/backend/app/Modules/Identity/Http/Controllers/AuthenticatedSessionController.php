@@ -11,6 +11,7 @@ use App\Modules\Audit\Services\AuditLogger;
 use App\Modules\Identity\Http\Requests\LoginRequest;
 use App\Modules\Identity\Http\Resources\UserResource;
 use App\Modules\Identity\Services\TwoFactorService;
+use App\Modules\Organizations\Services\TwoFactorRequirement;
 use App\Modules\Sso\Services\SsoEnforcement;
 use App\Support\Http\ApiResponse;
 use Illuminate\Http\JsonResponse;
@@ -92,6 +93,8 @@ class AuthenticatedSessionController extends Controller
         Auth::guard('web')->login($user, $request->boolean('remember'));
         if ($request->hasSession()) {
             $request->session()->regenerate();
+            // Con contraseña no hay doble factor del IdP: la sesión no queda exenta.
+            $request->session()->forget(TwoFactorRequirement::SSO_SESSION_KEY);
         }
 
         $user->forceFill([

@@ -13,6 +13,7 @@ use App\Modules\Brands\Services\BrandAccess;
 use App\Modules\Organizations\Http\Resources\OrganizationResource;
 use App\Modules\Organizations\Services\MembershipService;
 use App\Modules\Organizations\Services\OrganizationBranding;
+use App\Modules\Organizations\Services\TwoFactorRequirement;
 use App\Support\Http\ApiResponse;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
@@ -69,6 +70,8 @@ class ContextController extends Controller
             ],
             // Marca blanca vigente (null = marca de la plataforma).
             'branding' => $branding->active($organization),
+            // La organización exige el doble factor y esta persona aún no lo tiene.
+            'two_factor_required' => app(TwoFactorRequirement::class)->blocks($user, $organization, $request),
         ]);
     }
 }

@@ -119,6 +119,16 @@ Microsoft Entra ID, Okta, Google Workspace, ADFS…). Decisiones de seguridad:
 - bloqueo progresivo ante abuso.
 - MFA/TOTP: activarlo y desactivarlo pide la contraseña (una sesión robada no puede
   atarlo a una app ajena).
+- Doble factor obligatorio por organización (control Enterprise,
+  `feature.require_two_factor`): Configuración → Seguridad del equipo
+  (`GET|PUT /organization/security`, `organization.update`; activarlo exige tenerlo ya,
+  bloqueado al impersonar, auditado como `organization.security_updated`). Con la opción
+  activa, las rutas de la organización responden `403 two_factor_required` a quien no lo
+  tenga; sólo queda `/context` (con `two_factor_required: true`) y Mi perfil, adonde le
+  lleva el SPA. Quedan exentas las sesiones abiertas por el SSO de esa organización (el
+  doble factor lo aplica su IdP; el canje guarda `sso_organization_id` en la sesión y el
+  login con contraseña lo borra) y las impersonaciones de soporte. Sin el plan, la opción
+  guardada no rige. Equipo marca a quien aún no lo tiene (`RequireTwoFactorTest`).
 - verificación de correo: el enlace firmado (60 min) vuelve siempre al SPA, también si
   caducó (`/verificar-correo?status=invalid`, con botón para pedir otro). Mientras no se
   verifica, el panel muestra un aviso con «Enviar enlace» y Mi perfil indica el estado

@@ -28,6 +28,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|null $billing_email
  * @property string $timezone
  * @property array{display_name?: string|null, primary_color?: string|null, logo_path?: string|null}|null $branding
+ * @property bool $require_two_factor
  * @property \Illuminate\Support\Carbon|null $trial_ends_at
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property list<string>|null $current_roles
@@ -69,6 +70,7 @@ class Organization extends Model
             'status' => OrganizationStatus::class,
             'settings' => 'array',
             'branding' => 'array',
+            'require_two_factor' => 'boolean',
             'trial_ends_at' => 'datetime',
         ];
     }

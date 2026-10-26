@@ -11,6 +11,7 @@ use App\Modules\Billing\Entitlements\Entitlement;
 use App\Modules\Billing\Services\EntitlementsService;
 use App\Modules\Identity\Http\Resources\UserResource;
 use App\Modules\Organizations\Models\Organization;
+use App\Modules\Organizations\Services\TwoFactorRequirement;
 use App\Modules\Sso\Exceptions\SsoException;
 use App\Modules\Sso\Http\Requests\AcsRequest;
 use App\Modules\Sso\Http\Requests\DiscoverSsoRequest;
@@ -95,6 +96,8 @@ class SsoLoginController extends Controller
         Auth::guard('web')->login($user);
         if ($request->hasSession()) {
             $request->session()->regenerate();
+            // El doble factor lo aplica el IdP: la organización no lo exige aparte en esta sesión.
+            $request->session()->put(TwoFactorRequirement::SSO_SESSION_KEY, $organization->id);
         }
         $user->forceFill([
             'last_login_at' => now(),

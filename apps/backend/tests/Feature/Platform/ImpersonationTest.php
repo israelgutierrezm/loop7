@@ -103,6 +103,7 @@ class ImpersonationTest extends TestCase
             ['DELETE', '/api/v1/organization/sso/domains/01ARZ3NDEKTSV4RRFFQ69G5FAV', []],
             ['POST', '/api/v1/organization/sso/test', []],
             ['POST', '/api/v1/organization/sso/metadata', ['xml' => '<x/>']],
+            ['PUT', '/api/v1/organization/security', ['require_two_factor' => false]],
             // Enviar informes a los clientes de la organización en su nombre.
             ['POST', '/api/v1/brands/01ARZ3NDEKTSV4RRFFQ69G5FAV/reports/01ARZ3NDEKTSV4RRFFQ69G5FAV/send', []],
         ];
@@ -118,6 +119,19 @@ class ImpersonationTest extends TestCase
         $this->impersonating($admin, $target)
             ->withHeader('X-Organization', $org->public_id)
             ->getJson('/api/v1/organization/sso')
+            ->assertOk();
+    }
+
+    public function test_soporte_entra_aunque_la_persona_no_tenga_doble_factor(): void
+    {
+        $admin = User::factory()->platformAdmin()->create();
+        [$target, $org] = $this->createOwnerWithOrganization();
+        $this->setOrganizationPlan($org, 'enterprise');
+        $org->forceFill(['require_two_factor' => true])->save();
+
+        $this->impersonating($admin, $target)
+            ->withHeader('X-Organization', $org->public_id)
+            ->getJson('/api/v1/dashboard')
             ->assertOk();
     }
 

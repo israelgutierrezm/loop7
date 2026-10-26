@@ -8,6 +8,7 @@ use App\Modules\Organizations\Http\Controllers\DashboardController;
 use App\Modules\Organizations\Http\Controllers\InvitationsController;
 use App\Modules\Organizations\Http\Controllers\MembersController;
 use App\Modules\Organizations\Http\Controllers\OrganizationController;
+use App\Modules\Organizations\Http\Controllers\SecurityController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('auth:sanctum')->group(function (): void {
@@ -33,6 +34,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('/organization/invitations', [InvitationsController::class, 'index']);
         Route::post('/organization/invitations', [InvitationsController::class, 'store']);
         Route::delete('/organization/invitations/{invitation}', [InvitationsController::class, 'destroy']);
+
+        // Controles Enterprise: exigir la verificación en dos pasos.
+        Route::get('/organization/security', [SecurityController::class, 'show']);
+        Route::put('/organization/security', [SecurityController::class, 'update']);
 
         // Marca blanca
         Route::get('/organization/branding', [BrandingController::class, 'show']);

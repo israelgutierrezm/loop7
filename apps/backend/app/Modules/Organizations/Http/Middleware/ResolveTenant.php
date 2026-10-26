@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Organizations\Http\Middleware;
 
 use App\Modules\Brands\Services\BrandAccess;
+use App\Modules\Organizations\Services\TwoFactorRequirement;
 use App\Support\Http\ApiResponse;
 use App\Support\Tenancy\TenantContext;
 use Closure;
@@ -56,6 +57,16 @@ class ResolveTenant
         /** @var TenantContext $context */
         $context = app(TenantContext::class);
         $context->setOrganization($organization);
+
+        // La organización exige el doble factor: sólo queda el contexto (el SPA ve
+        // two_factor_required y lleva a Mi perfil, que no depende de la organización).
+        if (! $request->is('api/v1/context') && app(TwoFactorRequirement::class)->blocks($user, $organization, $request)) {
+            return ApiResponse::error(
+                'Tu organización exige la verificación en dos pasos. Actívala en Mi perfil para continuar.',
+                'two_factor_required',
+                status: 403,
+            );
+        }
 
         $this->resolveBrand($request, $user, $context);
 

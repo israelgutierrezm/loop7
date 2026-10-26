@@ -39,6 +39,8 @@ class GuardImpersonation
         ['DELETE', 'api/v1/me/push-subscriptions'],
         ['POST', 'api/v1/me/whatsapp*'],
         ['DELETE', 'api/v1/me/whatsapp'],
+        // Controles de seguridad de la organización.
+        ['PUT', 'api/v1/organization/security'],
         // Correo a los clientes de la organización en su nombre.
         ['POST', 'api/v1/brands/*/reports/*/send'],
         // Quién puede entrar a la organización (IdP, dominios, SSO obligatorio).

@@ -8,7 +8,8 @@ Inicio de sesión único SAML 2.0 por organización (ver «SSO — Implementaci�
 Wizard: Organization -> plan/trial -> primera Brand -> identidad -> conectar red -> primer contenido.
 
 ## Organizations
-Datos fiscales/comerciales, miembros, roles, suscripción, usage y seguridad.
+Datos fiscales/comerciales, miembros, roles, suscripción, usage y seguridad (con el plan
+Enterprise, exigir la verificación en dos pasos a todo el equipo; docs/03).
 
 ## Brands
 Nombre, sitio, descripción, logos, colores, tono, públicos, productos, servicios, CTA, hashtags, términos prohibidos, documentos y Knowledge Base.

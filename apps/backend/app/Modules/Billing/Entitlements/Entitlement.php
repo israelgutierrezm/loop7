@@ -43,6 +43,8 @@ final class Entitlement
     public const FEATURE_WHATSAPP_NOTIFICATIONS = 'feature.whatsapp_notifications';
     // Inicio de sesión único con el proveedor de identidad de la empresa (SAML).
     public const FEATURE_SSO = 'feature.sso';
+    // Controles Enterprise: exigir la verificación en dos pasos a todo el equipo.
+    public const FEATURE_REQUIRE_TWO_FACTOR = 'feature.require_two_factor';
 
     public const TYPE_LIMIT = 'limit';
     public const TYPE_BOOL = 'bool';
@@ -78,6 +80,7 @@ final class Entitlement
             self::FEATURE_CUSTOM_ROLES => ['type' => self::TYPE_BOOL, 'label' => 'Roles personalizados'],
             self::FEATURE_WHATSAPP_NOTIFICATIONS => ['type' => self::TYPE_BOOL, 'label' => 'Avisos por WhatsApp'],
             self::FEATURE_SSO => ['type' => self::TYPE_BOOL, 'label' => 'Inicio de sesión único (SSO)'],
+            self::FEATURE_REQUIRE_TWO_FACTOR => ['type' => self::TYPE_BOOL, 'label' => 'Exigir verificación en dos pasos'],
         ];
     }
 

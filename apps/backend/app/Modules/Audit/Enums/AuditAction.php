@@ -29,6 +29,7 @@ final class AuditAction
     public const ORGANIZATION_CREATED = 'organization.created';
     public const ORGANIZATION_UPDATED = 'organization.updated';
     public const ORGANIZATION_BRANDING_UPDATED = 'organization.branding_updated';
+    public const ORGANIZATION_SECURITY_UPDATED = 'organization.security_updated';
     public const ORGANIZATION_DELETED = 'organization.deleted';
     public const ORGANIZATION_OWNERSHIP_TRANSFERRED = 'organization.ownership_transferred';
     public const MEMBER_INVITED = 'member.invited';
