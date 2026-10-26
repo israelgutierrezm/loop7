@@ -33,6 +33,8 @@ export const useAuthStore = defineStore('auth', () => {
   const entitlements = ref<Record<string, number | boolean>>({})
   const subscription = ref<SubscriptionSummary | null>(null)
   const branding = ref<Branding | null>(null)
+  /** La organización exige el doble factor y esta persona aún no lo tiene. */
+  const twoFactorRequired = ref(false)
   const impersonating = ref(false)
   const initialized = ref(false)
 
@@ -152,6 +154,7 @@ export const useAuthStore = defineStore('auth', () => {
     entitlements.value = {}
     subscription.value = null
     branding.value = null
+    twoFactorRequired.value = false
   }
 
   async function loadContext(): Promise<void> {
@@ -161,6 +164,7 @@ export const useAuthStore = defineStore('auth', () => {
     entitlements.value = data.data.entitlements ?? {}
     subscription.value = data.data.subscription ?? null
     branding.value = data.data.branding ?? null
+    twoFactorRequired.value = Boolean(data.data.two_factor_required)
     if (data.data.organization && currentOrganization.value) {
       const previousRoles = currentOrganization.value.roles
       const merged = { ...currentOrganization.value, ...data.data.organization }
@@ -212,6 +216,7 @@ export const useAuthStore = defineStore('auth', () => {
     entitlements,
     subscription,
     branding,
+    twoFactorRequired,
     impersonating,
     initialized,
     isAuthenticated,

@@ -24,6 +24,7 @@ let onAccountBlocked: (() => void) | null = null
 let onOrganizationSuspended: (() => void) | null = null
 let onOrganizationLost: (() => void) | null = null
 let onMfaRequired: (() => void) | null = null
+let onTwoFactorRequired: (() => void) | null = null
 
 export function setTenantHeaders(organizationId: string | null, brandId: string | null = null): void {
   currentOrganizationId = organizationId
@@ -52,6 +53,11 @@ export function setOrganizationSuspendedHandler(handler: () => void): void {
 /** El usuario dejó de ser miembro activo de la organización actual (lo quitaron o suspendieron). */
 export function setOrganizationLostHandler(handler: () => void): void {
   onOrganizationLost = handler
+}
+
+/** La organización exige el doble factor y el usuario aún no lo tiene. */
+export function setTwoFactorRequiredHandler(handler: () => void): void {
+  onTwoFactorRequired = handler
 }
 
 /** El panel de plataforma exige el doble factor y el administrador no lo tiene activo. */
@@ -84,6 +90,8 @@ http.interceptors.response.use(
       onOrganizationSuspended()
     } else if (status === 403 && code === 'organization_not_resolved' && onOrganizationLost) {
       onOrganizationLost()
+    } else if (status === 403 && code === 'two_factor_required' && onTwoFactorRequired) {
+      onTwoFactorRequired()
     } else if (status === 403 && code === 'mfa_required' && onMfaRequired) {
       // (El login pide el código con un 423, no pasa por aquí.)
       onMfaRequired()

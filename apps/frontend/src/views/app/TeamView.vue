@@ -253,6 +253,11 @@ useQueryAction('invitar', () => {
                   Suspendido
                 </span>
                 <span v-if="isSelf(member)" class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-slate-500 dark:bg-slate-800">Tú</span>
+                <span
+                  v-if="!member.user.two_factor_enabled"
+                  class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-slate-500 dark:bg-slate-800"
+                  title="Aún no activó la verificación en dos pasos"
+                >Sin 2 pasos</span>
               </p>
               <p class="truncate text-sm text-slate-400">{{ member.user.email }}</p>
               <p class="mt-0.5 flex items-center gap-1 truncate text-xs text-slate-500">

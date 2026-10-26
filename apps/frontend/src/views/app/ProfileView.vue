@@ -158,6 +158,20 @@ async function disableMfa(): Promise<void> {
       <template v-else>El panel de plataforma exige la verificación en dos pasos: actívala abajo para continuar.</template>
     </p>
 
+    <!-- La organización exige el doble factor (llega con ?mfa=organizacion). -->
+    <p
+      v-if="route.query.mfa === 'organizacion'"
+      role="alert"
+      class="rounded-lg px-4 py-3 text-sm"
+      :class="enabled ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300' : 'bg-amber-50 text-amber-800 dark:bg-amber-950/30 dark:text-amber-300'"
+    >
+      <template v-if="enabled">
+        Verificación en dos pasos activa.
+        <RouterLink to="/app" class="font-semibold underline">Volver al panel</RouterLink>
+      </template>
+      <template v-else>{{ auth.currentOrganization?.name ?? 'Tu organización' }} exige la verificación en dos pasos: actívala abajo para seguir trabajando.</template>
+    </p>
+
     <!-- Perfil -->
     <form class="card p-6" @submit.prevent="saveProfile">
       <h2 class="mb-4 font-semibold text-slate-900 dark:text-white">Información personal</h2>

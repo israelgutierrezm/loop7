@@ -10,6 +10,7 @@ import Spinner from '@/components/ui/Spinner.vue'
 import TimezoneSelect from '@/components/ui/TimezoneSelect.vue'
 import AppIcon from '@/components/AppIcon.vue'
 import OrganizationDangerZone from '@/components/settings/OrganizationDangerZone.vue'
+import SecuritySettings from '@/components/settings/SecuritySettings.vue'
 import SsoSettings from '@/components/settings/SsoSettings.vue'
 
 const auth = useAuthStore()
@@ -265,6 +266,8 @@ onMounted(() => {
         </div>
       </form>
     </section>
+
+    <SecuritySettings v-if="canEdit" />
 
     <SsoSettings v-if="canEdit" />
 

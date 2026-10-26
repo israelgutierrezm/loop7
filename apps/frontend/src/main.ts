@@ -8,6 +8,7 @@ import {
   setMfaRequiredHandler,
   setOrganizationLostHandler,
   setOrganizationSuspendedHandler,
+  setTwoFactorRequiredHandler,
   setUnauthorizedHandler,
 } from '@/services/http'
 import { useAuthStore } from '@/stores/auth'
@@ -68,6 +69,13 @@ setOrganizationLostHandler(async () => {
 setMfaRequiredHandler(() => {
   if (router.currentRoute.value.name === 'platform-profile') return
   router.push({ name: 'platform-profile', query: { mfa: 'requerido' } })
+})
+
+// La organización exige el doble factor: a Mi perfil a activarlo.
+setTwoFactorRequiredHandler(() => {
+  useAuthStore(pinia).twoFactorRequired = true
+  if (router.currentRoute.value.name === 'profile') return
+  router.push({ name: 'profile', query: { mfa: 'organizacion' } })
 })
 
 // La impersonación caducó (60 min): la sesión ya es otra vez la del administrador.

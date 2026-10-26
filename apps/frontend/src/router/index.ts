@@ -138,6 +138,11 @@ router.beforeEach(async (to) => {
     return { path: to.path, query, hash: to.hash, replace: true }
   }
 
+  // La organización exige el doble factor y aún no lo tiene: sólo Mi perfil.
+  if (auth.twoFactorRequired && to.path.startsWith('/app') && to.name !== 'profile') {
+    return { name: 'profile', query: { mfa: 'organizacion' } }
+  }
+
   // Una organización suspendida no tiene permisos cargados: el panel ya muestra el aviso.
   if (to.meta.permission && auth.currentOrganization && auth.currentOrganization.status !== 'suspended' && !auth.can(to.meta.permission)) {
     useToastStore().error('Tu rol no tiene acceso a esa sección.')
